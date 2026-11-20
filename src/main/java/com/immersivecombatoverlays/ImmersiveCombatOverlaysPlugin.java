@@ -33,6 +33,8 @@ import net.runelite.api.HitsplatID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
+import net.runelite.api.Skill;
+import com.immersivecombatoverlays.model.Preset;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.InteractingChanged;
@@ -62,6 +64,8 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class ImmersiveCombatOverlaysPlugin extends Plugin
 {
+    static final String CONFIG_GROUP = "immersivecombatoverlays";
+
     @Inject
     private Client client;
 
@@ -73,6 +77,9 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
 
     @Inject
     private Notifier notifier;
+
+    @Inject
+    private ConfigManager configManager;
 
     private final CombatStateTracker combatState = new CombatStateTracker();
     private final CombatSpellTracker spellTracker = new CombatSpellTracker();
@@ -402,7 +409,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             }
             else if (amount > 0 && amount >= config.damageMinAmount() && isDamageHitsplat(type))
             {
-                float strength = Math.min(1f, 0.25f + (amount / 40f));
+                float strength = damageFlashStrength(amount, client.getRealSkillLevel(Skill.HITPOINTS), config.damageScaleWithHp());
                 damageTracker.trigger(nowNanos, strength);
             }
         }
@@ -486,12 +493,18 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             inventoryOverlay.clearCache();
             return;
         }
-        if (!"immersivecombatoverlays".equals(event.getGroup()))
+        if (!CONFIG_GROUP.equals(event.getGroup()))
         {
             return;
         }
         proceduralRenderer.clearCaches();
         combatState.setSimulatedCombat(config.debugSimulateCombat());
+
+        if ("preset".equals(event.getKey()))
+        {
+            applyPreset(config.preset());
+            return;
+        }
 
         if ("debugTriggerSpellCooldowns".equals(event.getKey()))
         {
@@ -518,6 +531,47 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
                 potionTimers.clearDebugCooldowns();
             }
         }
+    }
+
+    /**
+     * Writes a preset into this plugin's own config group, then flips the dropdown back to CUSTOM.
+     */
+    private void applyPreset(Preset preset)
+    {
+        if (preset == null || preset == Preset.CUSTOM)
+        {
+            return;
+        }
+        for (java.util.Map.Entry<String, Object> e : preset.values().entrySet())
+        {
+            if (e.getValue() == null)
+            {
+                configManager.unsetConfiguration(CONFIG_GROUP, e.getKey());
+            }
+            else
+            {
+                configManager.setConfiguration(CONFIG_GROUP, e.getKey(), e.getValue());
+            }
+        }
+        configManager.setConfiguration(CONFIG_GROUP, "preset", Preset.CUSTOM);
+    }
+
+    /**
+     * 0..1 damage flash strength. With {@code byPercent}, a hit of 40% of max HP (or more) is a full flash,
+     * so the flash means the same thing at any Hitpoints level.
+     */
+    static float damageFlashStrength(int amount, int maxHp, boolean byPercent)
+    {
+        if (amount <= 0)
+        {
+            return 0f;
+        }
+        if (!byPercent)
+        {
+            return Math.min(1f, 0.25f + amount / 40f); // original fixed scale
+        }
+        float frac = amount / (float) Math.max(1, maxHp);
+        return Math.min(1f, 0.25f + frac * 1.875f);
     }
 
     /**

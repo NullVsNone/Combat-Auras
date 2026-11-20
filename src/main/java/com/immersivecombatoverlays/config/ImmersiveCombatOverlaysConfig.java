@@ -5,6 +5,7 @@ import com.immersivecombatoverlays.model.BorderStyle;
 import com.immersivecombatoverlays.model.CombatSpell;
 import com.immersivecombatoverlays.model.DisplayMode;
 import com.immersivecombatoverlays.model.GlowColorMode;
+import com.immersivecombatoverlays.model.Preset;
 import com.immersivecombatoverlays.model.ReadyStyle;
 import com.immersivecombatoverlays.model.ShowerStartLocation;
 import com.immersivecombatoverlays.model.SpellCooldownDisplayMode;
@@ -156,6 +157,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "glowColorMode", name = "Glow colour mixing", description = "When several warnings are active: blend their colours, or use the strongest warning's colour.", section = generalDisplaySection, position = 9)
     default GlowColorMode glowColorMode() { return GlowColorMode.BLEND; }
 
+    @ConfigItem(keyName = "preset", name = "Apply preset", description = "Pick Minimal / Standard / Everything to set the main on/off and intensity options in one go. Resets to Custom afterwards so you can keep tweaking.", section = generalDisplaySection, position = 10)
+    default Preset preset() { return Preset.CUSTOM; }
+
     // =========================================================================
     // 2. Icon Shower
     // =========================================================================
@@ -277,6 +281,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @Range(min = 0, max = 99)
     @ConfigItem(keyName = "damageMinAmount", name = "Minimum damage", description = "Only flash for hits of at least this much damage (0 = every hit).", section = warnDamageSection, position = 17)
     default int damageMinAmount() { return 0; }
+
+    @ConfigItem(keyName = "damageScaleWithHp", name = "Scale by % of max HP", description = "Flash strength follows the hit as a share of your max HP (a 20 damage hit reads the same at 40 HP as a 50 hit at 99 HP). Off: fixed scale.", section = warnDamageSection, position = 18)
+    default boolean damageScaleWithHp() { return true; }
 
     // =========================================================================
     // 4. Warning: Low Prayer

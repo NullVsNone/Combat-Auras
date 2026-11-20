@@ -79,6 +79,7 @@ public class ImmersiveStatusOverlay extends Overlay
     private final UnpottedTracker unpottedTracker;
     private final ParasiteTracker parasiteTracker;
     private volatile boolean liveBuffExpired = false;
+    private boolean frameDebugPreview = false;
 
     // Client-thread-sampled live values (safe to read on render thread)
     private volatile int cachedSpellbook = 0;
@@ -324,9 +325,11 @@ public class ImmersiveStatusOverlay extends Overlay
         int height = client.getCanvasHeight();
         long nowNanos = System.nanoTime();
 
+        // ~22 config reads: evaluate once per frame instead of three times
+        frameDebugPreview = isAnyDebugPreviewActive();
         populateStatusArrays(nowNanos);
 
-        int rawSpellCount = isAnyDebugPreviewActive()
+        int rawSpellCount = frameDebugPreview
             ? collectDebugSpellsOnly()
             : spellTracker.collectReadySpells(
             combatState, config, cachedSpellbook, true, readySpellOrdinals, readySpellColors
@@ -368,7 +371,7 @@ public class ImmersiveStatusOverlay extends Overlay
         java.util.Arrays.fill(rawStatusSeverities, 0f);
         java.util.Arrays.fill(statusColors, 0);
 
-        if (!isAnyDebugPreviewActive())
+        if (!frameDebugPreview)
         {
         // Live client-thread-sampled values
         if (liveLowHealthSev > 0.01f)
@@ -732,7 +735,7 @@ public class ImmersiveStatusOverlay extends Overlay
             count++;
         }
 
-        int liveCount = isAnyDebugPreviewActive() ? 0 : liveBuffItemCount;
+        int liveCount = frameDebugPreview ? 0 : liveBuffItemCount;
         for (int i = 0; i < liveCount && count < readyItemIds.length; i++)
         {
             readyItemIds[count] = liveBuffItemIds[i];

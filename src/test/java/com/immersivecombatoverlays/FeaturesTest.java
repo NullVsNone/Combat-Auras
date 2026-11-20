@@ -2,6 +2,12 @@ package com.immersivecombatoverlays;
 
 import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
 import com.immersivecombatoverlays.model.CombatSpell;
+import com.immersivecombatoverlays.model.Preset;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import com.immersivecombatoverlays.model.StatusEffect;
 import com.immersivecombatoverlays.tracker.CombatSpellTracker;
 import com.immersivecombatoverlays.tracker.ParasiteTracker;
@@ -172,5 +178,51 @@ public class FeaturesTest
         Assert.assertFalse(DEFAULTS.spellNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.parasiteNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.idleNotification().isEnabled());
+    }
+    // ---------------------------------------------------------------- presets & HP-scaled flash
+
+    @Test
+    public void presetsOnlyTouchRealSettingsWithMatchingTypes() throws Exception
+    {
+        Set<String> managed = new HashSet<>(Arrays.asList(Preset.MANAGED_KEYS));
+        Assert.assertTrue(Preset.CUSTOM.values().isEmpty());
+        Assert.assertEquals(Preset.CUSTOM, DEFAULTS.preset());
+
+        for (Preset preset : Preset.values())
+        {
+            for (Map.Entry<String, Object> e : preset.values().entrySet())
+            {
+                Method m = ImmersiveCombatOverlaysConfig.class.getMethod(e.getKey());
+                Assert.assertTrue(preset + " touches unmanaged key " + e.getKey(), managed.contains(e.getKey()));
+                if (e.getValue() != null)
+                {
+                    Class<?> t = m.getReturnType();
+                    Class<?> boxed = t == boolean.class ? Boolean.class : t == int.class ? Integer.class : t;
+                    Assert.assertEquals(preset + "." + e.getKey(), boxed, e.getValue().getClass());
+                }
+            }
+        }
+        // STANDARD resets every managed key to its default
+        Assert.assertEquals(managed, Preset.STANDARD.values().keySet());
+        for (Object v : Preset.STANDARD.values().values())
+        {
+            Assert.assertNull(v);
+        }
+        Assert.assertEquals(Boolean.FALSE, Preset.MINIMAL.values().get("allowIconShowers"));
+        Assert.assertEquals(Boolean.TRUE, Preset.EVERYTHING.values().get("specEnabled"));
+    }
+
+    @Test
+    public void damageFlashScalesWithShareOfMaxHp()
+    {
+        Assert.assertEquals(0f, ImmersiveCombatOverlaysPlugin.damageFlashStrength(0, 99, true), 0.001f);
+        float lowLevel = ImmersiveCombatOverlaysPlugin.damageFlashStrength(10, 40, true);
+        float highLevel = ImmersiveCombatOverlaysPlugin.damageFlashStrength(25, 99, true);
+        Assert.assertEquals("same share of HP -> same flash", lowLevel, highLevel, 0.02f);
+        Assert.assertEquals("40% of max HP is a full flash", 1f, ImmersiveCombatOverlaysPlugin.damageFlashStrength(40, 99, true), 0.02f);
+        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.damageFlashStrength(10, 40, true)
+            > ImmersiveCombatOverlaysPlugin.damageFlashStrength(10, 99, true));
+        Assert.assertEquals("fixed scale unchanged when off", 0.5f, ImmersiveCombatOverlaysPlugin.damageFlashStrength(10, 99, false), 0.001f);
+        Assert.assertTrue(DEFAULTS.damageScaleWithHp());
     }
 }
