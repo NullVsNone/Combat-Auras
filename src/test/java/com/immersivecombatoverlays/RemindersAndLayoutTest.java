@@ -95,6 +95,24 @@ public class RemindersAndLayoutTest
         Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.ANTIVENOM));
         Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.DIVINE_MAGIC));
         Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.OVERLOAD));
+        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.SURGE));
+        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.GOADING));
+        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.PRAYER_REGENERATION));
+        ImmersiveCombatOverlaysConfig separate = new ImmersiveCombatOverlaysConfig()
+        {
+            @Override
+            public boolean remindSurge() { return false; }
+
+            @Override
+            public boolean remindGoading() { return false; }
+
+            @Override
+            public boolean remindPrayerRegeneration() { return false; }
+        };
+        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(separate, PotionEffect.SURGE));
+        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(separate, PotionEffect.GOADING));
+        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(separate, PotionEffect.PRAYER_REGENERATION));
+        Assert.assertTrue("other potions toggle unaffected", ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(separate, PotionEffect.MENAPHITE_REMEDY));
         ImmersiveCombatOverlaysConfig noAnti = new ImmersiveCombatOverlaysConfig()
         {
             @Override

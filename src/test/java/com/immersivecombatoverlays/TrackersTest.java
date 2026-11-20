@@ -132,6 +132,29 @@ public class TrackersTest
     }
 
     @Test
+    public void menaphiteGuardSeesDivinePotionsAndSaturatedHeart()
+    {
+        FakeClient fc = new FakeClient();
+        PotionTimers potions = new PotionTimers();
+        HeartCooldownTracker heart = new HeartCooldownTracker();
+        potions.onGameTick(fc.client);
+        heart.onGameTick(fc.client, true);
+        Assert.assertFalse(com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
+
+        fc.varbit(VarbitID.DIVINECOMBAT_POTION_TIME, 300);
+        potions.onGameTick(fc.client);
+        Assert.assertTrue("divine super combat running", com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
+
+        fc.varbit(VarbitID.DIVINECOMBAT_POTION_TIME, 0);
+        potions.onGameTick(fc.client);
+        fc.varbit(VarbitID.IMBUED_HEART_TIMER, 50);
+        heart.onGameTick(fc.client, true);
+        Assert.assertTrue("saturated heart boost running", com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
+        heart.onGameTick(fc.client, false);
+        Assert.assertFalse("imbued heart is not divine", com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
+    }
+
+    @Test
     public void overloadReadsEitherRaidOrNmzVarbitAndDivinesAreInTicks()
     {
         FakeClient fc = new FakeClient().varbit(VarbitID.NZONE_OVERLOAD_POTION_EFFECTS, 20).varbit(VarbitID.DIVINECOMBAT_POTION_TIME, 480);

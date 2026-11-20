@@ -53,11 +53,33 @@ public class RepotProtection
 
             String target = entry.getTarget() != null ? Text.removeTags(entry.getTarget()) : null;
             Cooldown cd = resolveItemCooldown(client, config, heartTracker, potionTimers, boostTimers, itemId, target);
-            if (cd != null && !cd.isReady())
+            if ((cd != null && !cd.isReady())
+                || (config.menaphiteDivineGuard() && PotionItems.getEffect(itemId, target) == PotionEffect.MENAPHITE_REMEDY
+                    && isDivineBoostActive(heartTracker, potionTimers)))
             {
                 entry.setDeprioritized(true);
             }
         }
+    }
+
+    /**
+     * A Menaphite remedy strips divine effects (divine potions, saturated heart), so drinking one by
+     * accident while they run throws away the no-decay part of those boosts.
+     */
+    public static boolean isDivineBoostActive(HeartCooldownTracker heartTracker, PotionTimers potionTimers)
+    {
+        for (PotionEffect effect : PotionEffect.values())
+        {
+            if (effect.isDivine())
+            {
+                Cooldown cd = potionTimers.getCooldown(effect);
+                if (cd != null && !cd.isReady())
+                {
+                    return true;
+                }
+            }
+        }
+        return heartTracker.isSaturatedBoostActive();
     }
 
     public static Cooldown resolveItemCooldown(

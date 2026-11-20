@@ -221,6 +221,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "repotProtectionEnabled", name = "Re-dose protection", description = "Deprioritize left-click Drink/Invigorate/Apply/Crush on items still on cooldown.", section = inventoryStyleSection, position = 8)
     default boolean repotProtectionEnabled() { return true; }
 
+    @ConfigItem(keyName = "menaphiteDivineGuard", name = "Menaphite divine guard", description = "Deprioritize left-click Drink on a Menaphite remedy while a divine potion or saturated heart boost is active, since the remedy removes divine effects (right-click still drinks).", section = inventoryStyleSection, position = 9)
+    default boolean menaphiteDivineGuard() { return true; }
+
     // =========================================================================
     // Shared Combat Spells
     // =========================================================================
@@ -767,8 +770,17 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "remindDivine", name = "Remind: divine potions", description = "Remind when a divine potion expires.", section = warnPotionsBuffsSection, position = 7)
     default boolean remindDivine() { return true; }
 
-    @ConfigItem(keyName = "remindOtherPotions", name = "Remind: other potions", description = "Remind when surge, goading, menaphite, moonlight or prayer regeneration expire.", section = warnPotionsBuffsSection, position = 8)
+    @ConfigItem(keyName = "remindOtherPotions", name = "Remind: other potions", description = "Remind when Menaphite remedy or moonlight potions expire.", section = warnPotionsBuffsSection, position = 8)
     default boolean remindOtherPotions() { return true; }
+
+    @ConfigItem(keyName = "remindSurge", name = "Remind: surge potion", description = "Remind when the surge potion cooldown ends (needs Track surge potions).", section = warnPotionsBuffsSection, position = 16)
+    default boolean remindSurge() { return true; }
+
+    @ConfigItem(keyName = "remindGoading", name = "Remind: goading potion", description = "Remind when the goading potion effect expires.", section = warnPotionsBuffsSection, position = 17)
+    default boolean remindGoading() { return true; }
+
+    @ConfigItem(keyName = "remindPrayerRegeneration", name = "Remind: prayer regeneration", description = "Remind when the prayer regeneration potion effect expires.", section = warnPotionsBuffsSection, position = 18)
+    default boolean remindPrayerRegeneration() { return true; }
 
     @Range(min = 0, max = 60)
     @Units(Units.SECONDS)
@@ -863,6 +875,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellThrallEnabled", name = "Enable", description = "Track Resurrect Thrall.", section = spellThrallSection, position = 0)
     default boolean spellThrallEnabled() { return true; }
 
+    @ConfigItem(keyName = "spellThrallRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on a Resurrect spell while a thrall is still up or on cooldown (right-click still casts).", section = spellThrallSection, position = 3)
+    default boolean spellThrallRecastProtection() { return true; }
+
     @ConfigItem(keyName = "thrallDurationTier", name = "CA duration", description = "Thrall duration doubles once the Master Combat Achievement tier is complete. Auto-detect reads it from the game.", section = spellThrallSection, position = 1)
     default ThrallDurationTier thrallDurationTier() { return ThrallDurationTier.AUTO; }
 
@@ -900,6 +915,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellDeathChargeEnabled", name = "Enable", description = "Track Death Charge recast cooldown.", section = spellDeathChargeSection, position = 0)
     default boolean spellDeathChargeEnabled() { return true; }
 
+    @ConfigItem(keyName = "spellDeathChargeRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Death Charge while it is active or on cooldown (right-click still casts).", section = spellDeathChargeSection, position = 1)
+    default boolean spellDeathChargeRecastProtection() { return true; }
+
     @Alpha
     @ConfigItem(keyName = "spellDeathChargeColor", name = "Color", description = "Glow color for Death Charge.", section = spellDeathChargeSection, position = 10)
     default Color spellDeathChargeColor() { return new Color(220, 60, 90, 210); }
@@ -930,6 +948,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "spellMarkOfDarknessEnabled", name = "Enable", description = "Track Mark of Darkness (Purging Staff aware).", section = spellMarkOfDarknessSection, position = 0)
     default boolean spellMarkOfDarknessEnabled() { return true; }
+
+    @ConfigItem(keyName = "spellMarkOfDarknessRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Mark of Darkness while it is active or on cooldown (off by default: some players refresh it early) (right-click still casts).", section = spellMarkOfDarknessSection, position = 1)
+    default boolean spellMarkOfDarknessRecastProtection() { return false; }
 
     @Alpha
     @ConfigItem(keyName = "spellMarkOfDarknessColor", name = "Color", description = "Glow color for Mark of Darkness.", section = spellMarkOfDarknessSection, position = 10)
@@ -962,6 +983,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellWardOfArceuusEnabled", name = "Enable", description = "Track Ward of Arceuus.", section = spellWardOfArceuusSection, position = 0)
     default boolean spellWardOfArceuusEnabled() { return false; }
 
+    @ConfigItem(keyName = "spellWardOfArceuusRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Ward of Arceuus while it is on cooldown (right-click still casts).", section = spellWardOfArceuusSection, position = 1)
+    default boolean spellWardOfArceuusRecastProtection() { return true; }
+
     @Alpha
     @ConfigItem(keyName = "spellWardOfArceuusColor", name = "Color", description = "Glow color for Ward of Arceuus.", section = spellWardOfArceuusSection, position = 10)
     default Color spellWardOfArceuusColor() { return new Color(56, 200, 160, 210); }
@@ -992,6 +1016,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "spellShadowVeilEnabled", name = "Enable", description = "Track Shadow Veil.", section = spellShadowVeilSection, position = 0)
     default boolean spellShadowVeilEnabled() { return false; }
+
+    @ConfigItem(keyName = "spellShadowVeilRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Shadow Veil while it is active or on cooldown (right-click still casts).", section = spellShadowVeilSection, position = 1)
+    default boolean spellShadowVeilRecastProtection() { return true; }
 
     @Alpha
     @ConfigItem(keyName = "spellShadowVeilColor", name = "Color", description = "Glow color for Shadow Veil.", section = spellShadowVeilSection, position = 10)
@@ -1024,6 +1051,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellCorruptionEnabled", name = "Enable", description = "Track Lesser/Greater Corruption recast cooldown.", section = spellCorruptionSection, position = 0)
     default boolean spellCorruptionEnabled() { return false; }
 
+    @ConfigItem(keyName = "spellCorruptionRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Lesser/Greater Corruption while it is on cooldown (right-click still casts).", section = spellCorruptionSection, position = 1)
+    default boolean spellCorruptionRecastProtection() { return true; }
+
     @Alpha
     @ConfigItem(keyName = "spellCorruptionColor", name = "Color", description = "Glow color for Corruption.", section = spellCorruptionSection, position = 10)
     default Color spellCorruptionColor() { return new Color(180, 70, 220, 200); }
@@ -1055,8 +1085,8 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellVengeanceEnabled", name = "Enable", description = "Track Vengeance recast cooldown.", section = spellVengeanceSection, position = 0)
     default boolean spellVengeanceEnabled() { return true; }
 
-    @ConfigItem(keyName = "vengeanceRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Vengeance while it is still charged or on cooldown (right-click still casts).", section = spellVengeanceSection, position = 1)
-    default boolean vengeanceRecastProtection() { return true; }
+    @ConfigItem(keyName = "spellVengeanceRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Vengeance while it is still charged or on cooldown (right-click still casts).", section = spellVengeanceSection, position = 1)
+    default boolean spellVengeanceRecastProtection() { return true; }
 
     @Alpha
     @ConfigItem(keyName = "spellVengeanceColor", name = "Color", description = "Glow color for Vengeance.", section = spellVengeanceSection, position = 10)
@@ -1088,6 +1118,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "spellVengeanceOtherEnabled", name = "Enable", description = "Track Vengeance Other recast cooldown.", section = spellVengeanceOtherSection, position = 0)
     default boolean spellVengeanceOtherEnabled() { return false; }
+
+    @ConfigItem(keyName = "spellVengeanceOtherRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Vengeance Other while it is on cooldown (right-click still casts).", section = spellVengeanceOtherSection, position = 1)
+    default boolean spellVengeanceOtherRecastProtection() { return true; }
 
     @Alpha
     @ConfigItem(keyName = "spellVengeanceOtherColor", name = "Color", description = "Glow color for Vengeance Other.", section = spellVengeanceOtherSection, position = 10)
@@ -1147,6 +1180,26 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     // =========================================================================
     // Static Helpers (Safe with RuneLite ConfigInvocationHandler)
     // =========================================================================
+
+    /**
+     * Whether left-click Cast should be deprioritized for this spell while it cannot be recast yet.
+     * Charge has no toggle: it can be recast at any time to refresh it.
+     */
+    static boolean isSpellRecastProtected(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
+    {
+        switch (spell)
+        {
+            case RESURRECT_THRALL: return config.spellThrallRecastProtection();
+            case DEATH_CHARGE: return config.spellDeathChargeRecastProtection();
+            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessRecastProtection();
+            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusRecastProtection();
+            case SHADOW_VEIL: return config.spellShadowVeilRecastProtection();
+            case CORRUPTION: return config.spellCorruptionRecastProtection();
+            case VENGEANCE: return config.spellVengeanceRecastProtection();
+            case VENGEANCE_OTHER: return config.spellVengeanceOtherRecastProtection();
+            default: return false;
+        }
+    }
 
     static boolean isSpellEnabled(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
     {
@@ -1306,7 +1359,7 @@ public interface ImmersiveCombatOverlaysConfig extends Config
             case RAID:
                 return config.raidPotionsEnabled();
             case COOLDOWN:
-                return config.potionCooldownsEnabled() && config.remindOtherPotions();
+                return config.potionCooldownsEnabled() && config.remindSurge();
             default:
                 break;
         }
@@ -1324,6 +1377,10 @@ public interface ImmersiveCombatOverlaysConfig extends Config
             case ANTIFIRE:
             case SUPER_ANTIFIRE:
                 return config.remindAntifire();
+            case GOADING:
+                return config.remindGoading();
+            case PRAYER_REGENERATION:
+                return config.remindPrayerRegeneration();
             default:
                 return effect.isDivine() ? config.remindDivine() : config.remindOtherPotions();
         }

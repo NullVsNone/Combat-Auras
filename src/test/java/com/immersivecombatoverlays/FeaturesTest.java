@@ -129,10 +129,58 @@ public class FeaturesTest
         ImmersiveCombatOverlaysConfig off = new ImmersiveCombatOverlaysConfig()
         {
             @Override
-            public boolean vengeanceRecastProtection() { return false; }
+            public boolean spellVengeanceRecastProtection() { return false; }
         };
         protection.apply(client, off, spells);
         Assert.assertFalse(veng[0]);
+    }
+
+    @Test
+    public void thrallAndArceuusCastsAreDeprioritizedWhileNotRecastable()
+    {
+        SpellRecastProtection protection = new SpellRecastProtection();
+        CombatSpellTracker spells = new CombatSpellTracker();
+        FakeClient state = new FakeClient();
+        boolean[] thrall = {false};
+        boolean[] veil = {false};
+        boolean[] mark = {false};
+        boolean[] charge = {false};
+        Client client = clientWithMenu(state,
+            entry("Cast", "<col=00ff00>Resurrect Greater Ghost</col>", thrall),
+            entry("Cast", "<col=00ff00>Shadow Veil</col>", veil),
+            entry("Cast", "<col=00ff00>Mark of Darkness</col>", mark),
+            entry("Cast", "<col=00ff00>Charge</col>", charge));
+
+        protection.apply(client, DEFAULTS, spells);
+        Assert.assertFalse("everything ready -> left-click allowed", thrall[0] || veil[0] || mark[0] || charge[0]);
+
+        spells.startCooldownTimer(CombatSpell.RESURRECT_THRALL, 17);
+        spells.startCooldownTimer(CombatSpell.MARK_OF_DARKNESS, 10);
+        spells.startCooldownTimer(CombatSpell.CHARGE, 100);
+        protection.apply(client, DEFAULTS, spells);
+        Assert.assertTrue("thrall not recastable -> deprioritized", thrall[0]);
+        Assert.assertFalse("Shadow Veil is ready", veil[0]);
+        Assert.assertFalse("Mark of Darkness protection is off by default", mark[0]);
+        Assert.assertFalse("Charge has no protection", charge[0]);
+
+        thrall[0] = false;
+        ImmersiveCombatOverlaysConfig off = new ImmersiveCombatOverlaysConfig()
+        {
+            @Override
+            public boolean spellThrallRecastProtection() { return false; }
+        };
+        protection.apply(client, off, spells);
+        Assert.assertFalse("per-spell toggle off", thrall[0]);
+    }
+
+    @Test
+    public void everyRecastableSpellExceptChargeHasAProtectionToggle()
+    {
+        for (CombatSpell spell : CombatSpell.values())
+        {
+            boolean expected = spell != CombatSpell.CHARGE && spell != CombatSpell.MARK_OF_DARKNESS;
+            Assert.assertEquals(spell.name(), expected, ImmersiveCombatOverlaysConfig.isSpellRecastProtected(DEFAULTS, spell));
+        }
     }
 
     // ---------------------------------------------------------------- notifications

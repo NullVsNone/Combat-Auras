@@ -100,6 +100,15 @@ public class HeartCooldownTracker
         return itemId == IMBUED_HEART_ID || itemId == SATURATED_HEART_ID;
     }
 
+    /**
+     * Whether a saturated heart's boost (which counts as a divine effect) is still running,
+     * approximated by its cooldown while a saturated heart is carried (the game exposes no separate flag).
+     */
+    public boolean isSaturatedBoostActive()
+    {
+        return saturated && !debug && remainingTicks > 0;
+    }
+
     public boolean wasUsedThisSession()
     {
         return usedThisSession;
