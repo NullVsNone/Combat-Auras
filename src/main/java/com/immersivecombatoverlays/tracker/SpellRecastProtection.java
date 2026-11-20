@@ -13,7 +13,7 @@ import net.runelite.api.gameval.VarbitID;
  */
 public class SpellRecastProtection
 {
-    public void onPostMenuSort(Client client, ImmersiveCombatOverlaysConfig config, CombatSpellTracker spellTracker)
+    public void apply(Client client, ImmersiveCombatOverlaysConfig config, CombatSpellTracker spellTracker)
     {
         if (!config.vengeanceRecastProtection())
         {

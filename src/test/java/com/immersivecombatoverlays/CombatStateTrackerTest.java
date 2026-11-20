@@ -54,7 +54,7 @@ public class CombatStateTrackerTest
         Client client = (Client) Proxy.newProxyInstance(
             Client.class.getClassLoader(),
             new Class<?>[]{Client.class},
-            (p, m, a) -> "getLocalPlayer".equals(m.getName()) ? local : null
+            (p, m, a) -> "getLocalPlayer".equals(m.getName()) ? local : FakeClient.defaultValue(m.getReturnType())
         );
 
         CombatStateTracker state = new CombatStateTracker();
@@ -64,5 +64,24 @@ public class CombatStateTrackerTest
         target[0] = boss;
         state.onGameTick(client, 2_000_000_000L, 120);
         Assert.assertTrue("Combat NPC interaction should trigger combat", state.isInCombat());
+    }
+
+    @Test
+    public void followingAPlayerIsOnlyCombatInPvpAreas()
+    {
+        Player friend = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
+            (p, m, a) -> FakeClient.defaultValue(m.getReturnType()));
+        Player local = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
+            (p, m, a) -> "getInteracting".equals(m.getName()) ? friend : FakeClient.defaultValue(m.getReturnType()));
+        FakeClient fc = new FakeClient();
+        fc.localPlayer = local;
+
+        CombatStateTracker state = new CombatStateTracker();
+        state.onGameTick(fc.client, 1_000_000_000L, 120);
+        Assert.assertFalse("following / trading at the GE is not combat", state.isInCombat());
+
+        fc.varbit(net.runelite.api.gameval.VarbitID.INSIDE_WILDERNESS, 1);
+        state.onGameTick(fc.client, 2_000_000_000L, 120);
+        Assert.assertTrue("player target in the Wilderness is combat", state.isInCombat());
     }
 }

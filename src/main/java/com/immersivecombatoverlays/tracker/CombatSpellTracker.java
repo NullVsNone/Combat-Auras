@@ -77,6 +77,29 @@ public class CombatSpellTracker
         lastCastNanos = 0L;
     }
 
+    /**
+     * Whether a VarbitChanged event concerns a variable this tracker reads (VarbitChanged fires for every game var).
+     */
+    public static boolean isTrackedVar(int varbitId, int varpId)
+    {
+        if (varpId == VarPlayerID.MAGEARENA_CHARGE)
+        {
+            return true;
+        }
+        if (varbitId <= 0)
+        {
+            return false;
+        }
+        for (CombatSpell spell : SPELLS)
+        {
+            if (spell.getActiveVarbitId() == varbitId || spell.getCooldownVarbitId() == varbitId)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void onGameTick(Client client)
     {
         for (int i = 0; i < SPELL_COUNT; i++)

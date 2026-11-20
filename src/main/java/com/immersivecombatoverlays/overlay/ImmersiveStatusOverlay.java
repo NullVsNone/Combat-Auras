@@ -2,7 +2,6 @@ package com.immersivecombatoverlays.overlay;
 
 import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
 import com.immersivecombatoverlays.model.CombatSpell;
-import com.immersivecombatoverlays.model.Cooldown;
 import com.immersivecombatoverlays.model.StatusEffect;
 import com.immersivecombatoverlays.render.ProceduralRenderer;
 import com.immersivecombatoverlays.model.BoostPotion;
@@ -21,7 +20,6 @@ import com.immersivecombatoverlays.tracker.ExpiryReminders;
 import net.runelite.api.gameval.ItemID;
 import com.immersivecombatoverlays.tracker.ImpactTracker;
 import com.immersivecombatoverlays.tracker.PotionTimers;
-import com.immersivecombatoverlays.tracker.RepotProtection;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import javax.inject.Inject;
@@ -175,7 +173,6 @@ public class ImmersiveStatusOverlay extends Overlay
         }
 
         cachedSpellbook = client.getVarbitValue(VarbitID.SPELLBOOK);
-        float escalation = config.dangerEscalation() / 100f;
 
         // Low Health
         float hpSev = 0f;
@@ -188,7 +185,7 @@ public class ImmersiveStatusOverlay extends Overlay
             if (pct <= thresh && curHp > 0)
             {
                 float raw = (thresh - pct) / Math.max(1f, thresh);
-                hpSev = Math.min(1f, 0.25f + raw * (0.75f + 0.35f * escalation));
+                hpSev = Math.min(1f, 0.25f + raw * (0.75f + 0.35f * (config.lowHealthEscalation() / 100f)));
             }
         }
         liveLowHealthSev = hpSev;
@@ -204,7 +201,7 @@ public class ImmersiveStatusOverlay extends Overlay
             if (pct <= thresh)
             {
                 float raw = (thresh - pct) / Math.max(1f, thresh);
-                praySev = Math.min(1f, 0.25f + raw * (0.75f + 0.35f * escalation));
+                praySev = Math.min(1f, 0.25f + raw * (0.75f + 0.35f * (config.lowPrayerEscalation() / 100f)));
             }
         }
         liveLowPrayerSev = praySev;

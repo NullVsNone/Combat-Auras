@@ -13,7 +13,7 @@ import net.runelite.client.util.Text;
  */
 public class RepotProtection
 {
-    public void onPostMenuSort(
+    public void apply(
         Client client,
         ImmersiveCombatOverlaysConfig config,
         HeartCooldownTracker heartTracker,

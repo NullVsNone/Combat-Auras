@@ -146,50 +146,40 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @Range(min = 10, max = 100)
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "edgeDepth", name = "Edge depth", description = "How far inward from the screen edges the glow extends.", section = generalDisplaySection, position = 5)
-    default int edgeDepth() { return 45; }
+    default int edgeDepth() { return 20; }
 
     @Range(min = 0, max = 100)
     @Units(Units.PERCENT)
-    @ConfigItem(keyName = "dangerEscalation", name = "Danger escalation", description = "Extra intensity scaling as health/prayer drops further below threshold.", section = generalDisplaySection, position = 6)
-    default int dangerEscalation() { return 60; }
+    @ConfigItem(keyName = "screenTint", name = "Screen tint", description = "Subtle full-screen tint strength during active warnings.", section = generalDisplaySection, position = 6)
+    default int screenTint() { return 5; }
 
     @Range(min = 0, max = 100)
     @Units(Units.PERCENT)
-    @ConfigItem(keyName = "screenTint", name = "Screen tint", description = "Subtle full-screen tint strength during active warnings.", section = generalDisplaySection, position = 7)
-    default int screenTint() { return 20; }
-
-    @Range(min = 0, max = 100)
-    @Units(Units.PERCENT)
-    @ConfigItem(keyName = "motionStrength", name = "Motion strength", description = "Strength of pulsing and breathing animations.", section = generalDisplaySection, position = 8)
+    @ConfigItem(keyName = "motionStrength", name = "Motion strength", description = "Strength of pulsing and breathing animations.", section = generalDisplaySection, position = 7)
     default int motionStrength() { return 65; }
 
-    @ConfigItem(keyName = "glowColorMode", name = "Glow colour mixing", description = "When several warnings are active: blend their colours, or use the strongest warning's colour.", section = generalDisplaySection, position = 9)
+    @ConfigItem(keyName = "glowColorMode", name = "Glow colour mixing", description = "When several warnings are active: blend their colours, or use the strongest warning's colour.", section = generalDisplaySection, position = 8)
     default GlowColorMode glowColorMode() { return GlowColorMode.BLEND; }
-
-    @Range(min = 5, max = 600)
-    @Units(Units.SECONDS)
-    @ConfigItem(keyName = "combatBreakReRemindSeconds", name = "Combat break re-remind", description = "Out-of-combat break duration before re-entering combat triggers a fresh reminder.", section = generalDisplaySection, position = 10)
-    default int combatBreakReRemindSeconds() { return 120; }
 
     // =========================================================================
     // Icon Shower
     // =========================================================================
 
     @ConfigItem(keyName = "showerStartLocation", name = "Start edge", description = "Screen edge where showering icons spawn.", section = sharedShowerSection, position = 0)
-    default ShowerStartLocation showerStartLocation() { return ShowerStartLocation.TOP; }
+    default ShowerStartLocation showerStartLocation() { return ShowerStartLocation.BOTTOM; }
 
     @Range(min = 10, max = 100)
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "showerScreenPercent", name = "Travel distance", description = "Percentage of screen width/height showering icons travel.", section = sharedShowerSection, position = 1)
-    default int showerScreenPercent() { return 65; }
+    default int showerScreenPercent() { return 33; }
 
     @Range(min = 1, max = 36)
     @ConfigItem(keyName = "spellShowerMaxIcons", name = "Max icons", description = "Maximum simultaneous showering icons across all active warnings.", section = sharedShowerSection, position = 2)
-    default int spellShowerMaxIcons() { return 14; }
+    default int spellShowerMaxIcons() { return 16; }
 
     @Range(min = 16, max = 48)
     @ConfigItem(keyName = "spellShowerIconSize", name = "Icon size (px)", description = "Rendered pixel size of showering icons.", section = sharedShowerSection, position = 3)
-    default int spellShowerIconSize() { return 26; }
+    default int spellShowerIconSize() { return 22; }
 
     @Range(min = 20, max = 250)
     @Units(Units.PERCENT)
@@ -256,7 +246,7 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellbookTabGlow", name = "Glow Magic tab icon", description = "Glow the Magic spellbook book icon when any tracked spell is ready.", section = sharedSpellsSection, position = 6)
     default boolean spellbookTabGlow() { return true; }
 
-    @ConfigItem(keyName = "spellBorderStyle", name = "Spellbook glow style", description = "Glow style for ready spells, the Magic tab and the spec orb (independent of the inventory ready border).", section = sharedSpellsSection, position = 7)
+    @ConfigItem(keyName = "spellBorderStyle", name = "Spellbook glow style", description = "Glow style for ready spells and the Magic tab (independent of the inventory ready border).", section = sharedSpellsSection, position = 7)
     default BorderStyle spellBorderStyle() { return BorderStyle.SOFT_GLOW; }
 
     @ConfigItem(keyName = "spellCooldownDisplayMode", name = "Spell cooldown style", description = "How remaining recast time is drawn over spell widgets.", section = sharedSpellsSection, position = 8)
@@ -265,6 +255,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @Alpha
     @ConfigItem(keyName = "spellCooldownOverlayColor", name = "Spell cooldown tint", description = "Translucent tint drawn over spells while on cooldown.", section = sharedSpellsSection, position = 9)
     default Color spellCooldownOverlayColor() { return new Color(0, 0, 0, 145); }
+
+    @Range(min = 5, max = 600)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "combatBreakReRemindSeconds", name = "Combat break re-remind", description = "After this long out of combat, re-entering combat shows ready-spell reminders again.", section = sharedSpellsSection, position = 10)
+    default int combatBreakReRemindSeconds() { return 120; }
 
     // =========================================================================
     // Shared Debug Tools
@@ -306,6 +301,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "healthPulseStrength", name = "Heartbeat pulse", description = "Strength of the low-health heartbeat pulse.", section = warnLowHealthSection, position = 2)
     default int healthPulseStrength() { return 60; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "lowHealthEscalation", name = "Danger escalation", description = "Extra intensity as HP drops further below the threshold.", section = warnLowHealthSection, position = 3)
+    default int lowHealthEscalation() { return 60; }
 
     @Alpha
     @ConfigItem(keyName = "lowHealthColor", name = "Color", description = "Color of the low-health screen vignette.", section = warnLowHealthSection, position = 10)
@@ -379,6 +379,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "prayerActiveOnly", name = "Only when prayers active", description = "Only trigger when at least one prayer is active.", section = warnPrayerSection, position = 2)
     default boolean prayerActiveOnly() { return false; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "lowPrayerEscalation", name = "Danger escalation", description = "Extra intensity as prayer drops further below the threshold.", section = warnPrayerSection, position = 3)
+    default int lowPrayerEscalation() { return 60; }
 
     @Alpha
     @ConfigItem(keyName = "lowPrayerColor", name = "Color", description = "Color for low prayer vignette and inventory glow.", section = warnPrayerSection, position = 10)
@@ -574,6 +579,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "specOnlyInCombat", name = "Only in combat", description = "Only trigger while in combat.", section = warnSpecSection, position = 2)
     default boolean specOnlyInCombat() { return true; }
+
+    @ConfigItem(keyName = "specOrbStyle", name = "Orb glow style", description = "Glow style used around the special attack orb.", section = warnSpecSection, position = 3)
+    default BorderStyle specOrbStyle() { return BorderStyle.SOFT_GLOW; }
 
     @Alpha
     @ConfigItem(keyName = "specColor", name = "Color", description = "Color of the spec ready glow.", section = warnSpecSection, position = 10)

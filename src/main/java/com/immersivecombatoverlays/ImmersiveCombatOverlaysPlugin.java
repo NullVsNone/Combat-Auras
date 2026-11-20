@@ -49,7 +49,7 @@ import net.runelite.api.events.GraphicChanged;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.StatChanged;
-import net.runelite.api.events.PostMenuSort;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.config.ConfigManager;
@@ -392,7 +392,8 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     @Subscribe
     public void onVarbitChanged(VarbitChanged event)
     {
-        if (client.getGameState() == GameState.LOGGED_IN)
+        if (client.getGameState() == GameState.LOGGED_IN
+            && CombatSpellTracker.isTrackedVar(event.getVarbitId(), event.getVarpId()))
         {
             spellTracker.syncVars(client);
         }
@@ -513,11 +514,20 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         }
     }
 
-    @Subscribe(priority = -1)
-    public void onPostMenuSort(PostMenuSort event)
+    /**
+     * Deprioritized entries only move when the client sorts the menu, so the flag must be set on ClientTick
+     * (before sorting) and only while the menu is closed - the same approach as core Menu Entry Swapper.
+     * Setting it in PostMenuSort (as before) left the menu order unchanged in game.
+     */
+    @Subscribe
+    public void onClientTick(ClientTick event)
     {
-        repotProtection.onPostMenuSort(client, config, heartTracker, potionTimers, boostTimers);
-        spellRecastProtection.onPostMenuSort(client, config, spellTracker);
+        if (client.getGameState() != GameState.LOGGED_IN || client.isMenuOpen())
+        {
+            return;
+        }
+        repotProtection.apply(client, config, heartTracker, potionTimers, boostTimers);
+        spellRecastProtection.apply(client, config, spellTracker);
     }
 
     @Subscribe

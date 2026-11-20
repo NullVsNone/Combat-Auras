@@ -110,11 +110,11 @@ public class FeaturesTest
             entry("Cast", "<col=00ff00>Vengeance Other</col>", vengOther),
             entry("Cast", "<col=00ff00>High Level Alchemy</col>", alch));
 
-        protection.onPostMenuSort(client, DEFAULTS, spells);
+        protection.apply(client, DEFAULTS, spells);
         Assert.assertFalse("ready -> left-click allowed", veng[0]);
 
         state.varbit(VarbitID.VENGEANCE_REBOUND, 1);
-        protection.onPostMenuSort(client, DEFAULTS, spells);
+        protection.apply(client, DEFAULTS, spells);
         Assert.assertTrue("still charged -> deprioritized", veng[0]);
         Assert.assertFalse(vengOther[0]);
         Assert.assertFalse(alch[0]);
@@ -122,7 +122,7 @@ public class FeaturesTest
         veng[0] = false;
         state.varbit(VarbitID.VENGEANCE_REBOUND, 0);
         spells.startCooldownTimer(CombatSpell.VENGEANCE, 20);
-        protection.onPostMenuSort(client, DEFAULTS, spells);
+        protection.apply(client, DEFAULTS, spells);
         Assert.assertTrue("on cooldown -> deprioritized", veng[0]);
 
         veng[0] = false;
@@ -131,7 +131,7 @@ public class FeaturesTest
             @Override
             public boolean vengeanceRecastProtection() { return false; }
         };
-        protection.onPostMenuSort(client, off, spells);
+        protection.apply(client, off, spells);
         Assert.assertFalse(veng[0]);
     }
 

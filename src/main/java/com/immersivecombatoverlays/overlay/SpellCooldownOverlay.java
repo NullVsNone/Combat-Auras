@@ -394,7 +394,7 @@ public class SpellCooldownOverlay extends Overlay
         }
         // Build the outline from the orb's own (possibly resource-pack) sprite so its shape and size match exactly
         int spriteId = orb.getSpriteId() > 0 ? orb.getSpriteId() : SPRITE_SPEC_ORB;
-        drawIconAuraAndOutline(g, bounds, orb.getId(), spriteId, config.specColor(), pulse);
+        drawIconAuraAndOutline(g, bounds, orb.getId(), spriteId, config.specColor(), pulse, config.specOrbStyle());
     }
 
     private Widget findMagicTabWidget()
@@ -527,7 +527,11 @@ public class SpellCooldownOverlay extends Overlay
 
     private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse)
     {
-        BorderStyle style = config.spellBorderStyle();
+        drawIconAuraAndOutline(g, bounds, widgetId, spriteId, base, pulse, config.spellBorderStyle());
+    }
+
+    private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse, BorderStyle style)
+    {
         boolean needsSprite = spriteId > 0 && (
             style == BorderStyle.ITEM_OUTLINE
             || style == BorderStyle.SOFT_GLOW

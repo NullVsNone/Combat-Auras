@@ -4,23 +4,14 @@ A unified RuneLite plugin combining inventory/potion cooldown overlays, procedur
 
 ## Features
 
-- **Combat Spell Overlays & Reminders**:
-  - Tracks **Resurrect Thrall**, **Death Charge**, **Mark of Darkness**, **Ward of Arceuus**, **Shadow Veil**, **Corruption**, **Vengeance**, **Vengeance Other** and **Charge** until the spell can be recast (the later of the buff ending and the recast cooldown).
-  - Uses the same game varbits and durations as RuneLite's Timers & Buffs plugin (thrall duration auto-detects the Master Combat Achievement tier; Mark of Darkness is Purging-staff aware).
-  - Overlays active cooldowns directly on spellbook widgets while preserving your active Resource Pack sprites.
-  - Glows ready spells in the spellbook and the Magic tab icon, with its own glow style.
-  - Blends (or picks the strongest of) multiple screen-edge colours and showers spell icons from any screen edge.
-  - Optional combat-only mode with configurable break re-remind (default 120s).
-- **Inventory Cooldowns & Re-dose Protection**:
-  - Imbued/Saturated Heart, Surge, divine/antifire/stamina/anti-poison/anti-venom/goading/menaphite/moonlight/prayer regeneration potions, and raid consumables (Overloads, Salts, Liquid adrenaline, Silk dressing, Blessed crystal scarab).
-  - Preserve-aware re-dose estimates for regular and super combat boost potions, with left-click re-dose protection.
-  - Ready highlight appears only when a cooldown you used finishes (single flash, pulse or solid; timed or permanent).
-  - Combo-eat and Varlamore hunter-meat delayed-heal timers.
-- **Health & Status Screen Overlays**:
-  - Low HP vignette/pulse, damage hit flash (real damage only, not heals), poison/venom/disease glows, low prayer, freeze, idle, special attack ready, low run energy and unpotted-in-combat warnings.
-  - Unpotted alert ignores alching and Magic XP from utility spells (thralls, Death Charge, Vengeance) and is suppressed while Overload / Smelling salts are active.
-- **Every effect is individually switchable**: each warning and spell has its own Screen glow / Shower icon (and Spellbook glow) toggle, plus global *Allow screen glows*, *Allow icon showers* and *Allow item & spellbook glows* switches.
-- **Lightweight rendering**: the vignette uses cached gradient paints (seamless rounded corners), nothing is drawn while no warning is active, and per-item name classification is memoised.
+- **Combat spell reminders**: Resurrect Thrall, Death Charge, Mark of Darkness, Ward of Arceuus, Shadow Veil, Corruption, Vengeance, Vengeance Other and Charge are tracked until they can be recast (the later of the buff ending and the recast cooldown), using the same game varbits and durations as RuneLite's Timers & Buffs. Cooldowns are drawn on the spellbook (Resource Pack aware), ready spells and the Magic tab glow, and reminders only appear for the spellbook you are on.
+- **Vengeance recast protection**: left-click Cast is deprioritized while Vengeance is still charged or on cooldown (right-click still casts).
+- **Inventory cooldowns**: Imbued/Saturated Heart, Surge, divine/antifire/stamina/anti-poison/anti-venom/goading/menaphite/moonlight/prayer regeneration potions, raid consumables, and combo-eat / Hunter meat timers, with left-click re-dose protection.
+- **Expiry-only reminders**: Heart, potion and boost reminders fire when something you used runs out, never just because a potion is in your inventory. Optional pre-reminders for boosts (Heart, divines/overloads/salts, boost potions).
+- **Per-stat re-dose levels**: e.g. remind when Ranged drops to +7 and Defence to +5 (Preserve-aware decay estimate).
+- **Status warnings**: low HP, damage flash (scaled by % of max HP, minimum-damage threshold), low prayer, poison, venom, disease, freeze, idle, special attack ready, low run energy, unpotted-in-combat and the Nightmare parasite.
+- **Consistent settings**: every warning and spell section has the same layout (Enable, options, Color, Screen glow, Shower icon, extra glow, Notification, Reminder duration, Debug preview), its own reminder duration and its own RuneLite notification (sound / tray / flash). Global *Allow* switches and Minimal / Standard / Everything presets sit in the shared sections at the top.
+- **Lightweight rendering**: cached vignette paints with seamless rounded corners, nothing drawn while idle, memoised item classification.
 
 ## Running in Developer Mode
 

@@ -293,7 +293,7 @@ public class TrackersTest
                 : m.getName().equals("getVarbitValue") || m.getName().endsWith("SkillLevel") ? 1 : FakeClient.defaultValue(m.getReturnType())
         );
 
-        repot.onPostMenuSort((net.runelite.api.Client) proxy, DEFAULTS, heart, potions, boosts);
+        repot.apply((net.runelite.api.Client) proxy, DEFAULTS, heart, potions, boosts);
         Assert.assertTrue("Active super antifire is deprioritized", deprioritized[0]);
         Assert.assertFalse("Inactive stamina stays left-click", deprioritized[1]);
 
@@ -303,7 +303,7 @@ public class TrackersTest
             public boolean repotProtectionEnabled() { return false; }
         };
         deprioritized[0] = false;
-        repot.onPostMenuSort((net.runelite.api.Client) proxy, off, heart, potions, boosts);
+        repot.apply((net.runelite.api.Client) proxy, off, heart, potions, boosts);
         Assert.assertFalse(deprioritized[0]);
         Assert.assertNotNull(menuClient.client);
     }

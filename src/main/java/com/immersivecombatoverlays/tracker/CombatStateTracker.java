@@ -4,6 +4,7 @@ import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
+import net.runelite.api.gameval.VarbitID;
 
 /**
  * Tracks whether the local player is in combat and detects extended breaks
@@ -58,7 +59,10 @@ public class CombatStateTracker
         }
 
         Actor interacting = local.getInteracting();
-        boolean activelyFighting = interacting instanceof Player
+        // Following / trading another player also sets "interacting", so only count players where PvP is possible
+        boolean pvpArea = client.getVarbitValue(VarbitID.INSIDE_WILDERNESS) == 1
+            || client.getVarbitValue(VarbitID.PVP_AREA_CLIENT) == 1;
+        boolean activelyFighting = (interacting instanceof Player && pvpArea)
             || (interacting instanceof NPC && ((NPC) interacting).getCombatLevel() > 0);
 
         if (activelyFighting)
