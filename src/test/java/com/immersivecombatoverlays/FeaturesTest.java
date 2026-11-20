@@ -175,7 +175,12 @@ public class FeaturesTest
         Assert.assertFalse(DEFAULTS.specNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.heartNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.buffNotification().isEnabled());
-        Assert.assertFalse(DEFAULTS.spellNotification().isEnabled());
+        for (CombatSpell spell : CombatSpell.values())
+        {
+            Assert.assertFalse(ImmersiveCombatOverlaysConfig.getSpellNotification(DEFAULTS, spell).isEnabled());
+        }
+        Assert.assertFalse(DEFAULTS.poisonNotification().isEnabled());
+        Assert.assertFalse(DEFAULTS.boostNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.parasiteNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.idleNotification().isEnabled());
     }

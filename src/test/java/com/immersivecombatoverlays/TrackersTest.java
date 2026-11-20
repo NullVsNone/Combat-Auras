@@ -178,7 +178,7 @@ public class TrackersTest
         potions.onChatMessage("You crack the crystal in your hand.");
         Assert.assertEquals(40, potions.getCooldown(PotionEffect.BLESSED_CRYSTAL_SCARAB).getRemainingTicks());
 
-        fc.varbit(VarbitID.STAMINA_DURATION, 10);
+        fc.varbit(VarbitID.STAMINA_DURATION, 10).varbit(VarbitID.STAMINA_ACTIVE, 1);
         potions.onGameTick(fc.client);
         potions.triggerDebugCooldowns();
         Assert.assertEquals(25, potions.getCooldown(PotionEffect.STAMINA).getRemainingTicks());
@@ -240,13 +240,13 @@ public class TrackersTest
         boosts.onGameTick(fc.client);
         Assert.assertEquals(100, boosts.getTicksUntilNextDecay());
 
-        Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.SUPER_STRENGTH, 3).isReady());
+        Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.SUPER_STRENGTH, new int[]{15}).isReady());
         Assert.assertTrue(boosts.wasUsedThisSession(BoostPotion.SUPER_STRENGTH));
-        // A regular strength potion's max boost (12) is already exceeded by 18 -> still "not ready" to re-dose
-        Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.STRENGTH, 3).isReady());
+        // Regular strength potion: re-dose level is capped just below its +12 max, and +18 is above it
+        Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.STRENGTH, new int[]{15}).isReady());
 
         fc.level(Skill.STRENGTH, 99, 103);
-        Assert.assertTrue(boosts.getCooldown(fc.client, BoostPotion.SUPER_STRENGTH, 3).isReady());
+        Assert.assertTrue(boosts.getCooldown(fc.client, BoostPotion.SUPER_STRENGTH, new int[]{15}).isReady());
     }
 
     @Test

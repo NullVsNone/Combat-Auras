@@ -110,6 +110,20 @@ public enum PotionEffect
         return varbitIds;
     }
 
+    public boolean isDivine()
+    {
+        return name().startsWith("DIVINE_");
+    }
+
+    /**
+     * Varbit that must be 1 for the effect to count as active, or -1. Stamina keeps a stale STAMINA_DURATION after
+     * the effect ends; only STAMINA_ACTIVE says whether it is really running (matches the game's buff bar script).
+     */
+    public int getGateVarbitId()
+    {
+        return this == STAMINA ? VarbitID.STAMINA_ACTIVE : -1;
+    }
+
     /**
      * Remaining immunity ticks for this effect given the poison varp, or 0 if it is not active.
      */

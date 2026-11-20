@@ -17,6 +17,10 @@ import com.immersivecombatoverlays.tracker.IdleTracker;
 import com.immersivecombatoverlays.tracker.UnpottedTracker;
 import com.immersivecombatoverlays.tracker.ImpactTracker;
 import com.immersivecombatoverlays.tracker.ParasiteTracker;
+import com.immersivecombatoverlays.tracker.ExpiryReminders;
+import com.immersivecombatoverlays.model.PotionEffect;
+import com.immersivecombatoverlays.model.BoostPotion;
+import com.immersivecombatoverlays.model.Cooldown;
 import com.immersivecombatoverlays.tracker.SpellRecastProtection;
 import com.immersivecombatoverlays.tracker.WarningNotifier;
 import com.immersivecombatoverlays.model.CombatSpell;
@@ -95,6 +99,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     private final FoodCooldownTracker foodTracker = new FoodCooldownTracker();
     private final UnpottedTracker unpottedTracker = new UnpottedTracker();
     private final ParasiteTracker parasiteTracker = new ParasiteTracker();
+    private final ExpiryReminders expiryReminders = new ExpiryReminders();
     private final SpellRecastProtection spellRecastProtection = new SpellRecastProtection();
     private final WarningNotifier warningNotifier = new WarningNotifier();
     private final boolean[] spellReadyLastTick = new boolean[CombatSpell.values().length];
@@ -199,6 +204,12 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     }
 
     @Provides
+    ExpiryReminders provideExpiryReminders()
+    {
+        return expiryReminders;
+    }
+
+    @Provides
     ParasiteTracker provideParasiteTracker()
     {
         return parasiteTracker;
@@ -248,6 +259,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         foodTracker.reset();
         unpottedTracker.reset();
         parasiteTracker.reset();
+        expiryReminders.reset();
         warningNotifier.reset();
         java.util.Arrays.fill(spellReadyLastTick, false);
     }
@@ -283,6 +295,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         idleTracker.onGameTick(client, config, combatState, notifier, nowNanos);
         foodTracker.onGameTick();
         unpottedTracker.onGameTick(client, config, spellTracker.getLastCastNanos(), nowNanos);
+        updateExpiryReminders(nowNanos);
         statusOverlay.updateClientState();
         inventoryOverlay.cacheInventoryItemNames();
         spellOverlay.updateSpellbook(combatState.isInCombat());
@@ -303,26 +316,60 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             config.freezeEnabled() && freezeTracker.getSeverity(nowNanos) > 0f, config.freezeNotification(), notifier, nowNanos);
         warningNotifier.update(WarningNotifier.Warning.UNPOTTED,
             unpottedTracker.getSeverity(config, nowNanos) > 0f, config.unpottedNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.HEART_READY,
-            config.heartsEnabled() && heartTracker.wasUsedThisSession() && heartTracker.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID).isReady(),
-            config.heartNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.HEART_READY, statusOverlay.isHeartReadyLive(), config.heartNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.BOOST_READY, statusOverlay.isBoostReadyLive(), config.boostNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.POISON, statusOverlay.isPoisonLive(), config.poisonNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.VENOM, statusOverlay.isVenomLive(), config.venomNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.DISEASE, statusOverlay.isDiseaseLive(), config.diseaseNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.LOW_RUN, statusOverlay.isLowRunLive(), config.lowRunNotification(), notifier, nowNanos);
         warningNotifier.update(WarningNotifier.Warning.PARASITE,
             config.parasiteEnabled() && parasiteTracker.isActive(), config.parasiteNotification(), notifier, nowNanos);
 
-        boolean newlyReady = false;
+        int book = client.getVarbitValue(net.runelite.api.gameval.VarbitID.SPELLBOOK);
         for (CombatSpell spell : CombatSpell.values())
         {
-            boolean ready = spellTracker.wasCastSinceLogin(spell) && spellTracker.isSpellReadyReminder(spell, combatState, config);
+            boolean ready = spell.getSpellbook().getVarbitValue() == book
+                && spellTracker.wasCastSinceLogin(spell) && spellTracker.isSpellReadyReminder(spell, combatState, config);
             if (ready && !spellReadyLastTick[spell.ordinal()])
             {
-                newlyReady = true;
+                warningNotifier.fireSpell(spell, ImmersiveCombatOverlaysConfig.getSpellNotification(config, spell), notifier, nowNanos);
             }
             spellReadyLastTick[spell.ordinal()] = ready;
         }
-        if (newlyReady)
+    }
+
+    /**
+     * Feeds the expiry latch: each effect counts as "active" while it has more than its pre-remind lead left,
+     * so the reminder starts exactly at expiry (or at the lead, for boosts with pre-remind enabled).
+     */
+    private void updateExpiryReminders(long nowNanos)
+    {
+        Cooldown heart = heartTracker.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID);
+        expiryReminders.observe(ExpiryReminders.HEART,
+            isActiveBeyondLead(heart, config.heartPreRemindSeconds()), nowNanos);
+
+        for (PotionEffect effect : PotionEffect.values())
         {
-            warningNotifier.fire(WarningNotifier.Warning.SPELL_READY, config.spellNotification(), notifier, nowNanos);
+            expiryReminders.observe(ExpiryReminders.key(effect),
+                isActiveBeyondLead(potionTimers.getCooldown(effect), ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(config, effect)),
+                nowNanos);
         }
+
+        for (BoostPotion boost : BoostPotion.values())
+        {
+            expiryReminders.observe(ExpiryReminders.key(boost),
+                isActiveBeyondLead(boostTimers.getCooldown(client, boost, config), config.boostPreRemindSeconds()), nowNanos);
+        }
+    }
+
+    static boolean isActiveBeyondLead(Cooldown cd, int leadSeconds)
+    {
+        if (cd == null || cd.isReady())
+        {
+            return false;
+        }
+        int leadTicks = Math.round(Math.max(0, leadSeconds) / 0.6f);
+        return cd.getRemainingTicks() > leadTicks;
     }
 
     @Subscribe

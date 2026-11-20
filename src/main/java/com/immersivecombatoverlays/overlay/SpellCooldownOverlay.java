@@ -44,6 +44,12 @@ public class SpellCooldownOverlay extends Overlay
     private static final int SPELLBOOK_GROUP_ID = 218;
     private static final int SPRITE_TAB_MAGIC = 780;
     private static final int SPRITE_SPEC_ORB = 1607;
+    private static final int[] SPEC_ORB_COMPONENTS = {
+        InterfaceID.Orbs.SPECENERGY_BACKING,
+        InterfaceID.OrbsNomap.SPECENERGY_BACKING,
+        InterfaceID.OrbsOsm.SPECENERGY_BACKING,
+        InterfaceID.OrbsOsmNomap.SPECENERGY_BACKING,
+    };
     private static final int[] MAGIC_TAB_COMPONENTS = {
         InterfaceID.Toplevel.STONE6,
         InterfaceID.ToplevelOsrsStretch.STONE6,
@@ -65,6 +71,7 @@ public class SpellCooldownOverlay extends Overlay
     private final Map<Long, BufferedImage> spriteFillMaskCache = new HashMap<>();
     private volatile int currentSpellbook = 0;
     private volatile boolean specReadyLive = false;
+    private long specReadySinceNanos = 0L;
 
     @Inject
     public SpellCooldownOverlay(
@@ -89,7 +96,18 @@ public class SpellCooldownOverlay extends Overlay
     {
         this.currentSpellbook = client.getVarbitValue(VarbitID.SPELLBOOK);
         boolean specOk = config.specEnabled() && (!config.specOnlyInCombat() || combatActive);
-        this.specReadyLive = specOk && (client.getVarpValue(VarPlayerID.SA_ENERGY) / 10) >= config.specThresholdPercent();
+        boolean ready = specOk && (client.getVarpValue(VarPlayerID.SA_ENERGY) / 10) >= config.specThresholdPercent();
+        long now = System.nanoTime();
+        if (!ready)
+        {
+            specReadySinceNanos = 0L;
+        }
+        else if (specReadySinceNanos == 0L)
+        {
+            specReadySinceNanos = now;
+        }
+        int dur = config.specDurationSeconds();
+        this.specReadyLive = ready && (dur <= 0 || now - specReadySinceNanos <= dur * 1_000_000_000L);
     }
 
     @Override
@@ -353,51 +371,30 @@ public class SpellCooldownOverlay extends Overlay
 
     private void renderSpecOrbGlow(Graphics2D g, double pulse)
     {
-        Widget specOrb = client.getWidget(InterfaceID.Orbs.ORB_SPECENERGY);
-        if (specOrb == null || specOrb.isHidden())
+        // Target the orb circle itself. The ORB_SPECENERGY container also spans the "100" text beside the orb,
+        // which is why centring the glow on it drew the ring off to one side.
+        Widget orb = null;
+        for (int componentId : SPEC_ORB_COMPONENTS)
         {
-            Widget minimapRoot = client.getWidget(160, 0);
-            if (minimapRoot != null && !minimapRoot.isHidden())
+            Widget w = client.getWidget(componentId);
+            if (w != null && !w.isHidden())
             {
-                specOrb = findActionWidget(minimapRoot.getStaticChildren(), "Special Attack");
+                orb = w;
+                break;
             }
         }
-        if (specOrb == null || specOrb.isHidden())
+        if (orb == null)
         {
             return;
         }
-        Rectangle bounds = specOrb.getBounds();
-        if (bounds != null && bounds.width > 0 && bounds.height > 0)
+        Rectangle bounds = orb.getBounds();
+        if (bounds == null || bounds.width <= 0 || bounds.height <= 0)
         {
-            drawIconAuraAndOutline(g, bounds, specOrb.getId(), SPRITE_SPEC_ORB, config.specColor(), pulse);
+            return;
         }
-    }
-
-    private static Widget findActionWidget(Widget[] children, String actionPrefix)
-    {
-        if (children == null)
-        {
-            return null;
-        }
-        for (Widget child : children)
-        {
-            if (child == null || child.isHidden())
-            {
-                continue;
-            }
-            String[] actions = child.getActions();
-            if (actions != null)
-            {
-                for (String a : actions)
-                {
-                    if (a != null && a.contains(actionPrefix))
-                    {
-                        return child;
-                    }
-                }
-            }
-        }
-        return null;
+        // Build the outline from the orb's own (possibly resource-pack) sprite so its shape and size match exactly
+        int spriteId = orb.getSpriteId() > 0 ? orb.getSpriteId() : SPRITE_SPEC_ORB;
+        drawIconAuraAndOutline(g, bounds, orb.getId(), spriteId, config.specColor(), pulse);
     }
 
     private Widget findMagicTabWidget()

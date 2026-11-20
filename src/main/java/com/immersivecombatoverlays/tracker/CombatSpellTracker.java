@@ -439,7 +439,8 @@ public class CombatSpellTracker
             {
                 continue;
             }
-            if (filterBySpellbook && !castSinceLogin[i] && spell.getSpellbook().getVarbitValue() != currentSpellbookVarbit)
+            // You can only recast from the matching spellbook, so never remind about another book's spells
+            if (filterBySpellbook && spell.getSpellbook().getVarbitValue() != currentSpellbookVarbit)
             {
                 continue;
             }

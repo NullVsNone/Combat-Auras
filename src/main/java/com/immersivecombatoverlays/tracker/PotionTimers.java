@@ -75,6 +75,11 @@ public class PotionTimers
                 case VAR_SCALED:
                 {
                     int val = maxVarbit(client, effect.getVarbitIds());
+                    int gate = effect.getGateVarbitId();
+                    if (gate > 0 && client.getVarbitValue(gate) != 1)
+                    {
+                        val = 0; // stale duration value: effect is not actually running
+                    }
                     if (val <= 0)
                     {
                         state.remainingTicks = 0;

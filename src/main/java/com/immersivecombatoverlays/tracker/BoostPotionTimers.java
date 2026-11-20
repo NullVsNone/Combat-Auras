@@ -1,5 +1,6 @@
 package com.immersivecombatoverlays.tracker;
 
+import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
 import com.immersivecombatoverlays.model.BoostPotion;
 import com.immersivecombatoverlays.model.Cooldown;
 import java.util.Arrays;
@@ -24,6 +25,7 @@ public class BoostPotionTimers
     private boolean previousPreserve = false;
     private final int[] lastBoost = new int[COMBAT_SKILLS.length];
     private final boolean[] usedThisSession = new boolean[BoostPotion.values().length];
+    private final int[] levelScratch = new int[3];
 
     public void reset()
     {
@@ -72,25 +74,55 @@ public class BoostPotionTimers
         previousPreserve = preserve;
     }
 
-    public Cooldown getCooldown(Client client, BoostPotion potion, int redoseThreshold)
+    /**
+     * Time until {@code potion} is worth re-dosing, using the per-skill re-dose levels from the config.
+     *
+     * @return null when none of the potion's skills are tracked (re-dose level 0), so callers treat the item as untracked
+     */
+    public Cooldown getCooldown(Client client, BoostPotion potion, ImmersiveCombatOverlaysConfig config)
     {
         if (potion == null)
         {
-            return Cooldown.READY;
+            return null;
         }
-
-        int maxRemainingLevels = 0;
-        for (Skill skill : potion.getSkills())
+        // Reused scratch buffer (client thread only): this runs per inventory item per frame
+        Skill[] skills = potion.getSkills();
+        for (int i = 0; i < skills.length; i++)
         {
-            int real = client.getRealSkillLevel(skill);
-            int diff = client.getBoostedSkillLevel(skill) - real;
-            int redoseAt = potion.getMaxBoost(skill, real) - redoseThreshold;
-            if (diff > redoseAt)
+            levelScratch[i] = ImmersiveCombatOverlaysConfig.getRedoseLevel(config, skills[i]);
+        }
+        return getCooldown(client, potion, levelScratch);
+    }
+
+    /**
+     * @param redoseLevels re-dose level (+N) per entry of {@code potion.getSkills()}; 0 = skill not tracked.
+     *                     Each level is capped one below the potion's max boost so weaker potions still work.
+     */
+    public Cooldown getCooldown(Client client, BoostPotion potion, int[] redoseLevels)
+    {
+        boolean tracked = false;
+        int maxRemainingLevels = 0;
+        Skill[] skills = potion.getSkills();
+        for (int i = 0; i < skills.length; i++)
+        {
+            if (redoseLevels[i] <= 0)
             {
-                maxRemainingLevels = Math.max(maxRemainingLevels, diff - redoseAt);
+                continue;
+            }
+            tracked = true;
+            Skill skill = skills[i];
+            int real = client.getRealSkillLevel(skill);
+            int boost = client.getBoostedSkillLevel(skill) - real;
+            int redoseAt = Math.min(redoseLevels[i], Math.max(0, potion.getMaxBoost(skill, real) - 1));
+            if (boost > redoseAt)
+            {
+                maxRemainingLevels = Math.max(maxRemainingLevels, boost - redoseAt);
             }
         }
-
+        if (!tracked)
+        {
+            return null;
+        }
         if (maxRemainingLevels <= 0)
         {
             return Cooldown.READY;
@@ -98,9 +130,8 @@ public class BoostPotionTimers
 
         int decayPeriod = previousPreserve ? PRESERVE_DECAY_TICKS : NORMAL_DECAY_TICKS;
         int estimatedTicks = ticksUntilNextDecay + (maxRemainingLevels - 1) * decayPeriod;
-        int totalTicks = Math.max(estimatedTicks, (redoseThreshold + 1) * decayPeriod);
         usedThisSession[potion.ordinal()] = true;
-        return Cooldown.active(estimatedTicks, totalTicks);
+        return Cooldown.active(estimatedTicks, Math.max(estimatedTicks, 4 * decayPeriod));
     }
 
     public int getTicksUntilNextDecay()

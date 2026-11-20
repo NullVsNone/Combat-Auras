@@ -17,6 +17,7 @@ import com.immersivecombatoverlays.tracker.HeartCooldownTracker;
 import com.immersivecombatoverlays.tracker.IdleTracker;
 import com.immersivecombatoverlays.tracker.UnpottedTracker;
 import com.immersivecombatoverlays.tracker.ParasiteTracker;
+import com.immersivecombatoverlays.tracker.ExpiryReminders;
 import net.runelite.api.gameval.ItemID;
 import com.immersivecombatoverlays.tracker.ImpactTracker;
 import com.immersivecombatoverlays.tracker.PotionTimers;
@@ -79,6 +80,15 @@ public class ImmersiveStatusOverlay extends Overlay
     private final UnpottedTracker unpottedTracker;
     private final ParasiteTracker parasiteTracker;
     private volatile boolean liveBuffExpired = false;
+    private volatile boolean liveBoostReady = false;
+    private volatile boolean liveHeartReady = false;
+    private static final int KIND_HEART = 0;
+    private static final int KIND_POTION = 1;
+    private static final int KIND_BOOST = 2;
+    private final int[] liveBuffItemKinds = new int[16];
+    private final int[] readyItemKinds = new int[16];
+    private final long[] statusActiveSince = new long[StatusEffect.values().length];
+    private final ExpiryReminders expiryReminders;
     private boolean frameDebugPreview = false;
 
     // Client-thread-sampled live values (safe to read on render thread)
@@ -126,7 +136,8 @@ public class ImmersiveStatusOverlay extends Overlay
         FreezeTracker freezeTracker,
         IdleTracker idleTracker,
         UnpottedTracker unpottedTracker,
-        ParasiteTracker parasiteTracker
+        ParasiteTracker parasiteTracker,
+        ExpiryReminders expiryReminders
     )
     {
         this.client = client;
@@ -146,6 +157,7 @@ public class ImmersiveStatusOverlay extends Overlay
         this.idleTracker = idleTracker;
         this.unpottedTracker = unpottedTracker;
         this.parasiteTracker = parasiteTracker;
+        this.expiryReminders = expiryReminders;
 
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.UNDER_WIDGETS);
@@ -238,25 +250,27 @@ public class ImmersiveStatusOverlay extends Overlay
     private void sampleInventoryBuffItems()
     {
         liveBuffExpired = false;
-        if (config.buffOnlyInCombat() && !combatState.isInCombat())
-        {
-            liveBuffItemCount = 0;
-            return;
-        }
+        liveBoostReady = false;
+        liveHeartReady = false;
+        liveBuffItemCount = 0;
 
         ItemContainer inv = client.getItemContainer(InventoryID.INV);
         if (inv == null)
         {
-            liveBuffItemCount = 0;
             return;
         }
 
+        long now = System.nanoTime();
+        boolean inCombat = combatState.isInCombat();
+        boolean heartAllowed = config.heartsEnabled() && (!config.heartOnlyInCombat() || inCombat);
+        boolean potionAllowed = !config.buffOnlyInCombat() || inCombat;
+        boolean boostAllowed = config.boostPotionsEnabled() && (!config.boostOnlyInCombat() || inCombat);
         int count = 0;
-        int leadTicks = config.boostPreRemind() ? Math.round(config.buffExpiryLeadSeconds() / 0.6f) : 0;
         boolean addedHeart = false;
         seenEffects.clear();
         seenBoosts.clear();
 
+        // Reminders come only from the expiry latch: an item merely sitting in the inventory never triggers one
         for (Item item : inv.getItems())
         {
             if (item == null || item.getId() <= 0 || count >= liveBuffItemIds.length)
@@ -264,53 +278,71 @@ public class ImmersiveStatusOverlay extends Overlay
                 continue;
             }
             int id = item.getId();
-            if (!addedHeart && (config.heartScreenReminder() || config.heartShower()) && HeartCooldownTracker.isHeart(id))
+            if (HeartCooldownTracker.isHeart(id))
             {
-                Cooldown cd = heartTracker.getCooldown(id);
-                boolean usedOk = !config.buffOnlyRemindAfterUse() || heartTracker.wasUsedThisSession();
-                if (cd != null && usedOk && cd.isReady())
+                if (!addedHeart && heartAllowed
+                    && expiryReminders.isShowing(ExpiryReminders.HEART, config.heartDurationSeconds(), now))
                 {
-                    liveBuffItemIds[count] = id;
-                    liveBuffItemColors[count] = config.heartReminderColor().getRGB();
-                    count++;
+                    addItem(count++, id, config.heartReminderColor().getRGB(), KIND_HEART);
                     addedHeart = true;
+                    liveHeartReady = true;
                 }
                 continue;
             }
 
-            if (config.buffScreenReminder() || config.buffShower())
+            ItemComposition comp = itemManager.getItemComposition(id);
+            String name = comp != null ? comp.getName() : null;
+            PotionEffect eff = PotionItems.getEffect(id, name);
+            if (eff != null)
             {
-                ItemComposition comp = itemManager.getItemComposition(id);
-                String name = comp != null ? comp.getName() : null;
-                PotionEffect eff = PotionItems.getEffect(id, name);
-                BoostPotion boost = eff == null ? PotionItems.getBoost(id, name) : null;
-                if (eff != null && seenEffects.contains(eff))
+                if (potionAllowed && !seenEffects.contains(eff)
+                    && ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(config, eff)
+                    && expiryReminders.isShowing(ExpiryReminders.key(eff), config.buffDurationSeconds(), now))
                 {
-                    continue;
-                }
-                if (boost != null && seenBoosts.contains(boost))
-                {
-                    continue;
-                }
-
-                Cooldown cd = RepotProtection.resolveItemCooldown(
-                    client, config, heartTracker, potionTimers, boostTimers, id, name
-                );
-                boolean usedOk = !config.buffOnlyRemindAfterUse()
-                    || (eff != null && potionTimers.wasUsedThisSession(eff))
-                    || (boost != null && boostTimers.wasUsedThisSession(boost));
-                if (cd != null && usedOk && (cd.isReady() || (boost != null && leadTicks > 0 && cd.getRemainingTicks() <= leadTicks)))
-                {
-                    if (eff != null) seenEffects.add(eff);
-                    if (boost != null) seenBoosts.add(boost);
-                    liveBuffItemIds[count] = id;
-                    liveBuffItemColors[count] = config.buffReminderColor().getRGB();
-                    count++;
+                    seenEffects.add(eff);
+                    addItem(count++, id, config.buffReminderColor().getRGB(), KIND_POTION);
                     liveBuffExpired = true;
                 }
+                continue;
+            }
+
+            BoostPotion boost = PotionItems.getBoost(id, name);
+            if (boost != null && boostAllowed && !seenBoosts.contains(boost)
+                && expiryReminders.isShowing(ExpiryReminders.key(boost), config.boostDurationSeconds(), now))
+            {
+                seenBoosts.add(boost);
+                addItem(count++, id, config.boostReminderColor().getRGB(), KIND_BOOST);
+                liveBoostReady = true;
             }
         }
         liveBuffItemCount = count;
+    }
+
+    private void addItem(int idx, int id, int argb, int kind)
+    {
+        liveBuffItemIds[idx] = id;
+        liveBuffItemColors[idx] = argb;
+        liveBuffItemKinds[idx] = kind;
+    }
+
+    private boolean kindGlow(int kind)
+    {
+        switch (kind)
+        {
+            case KIND_HEART: return config.heartScreenReminder();
+            case KIND_BOOST: return config.boostGlow();
+            default: return config.buffScreenReminder();
+        }
+    }
+
+    private boolean kindShower(int kind)
+    {
+        switch (kind)
+        {
+            case KIND_HEART: return config.heartShower();
+            case KIND_BOOST: return config.boostShower();
+            default: return config.buffShower();
+        }
     }
 
     @Override
@@ -472,6 +504,15 @@ public class ImmersiveStatusOverlay extends Overlay
 
         }
 
+        applyDuration(StatusEffect.LOW_HEALTH, config.lowHealthDurationSeconds(), nowNanos);
+        applyDuration(StatusEffect.LOW_PRAYER, config.lowPrayerDurationSeconds(), nowNanos);
+        applyDuration(StatusEffect.POISON, config.poisonDurationSeconds(), nowNanos);
+        applyDuration(StatusEffect.VENOM, config.venomDurationSeconds(), nowNanos);
+        applyDuration(StatusEffect.DISEASE, config.diseaseDurationSeconds(), nowNanos);
+        applyDuration(StatusEffect.SPEC_READY, config.specDurationSeconds(), nowNanos);
+        applyDuration(StatusEffect.LOW_RUN_ENERGY, config.lowRunDurationSeconds(), nowNanos);
+        applyDuration(StatusEffect.PARASITE, config.parasiteDurationSeconds(), nowNanos);
+
         // Debug preview overrides (isolated when any debug checkbox is checked)
         float pSev = config.previewIntensity() / 100f;
         if (config.debugLowHealth())
@@ -550,6 +591,28 @@ public class ImmersiveStatusOverlay extends Overlay
         applyStatusGlowToggle(StatusEffect.PARASITE, config.parasiteGlow());
     }
 
+    /**
+     * Shows a continuous warning for at most {@code seconds} after it starts (0 = while active); it re-arms once the
+     * condition clears and comes back.
+     */
+    private void applyDuration(StatusEffect effect, int seconds, long nowNanos)
+    {
+        int i = effect.ordinal();
+        if (rawStatusSeverities[i] <= 0.01f)
+        {
+            statusActiveSince[i] = 0L;
+            return;
+        }
+        if (statusActiveSince[i] == 0L)
+        {
+            statusActiveSince[i] = nowNanos;
+        }
+        if (seconds > 0 && nowNanos - statusActiveSince[i] > seconds * 1_000_000_000L)
+        {
+            rawStatusSeverities[i] = 0f;
+        }
+    }
+
     private void applyStatusGlowToggle(StatusEffect effect, boolean glowEnabled)
     {
         if (glowEnabled && config.allowScreenGlows())
@@ -570,11 +633,13 @@ public class ImmersiveStatusOverlay extends Overlay
                 glowExtraColors[out++] = readySpellColors[i];
             }
         }
+        if (!config.allowScreenGlows())
+        {
+            return out;
+        }
         for (int i = 0; i < itemCount; i++)
         {
-            int id = readyItemIds[i];
-            boolean isHeart = HeartCooldownTracker.isHeart(id);
-            if (config.allowScreenGlows() && ((isHeart && config.heartScreenReminder()) || (!isHeart && config.buffScreenReminder())))
+            if (kindGlow(readyItemKinds[i]))
             {
                 glowExtraColors[out++] = readyItemColors[i];
             }
@@ -591,12 +656,11 @@ public class ImmersiveStatusOverlay extends Overlay
         }
         for (int i = 0; i < rawItemCount; i++)
         {
-            int id = readyItemIds[i];
-            boolean isHeart = HeartCooldownTracker.isHeart(id);
-            if ((isHeart && config.heartShower()) || (!isHeart && config.buffShower()))
+            if (kindShower(readyItemKinds[i]))
             {
-                readyItemIds[out] = id;
+                readyItemIds[out] = readyItemIds[i];
                 readyItemColors[out] = readyItemColors[i];
+                readyItemKinds[out] = readyItemKinds[i];
                 out++;
             }
         }
@@ -698,17 +762,13 @@ public class ImmersiveStatusOverlay extends Overlay
 
     private int filterSpellsByDuration(int rawCount, long nowNanos)
     {
-        int maxSec = config.showerDurationSeconds();
-        if (maxSec <= 0)
-        {
-            return rawCount;
-        }
         int session = combatState.getCombatSessionId();
         CombatSpell[] all = CombatSpell.values();
         int kept = 0;
         for (int i = 0; i < rawCount; i++)
         {
             CombatSpell s = all[readySpellOrdinals[i]];
+            int maxSec = ImmersiveCombatOverlaysConfig.getSpellDurationSeconds(config, s);
             if (ImmersiveCombatOverlaysConfig.isDebugSpellActive(config, s) || spellTracker.isWithinShowerDuration(s, session, maxSec, nowNanos))
             {
                 readySpellOrdinals[kept] = readySpellOrdinals[i];
@@ -726,12 +786,14 @@ public class ImmersiveStatusOverlay extends Overlay
         {
             readyItemIds[count] = HeartCooldownTracker.SATURATED_HEART_ID;
             readyItemColors[count] = config.heartReminderColor().getRGB();
+            readyItemKinds[count] = KIND_HEART;
             count++;
         }
         if (config.debugBuffExpired())
         {
-            readyItemIds[count] = 23685;
+            readyItemIds[count] = ItemID._4DOSEDIVINECOMBAT;
             readyItemColors[count] = config.buffReminderColor().getRGB();
+            readyItemKinds[count] = KIND_POTION;
             count++;
         }
 
@@ -740,6 +802,7 @@ public class ImmersiveStatusOverlay extends Overlay
         {
             readyItemIds[count] = liveBuffItemIds[i];
             readyItemColors[count] = liveBuffItemColors[i];
+            readyItemKinds[count] = liveBuffItemKinds[i];
             count++;
         }
         return count;
@@ -798,6 +861,36 @@ public class ImmersiveStatusOverlay extends Overlay
     public boolean isBuffExpiredLive()
     {
         return liveBuffExpired;
+    }
+
+    public boolean isBoostReadyLive()
+    {
+        return liveBoostReady;
+    }
+
+    public boolean isHeartReadyLive()
+    {
+        return liveHeartReady;
+    }
+
+    public boolean isPoisonLive()
+    {
+        return livePoisonSev > 0.01f;
+    }
+
+    public boolean isVenomLive()
+    {
+        return liveVenomSev > 0.01f;
+    }
+
+    public boolean isDiseaseLive()
+    {
+        return liveDiseaseSev > 0.01f;
+    }
+
+    public boolean isLowRunLive()
+    {
+        return liveLowRunSev > 0.01f;
     }
 
     public boolean isPrayerLow()

@@ -266,8 +266,9 @@ public class CombatSpellTrackerTest
         combat.setSimulatedCombat(true);
         tracker.startCooldownTimer(CombatSpell.DEATH_CHARGE, 1);
         tracker.clearCooldown(CombatSpell.DEATH_CHARGE);
-        // On the Lunar book (2) the Arceuus spell still shows because it was cast this login
-        Assert.assertEquals(1, tracker.collectReadySpells(combat, DEFAULTS, 2, true, ords, cols));
+        // Only remind on the book the spell can be cast from
+        Assert.assertEquals(0, tracker.collectReadySpells(combat, DEFAULTS, 2, true, ords, cols));
+        Assert.assertEquals(1, tracker.collectReadySpells(combat, DEFAULTS, 3, true, ords, cols));
 
         ImmersiveCombatOverlaysConfig disabled = new ImmersiveCombatOverlaysConfig()
         {

@@ -92,12 +92,12 @@ public class RepotProtection
             BoostPotion boost = PotionItems.getBoost(itemId, itemName);
             if (boost != null)
             {
-                Cooldown boostCd = boostTimers.getCooldown(client, boost, config.boostRedoseThreshold());
+                Cooldown boostCd = boostTimers.getCooldown(client, boost, config);
                 if (boost == BoostPotion.GUTHIXIAN_ROOT)
                 {
                     Cooldown stamCd = potionTimers.getCooldown(PotionEffect.STAMINA);
                     if (stamCd != null && !stamCd.isReady()
-                        && (boostCd.isReady() || stamCd.getRemainingTicks() > boostCd.getRemainingTicks()))
+                        && (boostCd == null || boostCd.isReady() || stamCd.getRemainingTicks() > boostCd.getRemainingTicks()))
                     {
                         return stamCd;
                     }
