@@ -6,7 +6,12 @@ import com.immersivecombatoverlays.model.StatusEffect;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Composite;
-import java.awt.GradientPaint;
+import java.awt.LinearGradientPaint;
+import java.awt.MultipleGradientPaint;
+import java.awt.RadialGradientPaint;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
+import com.immersivecombatoverlays.model.GlowColorMode;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -20,17 +25,17 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SpriteManager;
 
 /**
- * Zero-allocation procedural screen overlay renderer.
+ * Procedural screen overlay renderer (edge vignette + icon shower).
  *
- * Key optimizations over health-status-overlays:
- * 1. Zero per-frame heap allocations (primitive arrays, quantized AlphaComposite LUT, cached scaled icons).
- * 2. Configurable downsample step + optional FPS cap for the offscreen vignette buffer.
- * 3. Smooth multi-color blending across all active status effects AND all expired combat spells.
- * 4. Split/interleaved showering spell icons fetched via SpriteManager (preserving Resource Pack sprites).
+ * Performance notes:
+ * - The vignette is 4 edge strips + 4 elliptical corners. Gradient paints are cached per (colour, size) and the
+ *   animated intensity is applied through a pre-built AlphaComposite LUT, so steady-state frames allocate nothing.
+ * - Nothing touches Graphics2D when no warning is active.
+ * - Shower icons are scaled once and cached (Resource Pack sprite overrides respected).
  */
 public class ProceduralRenderer
 {
-    private static final int ALPHA_STEPS = 32;
+    private static final int ALPHA_STEPS = 64;
     private static final AlphaComposite[] ALPHA_LUT = new AlphaComposite[ALPHA_STEPS + 1];
 
     static
@@ -48,6 +53,19 @@ public class ProceduralRenderer
     private float smoothedGlowAlpha = 0f;
     private long lastGlowFrameNanos = 0L;
     private long showerStartNanos = 0L;
+
+    // Eased falloff shared by edges and corners: 0 = innermost (clear), 1 = screen edge (full colour)
+    private static final float[] GLOW_FRACTIONS = {0f, 0.35f, 0.65f, 0.85f, 1f};
+    private static final float[] GLOW_ALPHAS = {0f, 0.07f, 0.28f, 0.60f, 1f};
+
+    // Cached vignette paints, rebuilt only when colour or geometry changes
+    private int glowKeyRgb = -1;
+    private int glowKeyW = -1;
+    private int glowKeyH = -1;
+    private int glowKeyEdgeW = -1;
+    private int glowKeyEdgeH = -1;
+    private final java.awt.Paint[] glowPaints = new java.awt.Paint[8];
+    private Color tintColor = null;
 
     // Precomputed deterministic shower lanes (zero allocation)
     private final float[] showerPhaseOffset = new float[36];
@@ -70,6 +88,8 @@ public class ProceduralRenderer
         smoothedGlowAlpha = 0f;
         lastGlowFrameNanos = 0L;
         showerStartNanos = 0L;
+        glowKeyRgb = -1;
+        tintColor = null;
     }
 
     public void render(
@@ -131,7 +151,7 @@ public class ProceduralRenderer
         float motion = config.motionStrength() / 100f;
         double timeSec = nowNanos / 1_000_000_000.0;
 
-        // 1. Hardware-accelerated blended screen-edge vignette (4 GradientPaint strips, zero CPU pixel loops)
+        // 1. Blended screen-edge vignette (cached gradient paints: 4 edges + 4 rounded corners)
         if (masterIntensity > 0.01f && (anyStatus || anySpellGlow))
         {
             drawAcceleratedEdgeGlow(
@@ -189,6 +209,7 @@ public class ProceduralRenderer
         float bAcc = 0f;
         float weightSum = 0f;
         float maxStrength = 0f;
+        int strongestArgb = 0;
 
         float pulseHealth = 1f;
         if (statusSeverities[StatusEffect.LOW_HEALTH.ordinal()] > 0f && config.healthPulseStrength() > 0)
@@ -219,6 +240,7 @@ public class ProceduralRenderer
             if (w > maxStrength)
             {
                 maxStrength = w;
+                strongestArgb = argb;
             }
         }
 
@@ -238,6 +260,7 @@ public class ProceduralRenderer
                 if (w > maxStrength)
                 {
                     maxStrength = w;
+                    strongestArgb = argb;
                 }
             }
         }
@@ -247,9 +270,21 @@ public class ProceduralRenderer
             return;
         }
 
-        int r = Math.min(255, Math.round(rAcc / weightSum));
-        int gr = Math.min(255, Math.round(gAcc / weightSum));
-        int b = Math.min(255, Math.round(bAcc / weightSum));
+        int r;
+        int gr;
+        int b;
+        if (config.glowColorMode() == GlowColorMode.STRONGEST)
+        {
+            r = (strongestArgb >>> 16) & 0xFF;
+            gr = (strongestArgb >>> 8) & 0xFF;
+            b = strongestArgb & 0xFF;
+        }
+        else
+        {
+            r = Math.min(255, Math.round(rAcc / weightSum));
+            gr = Math.min(255, Math.round(gAcc / weightSum));
+            b = Math.min(255, Math.round(bAcc / weightSum));
+        }
 
         float depth = Math.max(0.10f, config.edgeDepth() / 100f) * 0.5f;
         float targetAlpha = Math.min(0.92f, maxStrength * masterIntensity);
@@ -266,37 +301,106 @@ public class ProceduralRenderer
         float blend = 1f - (float) Math.exp(-dtSec * 4.5f);
         smoothedGlowAlpha += (targetAlpha - smoothedGlowAlpha) * blend;
         float globalAlpha = smoothedGlowAlpha;
-        int edgeAlpha = Math.max(1, Math.min(255, Math.round(globalAlpha * 255f)));
+        if (globalAlpha <= 0.005f)
+        {
+            return;
+        }
 
-        Color edgeColor = new Color(r, gr, b, edgeAlpha);
-        Color clearColor = new Color(r, gr, b, 0);
-
-        int edgeW = Math.max(12, Math.round(width * depth));
-        int edgeH = Math.max(12, Math.round(height * depth));
+        int edgeW = Math.max(12, Math.min(width / 2, Math.round(width * depth)));
+        int edgeH = Math.max(12, Math.min(height / 2, Math.round(height * depth)));
+        int rgb = (r << 16) | (gr << 8) | b;
+        ensureGlowPaints(rgb, width, height, edgeW, edgeH);
 
         java.awt.Paint oldPaint = g.getPaint();
+        Composite oldComposite = g.getComposite();
+        g.setComposite(quantizedAlpha(globalAlpha));
 
-        // Top
-        g.setPaint(new GradientPaint(0, 0, edgeColor, 0, edgeH, clearColor));
-        g.fillRect(0, 0, width, edgeH);
-        // Bottom
-        g.setPaint(new GradientPaint(0, height, edgeColor, 0, height - edgeH, clearColor));
-        g.fillRect(0, height - edgeH, width, edgeH);
-        // Left
-        g.setPaint(new GradientPaint(0, 0, edgeColor, edgeW, 0, clearColor));
-        g.fillRect(0, 0, edgeW, height);
-        // Right
-        g.setPaint(new GradientPaint(width, 0, edgeColor, width - edgeW, 0, clearColor));
-        g.fillRect(width - edgeW, 0, edgeW, height);
+        int midW = width - 2 * edgeW;
+        int midH = height - 2 * edgeH;
+        // Edges (between the corners, so nothing is painted twice)
+        if (midW > 0)
+        {
+            g.setPaint(glowPaints[0]);
+            g.fillRect(edgeW, 0, midW, edgeH);
+            g.setPaint(glowPaints[1]);
+            g.fillRect(edgeW, height - edgeH, midW, edgeH);
+        }
+        if (midH > 0)
+        {
+            g.setPaint(glowPaints[2]);
+            g.fillRect(0, edgeH, edgeW, midH);
+            g.setPaint(glowPaints[3]);
+            g.fillRect(width - edgeW, edgeH, edgeW, midH);
+        }
+        // Rounded corners
+        g.setPaint(glowPaints[4]);
+        g.fillRect(0, 0, edgeW, edgeH);
+        g.setPaint(glowPaints[5]);
+        g.fillRect(width - edgeW, 0, edgeW, edgeH);
+        g.setPaint(glowPaints[6]);
+        g.fillRect(0, height - edgeH, edgeW, edgeH);
+        g.setPaint(glowPaints[7]);
+        g.fillRect(width - edgeW, height - edgeH, edgeW, edgeH);
 
-        float tint = (config.screenTint() / 100f) * 0.22f * globalAlpha;
+        float tint = (config.screenTint() / 100f) * 0.22f;
         if (tint > 0.01f)
         {
-            g.setColor(new Color(r, gr, b, Math.min(90, Math.round(tint * 255f))));
+            g.setComposite(quantizedAlpha(Math.min(90f / 255f, tint * globalAlpha)));
+            g.setColor(tintColor);
             g.fillRect(0, 0, width, height);
         }
 
+        g.setComposite(oldComposite);
         g.setPaint(oldPaint);
+    }
+
+    private void ensureGlowPaints(int rgb, int width, int height, int edgeW, int edgeH)
+    {
+        if (rgb == glowKeyRgb && width == glowKeyW && height == glowKeyH && edgeW == glowKeyEdgeW && edgeH == glowKeyEdgeH)
+        {
+            return;
+        }
+        glowKeyRgb = rgb;
+        glowKeyW = width;
+        glowKeyH = height;
+        glowKeyEdgeW = edgeW;
+        glowKeyEdgeH = edgeH;
+
+        Color[] colors = new Color[GLOW_FRACTIONS.length];
+        for (int i = 0; i < colors.length; i++)
+        {
+            colors[i] = new Color((rgb >>> 16) & 0xFF, (rgb >>> 8) & 0xFF, rgb & 0xFF, Math.round(GLOW_ALPHAS[i] * 255f));
+        }
+        tintColor = new Color(rgb);
+
+        // Linear edges: start = inner boundary (clear), end = screen edge (full)
+        glowPaints[0] = new LinearGradientPaint(new Point2D.Float(0, edgeH), new Point2D.Float(0, 0), GLOW_FRACTIONS, colors);
+        glowPaints[1] = new LinearGradientPaint(new Point2D.Float(0, height - edgeH), new Point2D.Float(0, height), GLOW_FRACTIONS, colors);
+        glowPaints[2] = new LinearGradientPaint(new Point2D.Float(edgeW, 0), new Point2D.Float(0, 0), GLOW_FRACTIONS, colors);
+        glowPaints[3] = new LinearGradientPaint(new Point2D.Float(width - edgeW, 0), new Point2D.Float(width, 0), GLOW_FRACTIONS, colors);
+
+        // Elliptical corners centred on each inner corner; identical falloff so edges and corners meet seamlessly
+        glowPaints[4] = cornerPaint(edgeW, edgeH, edgeW, edgeH, colors);
+        glowPaints[5] = cornerPaint(width - edgeW, edgeH, edgeW, edgeH, colors);
+        glowPaints[6] = cornerPaint(edgeW, height - edgeH, edgeW, edgeH, colors);
+        glowPaints[7] = cornerPaint(width - edgeW, height - edgeH, edgeW, edgeH, colors);
+    }
+
+    private static java.awt.Paint cornerPaint(float cx, float cy, float rx, float ry, Color[] colors)
+    {
+        AffineTransform t = new AffineTransform();
+        t.translate(cx, cy);
+        t.scale(rx, ry);
+        return new RadialGradientPaint(
+            new Point2D.Float(0f, 0f),
+            1f,
+            new Point2D.Float(0f, 0f),
+            GLOW_FRACTIONS,
+            colors,
+            MultipleGradientPaint.CycleMethod.NO_CYCLE,
+            MultipleGradientPaint.ColorSpaceType.SRGB,
+            t
+        );
     }
 
     private void drawUnifiedIconShower(
@@ -465,8 +569,9 @@ public class ProceduralRenderer
             return null;
         }
         BufferedImage raw = itemManager.getImage(itemId);
-        if (raw == null)
+        if (raw == null || !ItemOutlineCache.hasVisiblePixels(raw))
         {
+            // ItemManager images load asynchronously; never cache a still-blank placeholder
             return null;
         }
         BufferedImage scaled = scalePreserveAspect(raw, targetSize);

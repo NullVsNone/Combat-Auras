@@ -100,14 +100,34 @@ public class FoodCooldownTracker
         }
     }
 
+    private static final Object NONE = new Object();
+    private static final java.util.Map<String, Object> CLASSIFY_CACHE = new java.util.HashMap<>();
+
+    /**
+     * Memoised per item name (called for every inventory item every frame, always on the client thread).
+     */
     public static ConsumableType classify(String itemName)
     {
         if (itemName == null || itemName.isEmpty())
         {
             return null;
         }
-        String lower = itemName.toLowerCase();
+        Object cached = CLASSIFY_CACHE.get(itemName);
+        if (cached == null)
+        {
+            ConsumableType type = classifyUncached(itemName.toLowerCase());
+            cached = type != null ? type : NONE;
+            if (CLASSIFY_CACHE.size() >= 512)
+            {
+                CLASSIFY_CACHE.clear();
+            }
+            CLASSIFY_CACHE.put(itemName, cached);
+        }
+        return cached == NONE ? null : (ConsumableType) cached;
+    }
 
+    private static ConsumableType classifyUncached(String lower)
+    {
         if (lower.contains("karambwan")
             || lower.contains("toad crunchies")
             || lower.contains("choc bomb")

@@ -76,11 +76,8 @@ public class FreezeTracker
         Player local = client != null ? client.getLocalPlayer() : null;
         if (local != null)
         {
-            if (local.getPoseAnimation() != local.getIdlePoseAnimation())
-            {
-                reset();
-                return;
-            }
+            // Only a tile change proves the freeze is gone (immunity hits still play the spotanim).
+            // Pose is not used: turning in place while frozen changes the pose animation.
             if (frozenTile != null)
             {
                 WorldPoint current = local.getWorldLocation();

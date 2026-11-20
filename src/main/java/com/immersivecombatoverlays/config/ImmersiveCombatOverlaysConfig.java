@@ -4,6 +4,7 @@ import com.immersivecombatoverlays.model.AnimationMode;
 import com.immersivecombatoverlays.model.BorderStyle;
 import com.immersivecombatoverlays.model.CombatSpell;
 import com.immersivecombatoverlays.model.DisplayMode;
+import com.immersivecombatoverlays.model.GlowColorMode;
 import com.immersivecombatoverlays.model.ReadyStyle;
 import com.immersivecombatoverlays.model.ShowerStartLocation;
 import com.immersivecombatoverlays.model.SpellCooldownDisplayMode;
@@ -14,6 +15,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Notification;
 import net.runelite.client.config.Range;
 import net.runelite.client.config.Units;
 
@@ -27,13 +29,16 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigSection(name = "General Display & Performance", description = "Master screen-edge glow intensity, depth, tint, motion, and combat break timing.", position = 0)
     String generalDisplaySection = "generalDisplaySection";
 
-    @ConfigSection(name = "Shared Shower & Cooldown Style", description = "Shared icon shower layout/speed and inventory/spell cooldown border styles.", position = 1, closedByDefault = true)
+    @ConfigSection(name = "Icon Shower", description = "Shared icon shower layout, size, speed and duration.", position = 1, closedByDefault = true)
     String sharedShowerSection = "sharedShowerSection";
 
-    @ConfigSection(name = "Shared Combat Spells", description = "Master spellbook, recast-after-cast, tab glow, and shared spell display settings.", position = 2, closedByDefault = true)
+    @ConfigSection(name = "Inventory Cooldowns", description = "How cooldowns and ready indicators are drawn on inventory items, and re-dose protection.", position = 2, closedByDefault = true)
+    String inventoryStyleSection = "inventoryStyleSection";
+
+    @ConfigSection(name = "Shared Combat Spells", description = "Master spellbook, recast-after-cast, tab glow, and shared spell display settings.", position = 3, closedByDefault = true)
     String sharedSpellsSection = "sharedSpellsSection";
 
-    @ConfigSection(name = "Shared Debug Tools", description = "Global preview intensity, simulate combat, and test cooldown/grid triggers.", position = 3, closedByDefault = true)
+    @ConfigSection(name = "Shared Debug Tools", description = "Global preview intensity, simulate combat, and test cooldown/grid triggers.", position = 4, closedByDefault = true)
     String debugSection = "debugSection";
 
     @ConfigSection(name = "Low Health", description = "Low health threshold, pulse, color, glow, shower, and debug preview.", position = 10, closedByDefault = true)
@@ -136,67 +141,81 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "combatBreakReRemindSeconds", name = "Combat break re-remind", description = "Out-of-combat break duration before re-entering combat triggers a fresh reminder.", section = generalDisplaySection, position = 5)
     default int combatBreakReRemindSeconds() { return 120; }
 
+    @ConfigItem(keyName = "allowScreenGlows", name = "Allow screen glows", description = "Master switch for every screen-edge glow and tint. Turn off to keep only icons/item highlights.", section = generalDisplaySection, position = 6)
+    default boolean allowScreenGlows() { return true; }
+
+    @ConfigItem(keyName = "allowIconShowers", name = "Allow icon showers", description = "Master switch for every showering icon. Turn off to keep only glows.", section = generalDisplaySection, position = 7)
+    default boolean allowIconShowers() { return true; }
+
+    @ConfigItem(keyName = "allowItemGlows", name = "Allow item & spellbook glows", description = "Master switch for outlines/glows on inventory items, spell icons, the Magic tab and the spec orb.", section = generalDisplaySection, position = 8)
+    default boolean allowItemGlows() { return true; }
+
+    @ConfigItem(keyName = "glowColorMode", name = "Glow colour mixing", description = "When several warnings are active: blend their colours, or use the strongest warning's colour.", section = generalDisplaySection, position = 9)
+    default GlowColorMode glowColorMode() { return GlowColorMode.BLEND; }
+
     // =========================================================================
-    // 2. Shared Shower & Cooldown Style
+    // 2. Icon Shower
     // =========================================================================
 
-    @ConfigItem(keyName = "showerStartLocation", name = "Shower start edge", description = "Screen edge where showering icons spawn.", section = sharedShowerSection, position = 0)
+    @ConfigItem(keyName = "showerStartLocation", name = "Start edge", description = "Screen edge where showering icons spawn.", section = sharedShowerSection, position = 0)
     default ShowerStartLocation showerStartLocation() { return ShowerStartLocation.TOP; }
 
     @Range(min = 10, max = 100)
     @Units(Units.PERCENT)
-    @ConfigItem(keyName = "showerScreenPercent", name = "Shower travel distance", description = "Percentage of screen width/height showering icons travel.", section = sharedShowerSection, position = 1)
+    @ConfigItem(keyName = "showerScreenPercent", name = "Travel distance", description = "Percentage of screen width/height showering icons travel.", section = sharedShowerSection, position = 1)
     default int showerScreenPercent() { return 65; }
 
     @Range(min = 0, max = 120)
     @Units(Units.SECONDS)
-    @ConfigItem(keyName = "showerDurationSeconds", name = "Shower duration cap (0 = always)", description = "Max seconds to shower icons after expiry/re-remind.", section = sharedShowerSection, position = 2)
+    @ConfigItem(keyName = "showerDurationSeconds", name = "Spell shower duration (0 = always)", description = "Max seconds to shower a spell's icon after it expires or is re-reminded. Other warnings shower while active.", section = sharedShowerSection, position = 2)
     default int showerDurationSeconds() { return 12; }
 
     @Range(min = 1, max = 36)
-    @ConfigItem(keyName = "spellShowerMaxIcons", name = "Max showering icons", description = "Maximum simultaneous showering icons across all active warnings.", section = sharedSpellsSection, position = 3)
+    @ConfigItem(keyName = "spellShowerMaxIcons", name = "Max icons", description = "Maximum simultaneous showering icons across all active warnings.", section = sharedShowerSection, position = 3)
     default int spellShowerMaxIcons() { return 14; }
 
     @Range(min = 16, max = 48)
-    @ConfigItem(keyName = "spellShowerIconSize", name = "Shower icon size (px)", description = "Rendered pixel size of showering icons.", section = sharedSpellsSection, position = 4)
+    @ConfigItem(keyName = "spellShowerIconSize", name = "Icon size (px)", description = "Rendered pixel size of showering icons.", section = sharedShowerSection, position = 4)
     default int spellShowerIconSize() { return 26; }
 
     @Range(min = 20, max = 250)
     @Units(Units.PERCENT)
-    @ConfigItem(keyName = "spellShowerSpeed", name = "Icon shower speed", description = "Speed multiplier for showering icons.", section = sharedSpellsSection, position = 5)
+    @ConfigItem(keyName = "spellShowerSpeed", name = "Speed", description = "Speed multiplier for showering icons.", section = sharedShowerSection, position = 5)
     default int spellShowerSpeed() { return 100; }
 
-    @ConfigItem(keyName = "spellCooldownDisplayMode", name = "Spell cooldown style", description = "How remaining recast time is drawn over spell widgets.", section = sharedSpellsSection, position = 6)
-    default SpellCooldownDisplayMode spellCooldownDisplayMode() { return SpellCooldownDisplayMode.FILL_AND_TEXT; }
+    // =========================================================================
+    // 2b. Inventory Cooldowns
+    // =========================================================================
 
-    @Alpha
-    @ConfigItem(keyName = "spellCooldownOverlayColor", name = "Spell cooldown tint", description = "Translucent tint drawn over spells while on cooldown.", section = sharedSpellsSection, position = 7)
-    default Color spellCooldownOverlayColor() { return new Color(0, 0, 0, 145); }
-
-    @ConfigItem(keyName = "displayMode", name = "Inventory cooldown style", description = "How cooldowns are rendered over inventory items.", section = sharedShowerSection, position = 8)
+    @ConfigItem(keyName = "displayMode", name = "Cooldown style", description = "How cooldowns are rendered over inventory items.", section = inventoryStyleSection, position = 0)
     default DisplayMode displayMode() { return DisplayMode.ITEM_FILL; }
 
     @Alpha
-    @ConfigItem(keyName = "cooldownOverlayColor", name = "Inventory cooldown tint", description = "Color used for inventory item cooldown fills/circles.", section = sharedShowerSection, position = 9)
+    @ConfigItem(keyName = "cooldownOverlayColor", name = "Cooldown tint", description = "Color used for inventory item cooldown fills/circles.", section = inventoryStyleSection, position = 1)
     default Color cooldownOverlayColor() { return new Color(0, 0, 0, 140); }
 
-    @ConfigItem(keyName = "showCooldownTimer", name = "Show inventory timer text", description = "Draw remaining seconds over inventory items on cooldown.", section = sharedShowerSection, position = 10)
+    @ConfigItem(keyName = "showCooldownTimer", name = "Show timer text", description = "Draw remaining seconds over inventory items on cooldown.", section = inventoryStyleSection, position = 2)
     default boolean showCooldownTimer() { return true; }
 
-    @ConfigItem(keyName = "readyStyle", name = "Inventory ready animation", description = "Highlight style when an item cooldown finishes.", section = sharedShowerSection, position = 11)
+    @ConfigItem(keyName = "readyStyle", name = "Ready animation", description = "Single flash: one fade-out. Pulse: repeating. Solid: steady. None: no ready highlight.", section = inventoryStyleSection, position = 3)
     default ReadyStyle readyStyle() { return ReadyStyle.SINGLE_FLASH; }
 
-    @ConfigItem(keyName = "borderStyle", name = "Inventory ready border", description = "Outline style around ready inventory items.", section = sharedShowerSection, position = 12)
+    @ConfigItem(keyName = "borderStyle", name = "Ready border", description = "Outline style around inventory items whose cooldown just finished.", section = inventoryStyleSection, position = 4)
     default BorderStyle borderStyle() { return BorderStyle.ITEM_OUTLINE; }
 
-    @ConfigItem(keyName = "animationMode", name = "Inventory ready duration", description = "Whether the ready indicator is timed or permanent.", section = sharedShowerSection, position = 13)
+    @ConfigItem(keyName = "animationMode", name = "Ready duration", description = "Timed: highlight for the duration below after the cooldown ends. Permanent: until the item is used again.", section = inventoryStyleSection, position = 5)
     default AnimationMode animationMode() { return AnimationMode.TIMED; }
 
+    @Range(min = 1, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "readyDurationSeconds", name = "Timed duration", description = "How long the ready highlight lasts when Ready duration is Timed.", section = inventoryStyleSection, position = 6)
+    default int readyDurationSeconds() { return 4; }
+
     @Alpha
-    @ConfigItem(keyName = "readyColor", name = "Inventory ready color", description = "Color used for inventory item ready flash/outline.", section = sharedShowerSection, position = 14)
+    @ConfigItem(keyName = "readyColor", name = "Ready color", description = "Color used for inventory item ready flash/outline.", section = inventoryStyleSection, position = 7)
     default Color readyColor() { return new Color(56, 224, 130, 210); }
 
-    @ConfigItem(keyName = "repotProtectionEnabled", name = "Re-dose protection", description = "Deprioritize left-click Drink/Invigorate/Apply/Crush on items still on cooldown.", section = sharedShowerSection, position = 15)
+    @ConfigItem(keyName = "repotProtectionEnabled", name = "Re-dose protection", description = "Deprioritize left-click Drink/Invigorate/Apply/Crush on items still on cooldown.", section = inventoryStyleSection, position = 8)
     default boolean repotProtectionEnabled() { return true; }
 
     // =========================================================================
@@ -366,8 +385,8 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "idleAutoHideSeconds", name = "Auto-hide delay", description = "Seconds after critical time before auto-hiding.", section = warnIdleSection, position = 5)
     default int idleAutoHideSeconds() { return 5; }
 
-    @ConfigItem(keyName = "idleDesktopNotify", name = "Desktop notification", description = "Send a RuneLite desktop notification at critical idle time.", section = warnIdleSection, position = 6)
-    default boolean idleDesktopNotify() { return false; }
+    @ConfigItem(keyName = "idleNotification", name = "Notification", description = "RuneLite notification (sound, tray, flash - configurable) sent once at critical idle time.", section = warnIdleSection, position = 6)
+    default Notification idleNotification() { return Notification.OFF; }
 
     @Alpha
     @ConfigItem(keyName = "idleColor", name = "Color", description = "Color of the idle screen-edge glow.", section = warnIdleSection, position = 7)
@@ -467,15 +486,18 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "buffReminderColor", name = "Potions: Color", description = "Color when an inventory buff/potion expires.", section = warnPotionsBuffsSection, position = 17)
     default Color buffReminderColor() { return new Color(65, 215, 145, 200); }
 
-    @ConfigItem(keyName = "buffOnlyRemindAfterUse", name = "Heart/Buffs: Only remind after use", description = "Only remind when a Heart or buff/utility potion expires after you use it (prevents alerts on combat start for unused items in inventory).", section = warnPotionsBuffsSection, position = 16)
+    @ConfigItem(keyName = "buffOnlyRemindAfterUse", name = "Heart/Buffs: Only remind after use", description = "Only remind when a Heart or buff/utility potion expires after you use it (prevents alerts on combat start for unused items in inventory).", section = warnPotionsBuffsSection, position = 18)
     default boolean buffOnlyRemindAfterUse() { return true; }
 
-    @ConfigItem(keyName = "boostPreRemind", name = "Boosts: Pre-remind before expiry", description = "Remind before boost potions drop below threshold (off = remind on expiry only).", section = warnPotionsBuffsSection, position = 17)
+    @ConfigItem(keyName = "buffOnlyInCombat", name = "Heart/Buffs: Only remind in combat", description = "Only show Heart and potion screen reminders while in combat.", section = warnPotionsBuffsSection, position = 19)
+    default boolean buffOnlyInCombat() { return true; }
+
+    @ConfigItem(keyName = "boostPreRemind", name = "Boosts: Pre-remind before expiry", description = "Remind before boost potions drop below threshold (off = remind on expiry only).", section = warnPotionsBuffsSection, position = 20)
     default boolean boostPreRemind() { return false; }
 
     @Range(min = 0, max = 30)
     @Units(Units.SECONDS)
-    @ConfigItem(keyName = "buffExpiryLeadSeconds", name = "Boosts: Pre-expiry lead", description = "Seconds BEFORE boost potion drops below threshold when pre-remind is enabled.", section = warnPotionsBuffsSection, position = 18)
+    @ConfigItem(keyName = "buffExpiryLeadSeconds", name = "Boosts: Pre-expiry lead", description = "Seconds BEFORE boost potion drops below threshold when pre-remind is enabled.", section = warnPotionsBuffsSection, position = 21)
     default int buffExpiryLeadSeconds() { return 3; }
 
     @ConfigItem(keyName = "unpottedEnabled", name = "Enable", description = "Warn when gaining combat XP without a stat boost (ignores alching; supports cannon).", section = warnUnpottedSection, position = 20)
@@ -531,12 +553,22 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellbookTabGlow", name = "Glow Magic tab icon", description = "Glow the Magic spellbook book icon when any tracked spell is ready.", section = sharedSpellsSection, position = 6)
     default boolean spellbookTabGlow() { return true; }
 
+    @ConfigItem(keyName = "spellBorderStyle", name = "Spellbook glow style", description = "Glow style for ready spells, the Magic tab and the spec orb (independent of the inventory ready border).", section = sharedSpellsSection, position = 7)
+    default BorderStyle spellBorderStyle() { return BorderStyle.SOFT_GLOW; }
+
+    @ConfigItem(keyName = "spellCooldownDisplayMode", name = "Spell cooldown style", description = "How remaining recast time is drawn over spell widgets.", section = sharedSpellsSection, position = 8)
+    default SpellCooldownDisplayMode spellCooldownDisplayMode() { return SpellCooldownDisplayMode.FILL_AND_TEXT; }
+
+    @Alpha
+    @ConfigItem(keyName = "spellCooldownOverlayColor", name = "Spell cooldown tint", description = "Translucent tint drawn over spells while on cooldown.", section = sharedSpellsSection, position = 9)
+    default Color spellCooldownOverlayColor() { return new Color(0, 0, 0, 145); }
+
     // Per-spell controls
     @ConfigItem(keyName = "spellThrallEnabled", name = "Enable", description = "Track Resurrect Thrall.", section = spellThrallSection, position = 10)
     default boolean spellThrallEnabled() { return true; }
 
-    @ConfigItem(keyName = "thrallDurationTier", name = "CA duration", description = "Combat Achievement tier scaling (100%, 150%, 200%).", section = spellThrallSection, position = 11)
-    default ThrallDurationTier thrallDurationTier() { return ThrallDurationTier.STANDARD; }
+    @ConfigItem(keyName = "thrallDurationTier", name = "CA duration", description = "Thrall duration doubles once the Master Combat Achievement tier is complete. Auto-detect reads it from the game.", section = spellThrallSection, position = 11)
+    default ThrallDurationTier thrallDurationTier() { return ThrallDurationTier.AUTO; }
 
     @Alpha
     @ConfigItem(keyName = "spellThrallColor", name = "Color", description = "Glow color for Resurrect Thrall.", section = spellThrallSection, position = 12)
@@ -606,12 +638,30 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellShadowVeilColor", name = "Color", description = "Glow color for Shadow Veil.", section = spellShadowVeilSection, position = 51)
     default Color spellShadowVeilColor() { return new Color(140, 120, 190, 200); }
 
-    @ConfigItem(keyName = "spellCorruptionEnabled", name = "Enable", description = "Track Lesser/Greater Corruption.", section = spellCorruptionSection, position = 52)
+    @ConfigItem(keyName = "spellShadowVeilGlow", name = "Screen glow", description = "Show screen glow for Shadow Veil.", section = spellShadowVeilSection, position = 52)
+    default boolean spellShadowVeilGlow() { return true; }
+
+    @ConfigItem(keyName = "spellShadowVeilShower", name = "Shower icon", description = "Shower Shadow Veil icon.", section = spellShadowVeilSection, position = 53)
+    default boolean spellShadowVeilShower() { return true; }
+
+    @ConfigItem(keyName = "spellShadowVeilSpellbook", name = "Spellbook glow", description = "Glow Shadow Veil in spellbook.", section = spellShadowVeilSection, position = 54)
+    default boolean spellShadowVeilSpellbook() { return true; }
+
+    @ConfigItem(keyName = "spellCorruptionEnabled", name = "Enable", description = "Track Lesser/Greater Corruption recast cooldown.", section = spellCorruptionSection, position = 55)
     default boolean spellCorruptionEnabled() { return false; }
 
     @Alpha
-    @ConfigItem(keyName = "spellCorruptionColor", name = "Color", description = "Glow color for Corruption.", section = spellCorruptionSection, position = 53)
+    @ConfigItem(keyName = "spellCorruptionColor", name = "Color", description = "Glow color for Corruption.", section = spellCorruptionSection, position = 56)
     default Color spellCorruptionColor() { return new Color(180, 70, 220, 200); }
+
+    @ConfigItem(keyName = "spellCorruptionGlow", name = "Screen glow", description = "Show screen glow for Corruption.", section = spellCorruptionSection, position = 57)
+    default boolean spellCorruptionGlow() { return true; }
+
+    @ConfigItem(keyName = "spellCorruptionShower", name = "Shower icon", description = "Shower Corruption icon.", section = spellCorruptionSection, position = 58)
+    default boolean spellCorruptionShower() { return true; }
+
+    @ConfigItem(keyName = "spellCorruptionSpellbook", name = "Spellbook glow", description = "Glow Corruption in spellbook.", section = spellCorruptionSection, position = 59)
+    default boolean spellCorruptionSpellbook() { return true; }
 
     @ConfigItem(keyName = "spellVengeanceEnabled", name = "Enable", description = "Track Vengeance recast cooldown.", section = spellVengeanceSection, position = 60)
     default boolean spellVengeanceEnabled() { return true; }
@@ -636,12 +686,30 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellVengeanceOtherColor", name = "Color", description = "Glow color for Vengeance Other.", section = spellVengeanceOtherSection, position = 71)
     default Color spellVengeanceOtherColor() { return new Color(235, 190, 60, 200); }
 
-    @ConfigItem(keyName = "spellChargeEnabled", name = "Enable", description = "Track Charge (God Spells) expiry.", section = spellChargeSection, position = 74)
+    @ConfigItem(keyName = "spellVengeanceOtherGlow", name = "Screen glow", description = "Show screen glow for Vengeance Other.", section = spellVengeanceOtherSection, position = 72)
+    default boolean spellVengeanceOtherGlow() { return true; }
+
+    @ConfigItem(keyName = "spellVengeanceOtherShower", name = "Shower icon", description = "Shower Vengeance Other icon.", section = spellVengeanceOtherSection, position = 73)
+    default boolean spellVengeanceOtherShower() { return true; }
+
+    @ConfigItem(keyName = "spellVengeanceOtherSpellbook", name = "Spellbook glow", description = "Glow Vengeance Other in spellbook.", section = spellVengeanceOtherSection, position = 74)
+    default boolean spellVengeanceOtherSpellbook() { return true; }
+
+    @ConfigItem(keyName = "spellChargeEnabled", name = "Enable", description = "Track Charge (God Spells) expiry.", section = spellChargeSection, position = 80)
     default boolean spellChargeEnabled() { return false; }
 
     @Alpha
-    @ConfigItem(keyName = "spellChargeColor", name = "Color", description = "Glow color for Charge.", section = spellChargeSection, position = 75)
+    @ConfigItem(keyName = "spellChargeColor", name = "Color", description = "Glow color for Charge.", section = spellChargeSection, position = 81)
     default Color spellChargeColor() { return new Color(250, 204, 21, 200); }
+
+    @ConfigItem(keyName = "spellChargeGlow", name = "Screen glow", description = "Show screen glow for Charge.", section = spellChargeSection, position = 82)
+    default boolean spellChargeGlow() { return true; }
+
+    @ConfigItem(keyName = "spellChargeShower", name = "Shower icon", description = "Shower Charge icon.", section = spellChargeSection, position = 83)
+    default boolean spellChargeShower() { return true; }
+
+    @ConfigItem(keyName = "spellChargeSpellbook", name = "Spellbook glow", description = "Glow Charge in spellbook.", section = spellChargeSection, position = 84)
+    default boolean spellChargeSpellbook() { return true; }
 
     // =========================================================================
     // 9. Debug Preview
@@ -676,7 +744,7 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "debugPoison", name = "Debug preview", description = "Preview poison vignette & green hitsplat icon.", section = warnPoisonSection, position = 12)
     default boolean debugPoison() { return false; }
 
-    @ConfigItem(keyName = "debugVenom", name = "Debug preview", description = "Preview venom vignette & anti-venom icon.", section = warnVenomSection, position = 13)
+    @ConfigItem(keyName = "debugVenom", name = "Debug preview", description = "Preview venom vignette & anti-venom icon.", section = warnVenomSection, position = 14)
     default boolean debugVenom() { return false; }
 
     @ConfigItem(keyName = "debugDisease", name = "Debug preview", description = "Preview disease vignette & disease hitsplat icon.", section = warnDiseaseSection, position = 14)
@@ -691,13 +759,13 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "debugIdle", name = "Debug preview", description = "Preview idle vignette & Lunar Dream icon.", section = warnIdleSection, position = 17)
     default boolean debugIdle() { return false; }
 
-    @ConfigItem(keyName = "debugSpecReady", name = "Debug preview", description = "Preview spec ready vignette, orb glow & crossed swords icon.", section = warnSpecSection, position = 18)
+    @ConfigItem(keyName = "debugSpecReady", name = "Debug preview", description = "Preview spec ready vignette, orb glow & crossed swords icon.", section = warnSpecSection, position = 22)
     default boolean debugSpecReady() { return false; }
 
     @ConfigItem(keyName = "debugLowRun", name = "Debug preview", description = "Preview low run energy vignette & Run orb icon.", section = warnLowRunSection, position = 19)
     default boolean debugLowRun() { return false; }
 
-    @ConfigItem(keyName = "debugUnpotted", name = "Debug preview", description = "Preview unpotted alert vignette & Stats (three bars) icon.", section = warnUnpottedSection, position = 20)
+    @ConfigItem(keyName = "debugUnpotted", name = "Debug preview", description = "Preview unpotted alert vignette & Stats (three bars) icon.", section = warnUnpottedSection, position = 26)
     default boolean debugUnpotted() { return false; }
 
     @ConfigItem(keyName = "debugHeartReady", name = "Debug preview", description = "Preview Imbued/Saturated Heart screen glow & icon shower.", section = warnHeartSection, position = 21)
@@ -773,7 +841,7 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     static boolean isSpellGlowEnabled(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
     {
-        if (!config.spellScreenGlow())
+        if (!config.allowScreenGlows() || !config.spellScreenGlow())
         {
             return false;
         }
@@ -783,14 +851,18 @@ public interface ImmersiveCombatOverlaysConfig extends Config
             case DEATH_CHARGE: return config.spellDeathChargeGlow();
             case MARK_OF_DARKNESS: return config.spellMarkOfDarknessGlow();
             case WARD_OF_ARCEUUS: return config.spellWardOfArceuusGlow();
+            case SHADOW_VEIL: return config.spellShadowVeilGlow();
+            case CORRUPTION: return config.spellCorruptionGlow();
             case VENGEANCE: return config.spellVengeanceGlow();
-            default: return true;
+            case VENGEANCE_OTHER: return config.spellVengeanceOtherGlow();
+            case CHARGE: return config.spellChargeGlow();
+            default: return false;
         }
     }
 
     static boolean isSpellShowerEnabled(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
     {
-        if (!config.spellShowerIcons())
+        if (!config.allowIconShowers() || !config.spellShowerIcons())
         {
             return false;
         }
@@ -800,14 +872,18 @@ public interface ImmersiveCombatOverlaysConfig extends Config
             case DEATH_CHARGE: return config.spellDeathChargeShower();
             case MARK_OF_DARKNESS: return config.spellMarkOfDarknessShower();
             case WARD_OF_ARCEUUS: return config.spellWardOfArceuusShower();
+            case SHADOW_VEIL: return config.spellShadowVeilShower();
+            case CORRUPTION: return config.spellCorruptionShower();
             case VENGEANCE: return config.spellVengeanceShower();
-            default: return true;
+            case VENGEANCE_OTHER: return config.spellVengeanceOtherShower();
+            case CHARGE: return config.spellChargeShower();
+            default: return false;
         }
     }
 
     static boolean isSpellbookGlowEnabled(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
     {
-        if (!config.spellGlowInSpellbook())
+        if (!config.allowItemGlows() || !config.spellGlowInSpellbook())
         {
             return false;
         }
@@ -817,8 +893,12 @@ public interface ImmersiveCombatOverlaysConfig extends Config
             case DEATH_CHARGE: return config.spellDeathChargeSpellbook();
             case MARK_OF_DARKNESS: return config.spellMarkOfDarknessSpellbook();
             case WARD_OF_ARCEUUS: return config.spellWardOfArceuusSpellbook();
+            case SHADOW_VEIL: return config.spellShadowVeilSpellbook();
+            case CORRUPTION: return config.spellCorruptionSpellbook();
             case VENGEANCE: return config.spellVengeanceSpellbook();
-            default: return true;
+            case VENGEANCE_OTHER: return config.spellVengeanceOtherSpellbook();
+            case CHARGE: return config.spellChargeSpellbook();
+            default: return false;
         }
     }
 

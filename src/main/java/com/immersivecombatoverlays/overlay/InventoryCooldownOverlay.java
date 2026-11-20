@@ -19,7 +19,8 @@ import javax.inject.Singleton;
 import net.runelite.api.Client;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import net.runelite.api.InventoryID;
+import net.runelite.api.gameval.InventoryID;
+import com.immersivecombatoverlays.model.AnimationMode;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
@@ -44,6 +45,12 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
     private final ItemOutlineCache prayerOutlineCache = new ItemOutlineCache();
     private final CooldownRenderer renderer;
     private final Map<Integer, String> itemNameCache = new ConcurrentHashMap<>();
+
+    // Per-inventory-slot ready transition tracking (no per-frame allocation)
+    private static final int SLOT_COUNT = 28;
+    private final int[] slotItemId = new int[SLOT_COUNT];
+    private final boolean[] slotWasCooling = new boolean[SLOT_COUNT];
+    private final long[] slotReadySinceNanos = new long[SLOT_COUNT];
 
     @Inject
     public InventoryCooldownOverlay(
@@ -74,11 +81,55 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
     {
         itemNameCache.clear();
         prayerOutlineCache.clear();
+        java.util.Arrays.fill(slotItemId, 0);
+        java.util.Arrays.fill(slotWasCooling, false);
+        java.util.Arrays.fill(slotReadySinceNanos, 0L);
+    }
+
+    /**
+     * Strength of the ready highlight for the item in {@code slot}. The highlight only appears after we saw the
+     * item on cooldown and it finished, so unused potions sitting in the inventory never glow.
+     */
+    public float trackReady(int slot, int itemId, boolean ready, long nowNanos)
+    {
+        if (slot < 0 || slot >= SLOT_COUNT)
+        {
+            return 0f;
+        }
+        if (slotItemId[slot] != itemId)
+        {
+            slotItemId[slot] = itemId;
+            slotWasCooling[slot] = false;
+            slotReadySinceNanos[slot] = 0L;
+        }
+        if (!ready)
+        {
+            slotWasCooling[slot] = true;
+            slotReadySinceNanos[slot] = 0L;
+            return 0f;
+        }
+        if (!slotWasCooling[slot])
+        {
+            return 0f;
+        }
+        if (slotReadySinceNanos[slot] == 0L)
+        {
+            slotReadySinceNanos[slot] = nowNanos;
+        }
+        boolean permanent = config.animationMode() == AnimationMode.PERMANENT;
+        float strength = CooldownRenderer.readyStrength(
+            config.readyStyle(), permanent, config.readyDurationSeconds(), nowNanos - slotReadySinceNanos[slot], nowNanos);
+        if (strength <= 0f && !permanent)
+        {
+            // Highlight finished: forget the transition until the next cooldown
+            slotWasCooling[slot] = false;
+        }
+        return strength;
     }
 
     public void cacheInventoryItemNames()
     {
-        ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
+        ItemContainer inv = client.getItemContainer(InventoryID.INV);
         if (inv == null)
         {
             return;
@@ -109,7 +160,7 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         String name = itemNameCache.get(itemId);
 
         // Glow prayer-restore potions in inventory when Low Prayer is active
-        if (config.lowPrayerInventoryGlow() && statusOverlay != null && statusOverlay.isPrayerLow() && isPrayerRestoreItem(name))
+        if (config.allowItemGlows() && config.lowPrayerInventoryGlow() && statusOverlay != null && statusOverlay.isPrayerLow() && isPrayerRestoreItem(name))
         {
             BufferedImage outline = prayerOutlineCache.getOutline(itemManager, itemId, config.lowPrayerColor());
             if (outline != null)
@@ -129,9 +180,11 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         {
             cooldown = foodTracker.getCooldown(name);
         }
+        int slot = widgetItem.getWidget() != null ? widgetItem.getWidget().getIndex() : -1;
+        boolean debugSlot = false;
         if (cooldown == null && config.debugPreviewInventory())
         {
-            int idx = widgetItem.getWidget() != null ? widgetItem.getWidget().getIndex() : (itemId & 3);
+            int idx = slot >= 0 ? slot : (itemId & 3);
             if (idx >= 0 && idx < 4)
             {
                 long cycleMs = (System.currentTimeMillis() + idx * 1800L) % 8000L;
@@ -144,12 +197,17 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
                 {
                     cooldown = Cooldown.ready();
                 }
+                debugSlot = true;
             }
         }
         if (cooldown == null)
         {
             return;
         }
+
+        float readyStrength = debugSlot
+            ? CooldownRenderer.readyStrength(config.readyStyle(), true, config.readyDurationSeconds(), 0L, nowNanos)
+            : trackReady(slot, itemId, cooldown.isReady(), nowNanos);
 
         renderer.renderItemCooldown(
             graphics,
@@ -158,7 +216,8 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
             cooldown,
             config,
             itemManager,
-            nowNanos
+            nowNanos,
+            readyStrength
         );
     }
     public static boolean isPrayerRestoreItem(String name)

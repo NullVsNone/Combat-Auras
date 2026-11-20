@@ -2,15 +2,17 @@ package com.immersivecombatoverlays.tracker;
 
 import com.immersivecombatoverlays.model.Cooldown;
 import net.runelite.api.Client;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.VarbitID;
 
 /**
  * Tracks the shared Imbued Heart (700 ticks) / Saturated Heart (500 ticks) cooldown.
+ * The game exposes it as IMBUED_HEART_TIMER in 10-tick buckets; we interpolate between buckets.
  */
 public class HeartCooldownTracker
 {
-    public static final int IMBUED_HEART_ID = 20724;
-    public static final int SATURATED_HEART_ID = 27641;
-    private static final int VARBIT_IMBUED_HEART_COOLDOWN = 5361;
+    public static final int IMBUED_HEART_ID = ItemID.IMBUED_HEART;
+    public static final int SATURATED_HEART_ID = ItemID.SATURATED_HEART;
     private static final int HEART_BUCKET_TICKS = 10;
     private static final int IMBUED_TOTAL_TICKS = 700;
     private static final int SATURATED_TOTAL_TICKS = 500;
@@ -19,6 +21,7 @@ public class HeartCooldownTracker
     private int lastVarbitValue = 0;
     private boolean saturated = false;
     private boolean usedThisSession = false;
+    private boolean debug = false;
 
     public void reset()
     {
@@ -26,53 +29,70 @@ public class HeartCooldownTracker
         lastVarbitValue = 0;
         saturated = false;
         usedThisSession = false;
+        debug = false;
     }
 
     public void onGameTick(Client client, boolean hasSaturatedHeart)
     {
         saturated = hasSaturatedHeart;
-        int varbit = client.getVarbitValue(VARBIT_IMBUED_HEART_COOLDOWN);
-        if (varbit <= 0)
+        if (debug)
         {
-            if (lastVarbitValue == 3 && remainingTicks > 0)
+            if (remainingTicks > 0)
             {
                 remainingTicks--;
-                if (remainingTicks == 0) lastVarbitValue = 0;
-                return;
             }
-            remainingTicks = 0;
-            lastVarbitValue = 0;
             return;
         }
 
-        if (varbit != lastVarbitValue)
+        int varbit = client.getVarbitValue(VarbitID.IMBUED_HEART_TIMER);
+        if (varbit <= 0)
         {
-            lastVarbitValue = varbit;
+            // Cooldown finished, or reset by death
+            remainingTicks = 0;
+        }
+        else if (varbit > lastVarbitValue)
+        {
+            remainingTicks = varbit * HEART_BUCKET_TICKS;
+            usedThisSession = true;
+        }
+        else if (varbit == lastVarbitValue && remainingTicks > 0)
+        {
+            remainingTicks = Math.max((varbit - 1) * HEART_BUCKET_TICKS + 1, remainingTicks - 1);
+        }
+        else
+        {
             remainingTicks = varbit * HEART_BUCKET_TICKS;
         }
-        else if (remainingTicks > 0)
-        {
-            remainingTicks--;
-        }
+        lastVarbitValue = Math.max(0, varbit);
     }
 
     public void triggerDebugCooldown()
     {
         remainingTicks = 25;
         usedThisSession = true;
-        lastVarbitValue = 3;
+        debug = true;
+    }
+
+    public void clearDebugCooldown()
+    {
+        if (debug)
+        {
+            debug = false;
+            remainingTicks = 0;
+            lastVarbitValue = 0;
+        }
     }
 
     public Cooldown getCooldown(int itemId)
     {
         if (remainingTicks <= 0)
         {
-            return Cooldown.ready();
+            return Cooldown.READY;
         }
         int total = (itemId == SATURATED_HEART_ID || saturated)
             ? SATURATED_TOTAL_TICKS
             : IMBUED_TOTAL_TICKS;
-        return Cooldown.active(remainingTicks, total);
+        return Cooldown.active(remainingTicks, Math.max(total, remainingTicks));
     }
 
     public static boolean isHeart(int itemId)

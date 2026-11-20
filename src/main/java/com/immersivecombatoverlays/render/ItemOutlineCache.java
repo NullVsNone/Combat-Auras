@@ -19,6 +19,27 @@ public class ItemOutlineCache
     private final Map<Long, BufferedImage> auraCache = new HashMap<>();
     private final Map<Long, BufferedImage> fillMaskCache = new HashMap<>();
 
+    /**
+     * ItemManager returns images that load asynchronously and are fully transparent until loaded.
+     * Building (and caching) an outline from such a placeholder would leave the item permanently un-highlighted.
+     */
+    public static boolean hasVisiblePixels(BufferedImage image)
+    {
+        int w = image.getWidth();
+        int h = image.getHeight();
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                if ((image.getRGB(x, y) >>> 24) != 0)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public void clear()
     {
         outlineCache.clear();
@@ -39,7 +60,7 @@ public class ItemOutlineCache
             return null;
         }
         BufferedImage sprite = itemManager.getImage(itemId);
-        if (sprite == null)
+        if (sprite == null || !hasVisiblePixels(sprite))
         {
             return null;
         }
@@ -65,7 +86,7 @@ public class ItemOutlineCache
             return null;
         }
         BufferedImage sprite = itemManager.getImage(itemId);
-        if (sprite == null)
+        if (sprite == null || !hasVisiblePixels(sprite))
         {
             return null;
         }
@@ -91,7 +112,7 @@ public class ItemOutlineCache
             return null;
         }
         BufferedImage sprite = itemManager.getImage(itemId);
-        if (sprite == null)
+        if (sprite == null || !hasVisiblePixels(sprite))
         {
             return null;
         }

@@ -1,38 +1,45 @@
 package com.immersivecombatoverlays.model;
 
+import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
+
 /**
- * Potion and raid consumable effects tracked by varbit/varplayer or chat confirmation.
- * Mirrors the 27 effects from runelite-cd-overlay.
+ * Potion and raid consumable effects. Variable IDs and tick multipliers mirror RuneLite's
+ * core Timers & Buffs plugin so remaining time matches what the game reports.
  */
 public enum PotionEffect
 {
-    SURGE("Surge potion", -1, false, 1, 500, Category.COOLDOWN),
-    OVERLOAD("Overload", 3953, false, 25, 500, Category.RAID),
-    NMZ_OVERLOAD("NMZ Overload", 3953, false, 25, 500, Category.RAID),
-    BLIGHTED_OVERLOAD("Blighted overload", 3953, false, 25, 500, Category.RAID),
-    PRAYER_ENHANCE("Prayer enhance", 3954, false, 10, 485, Category.RAID),
-    SMELLING_SALTS("Smelling salts", 14334, false, 25, 800, Category.RAID),
-    LIQUID_ADRENALINE("Liquid adrenaline", 14333, false, 1, 250, Category.RAID),
-    SILK_DRESSING("Silk dressing", -1, false, 1, 100, Category.RAID),
-    BLESSED_CRYSTAL_SCARAB("Blessed crystal scarab", -1, false, 1, 100, Category.RAID),
-    STAMINA("Stamina", 24, false, 10, 200, Category.EFFECT),
-    GOADING("Goading", 11273, false, 1, 600, Category.EFFECT),
-    MENAPHITE_REMEDY("Menaphite remedy", 14459, false, 1, 500, Category.EFFECT),
-    MOONLIGHT("Moonlight", 10440, false, 1, 350, Category.RAID),
-    PRAYER_REGENERATION("Prayer regeneration", 11362, false, 1, 800, Category.EFFECT),
-    ANTIFIRE("Antifire", 3981, false, 10, 600, Category.EFFECT),
-    SUPER_ANTIFIRE("Super antifire", 6101, false, 10, 300, Category.EFFECT),
-    ANTIPOISON("Antipoison", 102, true, 1, 150, Category.EFFECT),
-    ANTIVENOM("Anti-venom", 102, true, 1, 300, Category.EFFECT),
-    DIVINE_ATTACK("Divine attack", 8429, false, 1, 500, Category.EFFECT),
-    DIVINE_STRENGTH("Divine strength", 8430, false, 1, 500, Category.EFFECT),
-    DIVINE_DEFENCE("Divine defence", 8431, false, 1, 500, Category.EFFECT),
-    DIVINE_RANGING("Divine ranging", 8432, false, 1, 500, Category.EFFECT),
-    DIVINE_MAGIC("Divine magic", 8433, false, 1, 500, Category.EFFECT),
-    DIVINE_COMBAT("Divine super combat", 8430, false, 1, 500, Category.EFFECT),
-    DIVINE_BASTION("Divine bastion", 13663, false, 1, 500, Category.EFFECT),
-    DIVINE_BATTLEMAGE("Divine battlemage", 13664, false, 1, 500, Category.EFFECT),
-    GUTHIX_REST("Guthix rest", -1, false, 1, 0, Category.EFFECT);
+    SURGE("Surge potion", Source.VAR_SCALED, 10, 500, Category.COOLDOWN, VarbitID.SURGE_POTION_TIMER),
+    OVERLOAD("Overload", Source.VAR_SCALED, 25, 500, Category.RAID,
+        VarbitID.RAIDS_OVERLOAD_TIMER, VarbitID.NZONE_OVERLOAD_POTION_EFFECTS),
+    BLIGHTED_OVERLOAD("Blighted overload", Source.VAR_SCALED, 25, 500, Category.RAID, VarbitID.DEADMAN_OVERLOAD_POTION_EFFECTS),
+    PRAYER_ENHANCE("Prayer enhance", Source.VAR_FLAG, 0, 483, Category.RAID, VarbitID.RAIDS_PRAYERENHANCE_TIMER),
+    SMELLING_SALTS("Smelling salts", Source.VAR_SCALED, 25, 800, Category.RAID, VarbitID.TOA_MIDRAIDLOOT_STATS_TIMER),
+    LIQUID_ADRENALINE("Liquid adrenaline", Source.VAR_FLAG, 0, 250, Category.RAID, VarbitID.TOA_MIDRAIDLOOT_ENERGY_ACTIVE),
+    SILK_DRESSING("Silk dressing", Source.CHAT, 0, 100, Category.RAID),
+    BLESSED_CRYSTAL_SCARAB("Blessed crystal scarab", Source.CHAT, 0, 40, Category.RAID),
+    STAMINA("Stamina", Source.VAR_SCALED, 10, 200, Category.EFFECT, VarbitID.STAMINA_DURATION),
+    GOADING("Goading", Source.VAR_SCALED, 6, 600, Category.EFFECT, VarbitID.GOADING_POTION_TIMER),
+    MENAPHITE_REMEDY("Menaphite remedy", Source.VAR_SCALED, 25, 500, Category.EFFECT, VarbitID.STATRENEWAL_POTION_TIMER),
+    MOONLIGHT("Moonlight", Source.VAR_SCALED, 1, 350, Category.EFFECT, VarbitID.MOONLIGHT_POTION_TIME),
+    PRAYER_REGENERATION("Prayer regeneration", Source.VAR_SCALED, 12, 800, Category.EFFECT, VarbitID.PRAYER_REGENERATION_POTION_TIMER),
+    ANTIFIRE("Antifire", Source.VAR_SCALED, 30, 600, Category.EFFECT, VarbitID.ANTIFIRE_POTION),
+    SUPER_ANTIFIRE("Super antifire", Source.VAR_SCALED, 20, 300, Category.EFFECT, VarbitID.SUPER_ANTIFIRE_POTION),
+    ANTIPOISON("Antipoison", Source.POISON_VARP, 0, 150, Category.EFFECT),
+    ANTIVENOM("Anti-venom", Source.POISON_VARP, 0, 300, Category.EFFECT),
+    DIVINE_ATTACK("Divine attack", Source.VAR_SCALED, 1, 500, Category.EFFECT, VarbitID.DIVINEATTACK_POTION_TIME),
+    DIVINE_STRENGTH("Divine strength", Source.VAR_SCALED, 1, 500, Category.EFFECT, VarbitID.DIVINESTRENGTH_POTION_TIME),
+    DIVINE_DEFENCE("Divine defence", Source.VAR_SCALED, 1, 500, Category.EFFECT, VarbitID.DIVINEDEFENCE_POTION_TIME),
+    DIVINE_RANGING("Divine ranging", Source.VAR_SCALED, 1, 500, Category.EFFECT, VarbitID.DIVINERANGE_POTION_TIME),
+    DIVINE_MAGIC("Divine magic", Source.VAR_SCALED, 1, 500, Category.EFFECT, VarbitID.DIVINEMAGIC_POTION_TIME),
+    DIVINE_COMBAT("Divine super combat", Source.VAR_SCALED, 1, 500, Category.EFFECT, VarbitID.DIVINECOMBAT_POTION_TIME),
+    DIVINE_BASTION("Divine bastion", Source.VAR_SCALED, 1, 500, Category.EFFECT, VarbitID.DIVINEBASTION_POTION_TIME),
+    DIVINE_BATTLEMAGE("Divine battlemage", Source.VAR_SCALED, 1, 500, Category.EFFECT, VarbitID.DIVINEBATTLEMAGE_POTION_TIME);
+
+    /** Poison varp value at or below which the immunity is anti-venom rather than antipoison. */
+    public static final int VENOM_VALUE_CUTOFF = -38;
+    public static final int POISON_VARP = VarPlayerID.POISON;
+    private static final int POISON_TICK_LENGTH = 30;
 
     public enum Category
     {
@@ -41,28 +48,33 @@ public enum PotionEffect
         RAID
     }
 
+    public enum Source
+    {
+        /** Remaining ticks = varbit value x multiplier. */
+        VAR_SCALED,
+        /** Varbit is a flag; a fixed duration counts down from when it turns on. */
+        VAR_FLAG,
+        /** Started by a game message; fixed duration. */
+        CHAT,
+        /** Derived from the poison varp's negative (immunity) range. */
+        POISON_VARP
+    }
+
     private final String displayName;
-    private final int varId;
-    private final boolean varPlayer;
-    private final int bucketTicks;
+    private final Source source;
+    private final int tickMultiplier;
     private final int standardTicks;
     private final Category category;
+    private final int[] varbitIds;
 
-    PotionEffect(
-        String displayName,
-        int varId,
-        boolean varPlayer,
-        int bucketTicks,
-        int standardTicks,
-        Category category
-    )
+    PotionEffect(String displayName, Source source, int tickMultiplier, int standardTicks, Category category, int... varbitIds)
     {
         this.displayName = displayName;
-        this.varId = varId;
-        this.varPlayer = varPlayer;
-        this.bucketTicks = bucketTicks;
+        this.source = source;
+        this.tickMultiplier = tickMultiplier;
         this.standardTicks = standardTicks;
         this.category = category;
+        this.varbitIds = varbitIds;
     }
 
     public String getDisplayName()
@@ -70,19 +82,14 @@ public enum PotionEffect
         return displayName;
     }
 
-    public int getVarId()
+    public Source getSource()
     {
-        return varId;
+        return source;
     }
 
-    public boolean isVarPlayer()
+    public int getTickMultiplier()
     {
-        return varPlayer;
-    }
-
-    public int getBucketTicks()
-    {
-        return bucketTicks;
+        return tickMultiplier;
     }
 
     public int getStandardTicks()
@@ -93,5 +100,29 @@ public enum PotionEffect
     public Category getCategory()
     {
         return category;
+    }
+
+    /**
+     * Varbits that drive this effect. For effects with several (e.g. CoX and NMZ overloads), the largest value wins.
+     */
+    public int[] getVarbitIds()
+    {
+        return varbitIds;
+    }
+
+    /**
+     * Remaining immunity ticks for this effect given the poison varp, or 0 if it is not active.
+     */
+    public int poisonImmunityTicks(int poisonVarp)
+    {
+        if (this == ANTIPOISON && poisonVarp < 0 && poisonVarp >= VENOM_VALUE_CUTOFF)
+        {
+            return Math.abs(poisonVarp + 1) * POISON_TICK_LENGTH + POISON_TICK_LENGTH;
+        }
+        if (this == ANTIVENOM && poisonVarp < VENOM_VALUE_CUTOFF)
+        {
+            return Math.abs(poisonVarp + 1 - VENOM_VALUE_CUTOFF) * POISON_TICK_LENGTH + POISON_TICK_LENGTH;
+        }
+        return 0;
     }
 }

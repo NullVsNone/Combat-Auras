@@ -131,9 +131,9 @@ public class IdleTracker
         if (notificationArmed && elapsedNanos >= critSec * 1_000_000_000L)
         {
             notificationArmed = false;
-            if (config.idleDesktopNotify() && notifier != null)
+            if (notifier != null)
             {
-                notifier.notify("You have been idle for " + critSec + " seconds");
+                notifier.notify(config.idleNotification(), "You have been idle for " + critSec + " seconds");
             }
         }
     }

@@ -3,321 +3,343 @@ package com.immersivecombatoverlays.tracker;
 import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
 import com.immersivecombatoverlays.model.CombatSpell;
 import com.immersivecombatoverlays.model.Cooldown;
-import java.util.EnumMap;
+import com.immersivecombatoverlays.model.ThrallDurationTier;
+import java.util.Arrays;
 import net.runelite.api.Client;
 import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 
 /**
- * Tracks all combat spells that expire or have recast cooldowns.
- * Always tracks next recast time (e.g., Death Charge stays on recast cooldown
- * even after refunding special attack).
+ * Tracks combat spells that expire or have recast cooldowns.
+ *
+ * Each spell has two independent timers: the buff/summon duration and the recast cooldown.
+ * The spell is "ready" (and may be reminded) only when both have finished. Where the game
+ * exposes a varbit for either state, the varbit is authoritative; chat messages only supply
+ * durations the game does not expose (thrall, Mark of Darkness, Ward, Shadow Veil lengths).
  */
 public class CombatSpellTracker
 {
     private static final int SPELL_COUNT = CombatSpell.values().length;
+    private static final CombatSpell[] SPELLS = CombatSpell.values();
 
-    private final int[] remainingTicks = new int[SPELL_COUNT];
-    private final int[] totalTicks = new int[SPELL_COUNT];
-    private final int[] lastCastSessionId = new int[SPELL_COUNT];
+    // Messages as sent by the game (compared after colour tags are stripped)
+    static final String MSG_THRALL_START = "You resurrect a ";
+    static final String MSG_THRALL_END = " thrall.";
+    static final String MSG_MARK_OF_DARKNESS = "You have placed a Mark of Darkness upon yourself.";
+    static final String MSG_WARD_OF_ARCEUUS = "Your defence against Arceuus magic has been strengthened.";
+    static final String MSG_SHADOW_VEIL = "Your thieving abilities have been enhanced.";
+
+    private final int[] activeTicks = new int[SPELL_COUNT];
+    private final int[] activeTotal = new int[SPELL_COUNT];
+    private final int[] cooldownTicks = new int[SPELL_COUNT];
+    private final int[] cooldownTotal = new int[SPELL_COUNT];
+    private final int[] lastCooldownVarbit = new int[SPELL_COUNT];
+    private final boolean[] castSinceLogin = new boolean[SPELL_COUNT];
+    private final boolean[] debugTimer = new boolean[SPELL_COUNT];
     private final long[] reminderStartNanos = new long[SPELL_COUNT];
-    private int lastObservedCombatSession = -1;
-    private final EnumMap<CombatSpell, Cooldown> cooldownCache = new EnumMap<>(CombatSpell.class);
+    private final Cooldown[] cooldownCache = new Cooldown[SPELL_COUNT];
     private final int[] liveSpriteIds = new int[SPELL_COUNT];
-    private final int[] liveWidgetIds = new int[CombatSpell.values().length];
-    private final boolean[] castThisSession = new boolean[SPELL_COUNT];
+    private final int[] liveWidgetIds = new int[SPELL_COUNT];
+    private int lastObservedCombatSession = -1;
+    private long lastCastNanos = 0L;
 
     public CombatSpellTracker()
     {
         reset();
     }
 
+    /**
+     * Full reset (login screen, hop, plugin start/stop).
+     */
     public void reset()
     {
-        for (int i = 0; i < SPELL_COUNT; i++)
+        Arrays.fill(activeTicks, 0);
+        Arrays.fill(activeTotal, 0);
+        Arrays.fill(cooldownTicks, 0);
+        Arrays.fill(cooldownTotal, 0);
+        Arrays.fill(lastCooldownVarbit, 0);
+        Arrays.fill(castSinceLogin, false);
+        Arrays.fill(debugTimer, false);
+        Arrays.fill(reminderStartNanos, 0L);
+        Arrays.fill(liveWidgetIds, -1);
+        Arrays.fill(cooldownCache, Cooldown.READY);
+        for (CombatSpell spell : SPELLS)
         {
-            remainingTicks[i] = 0;
-            totalTicks[i] = 0;
-            lastCastSessionId[i] = -1;
-            reminderStartNanos[i] = 0L;
-        }
-        cooldownCache.clear();
-        for (CombatSpell spell : CombatSpell.values())
-        {
-            cooldownCache.put(spell, Cooldown.ready());
             liveSpriteIds[spell.ordinal()] = spell.getFallbackSpriteId();
         }
+        lastObservedCombatSession = -1;
+        lastCastNanos = 0L;
     }
 
     public void onGameTick(Client client)
     {
-        CombatSpell[] spells = CombatSpell.values();
-        for (int i = 0; i < spells.length; i++)
+        for (int i = 0; i < SPELL_COUNT; i++)
         {
-            if (remainingTicks[i] > 0)
+            if (activeTicks[i] > 0)
             {
-                remainingTicks[i]--;
-                if (remainingTicks[i] == 0)
+                activeTicks[i]--;
+            }
+            if (cooldownTicks[i] > 0)
+            {
+                cooldownTicks[i]--;
+            }
+        }
+        syncVars(client);
+        for (int i = 0; i < SPELL_COUNT; i++)
+        {
+            refresh(i);
+        }
+    }
+
+    /**
+     * Re-reads all spell varbits/varps. Cheap (a handful of reads) so it is safe to call on every VarbitChanged.
+     */
+    public void syncVars(Client client)
+    {
+        if (client == null)
+        {
+            return;
+        }
+        for (CombatSpell spell : SPELLS)
+        {
+            int idx = spell.ordinal();
+            if (debugTimer[idx])
+            {
+                continue;
+            }
+
+            int activeVarbit = spell.getActiveVarbitId();
+            if (activeVarbit > 0)
+            {
+                int value = client.getVarbitValue(activeVarbit);
+                if (value == 0)
                 {
-                    cooldownCache.put(spells[i], Cooldown.ready());
+                    activeTicks[idx] = 0;
                 }
-                else
+                else if (activeTicks[idx] <= 0)
                 {
-                    cooldownCache.put(spells[i], Cooldown.active(remainingTicks[i], totalTicks[i]));
+                    // Active but we missed the cast message (e.g. plugin enabled mid-fight).
+                    // Hold it "not ready" with a best-effort duration until the varbit clears.
+                    int estimate = Math.max(1, spell.getCooldownTicks());
+                    activeTicks[idx] = estimate;
+                    activeTotal[idx] = estimate;
+                    markCast(idx);
                 }
             }
-        }
-        syncVarbits(client);
-    }
 
-    public void onVarbitChanged(Client client, int varbitId)
-    {
-        for (CombatSpell spell : CombatSpell.values())
-        {
-            if (spell.getCooldownVarbitId() == varbitId)
+            int cooldownVarbit = spell.getCooldownVarbitId();
+            if (cooldownVarbit > 0)
             {
-                syncSpellVarbit(client, spell);
+                int value = client.getVarbitValue(cooldownVarbit);
+                if (value == 0)
+                {
+                    cooldownTicks[idx] = 0;
+                }
+                else if (lastCooldownVarbit[idx] == 0)
+                {
+                    // 0 -> 1 transition: the spell was just cast
+                    cooldownTicks[idx] = spell.getCooldownTicks();
+                    cooldownTotal[idx] = spell.getCooldownTicks();
+                    markCast(idx);
+                }
+                else if (cooldownTicks[idx] <= 0)
+                {
+                    // Our countdown finished before the server cleared the varbit; stay "not ready" until it does
+                    cooldownTicks[idx] = 1;
+                }
+                lastCooldownVarbit[idx] = value;
             }
         }
-    }
 
-    private void syncVarbits(Client client)
-    {
-        for (CombatSpell spell : CombatSpell.values())
+        // Charge: varp holds remaining duration in 2-tick units
+        int chargeIdx = CombatSpell.CHARGE.ordinal();
+        if (!debugTimer[chargeIdx])
         {
-            if (spell.getCooldownVarbitId() > 0)
+            int charge = client.getVarpValue(VarPlayerID.MAGEARENA_CHARGE);
+            if (charge <= 0)
             {
-                syncSpellVarbit(client, spell);
-            }
-        }
-    }
-
-    private void syncSpellVarbit(Client client, CombatSpell spell)
-    {
-        int varbitId = spell.getCooldownVarbitId();
-        if (varbitId <= 0)
-        {
-            return;
-        }
-
-        int value = client.getVarbitValue(varbitId);
-        int idx = spell.ordinal();
-
-        if (spell == CombatSpell.VENGEANCE || spell == CombatSpell.VENGEANCE_OTHER)
-        {
-            // Varbit 2451: 1 while on 30s recast cooldown, 0 when ready
-            if (value == 1 && remainingTicks[idx] <= 0)
-            {
-                startCooldown(spell, spell.getDefaultRecastTicks(), -1);
-            }
-            else if (value == 0 && remainingTicks[idx] > 0)
-            {
-                clearCooldown(spell);
-            }
-        }
-        else if (spell == CombatSpell.DEATH_CHARGE)
-        {
-            // Varbit 12411: >0 while Death Charge buff/recast lockout is active
-            if (value > 0 && remainingTicks[idx] <= 0)
-            {
-                startCooldown(spell, spell.getDefaultRecastTicks(), -1);
-            }
-        }
-        else if (spell == CombatSpell.RESURRECT_THRALL
-            || spell == CombatSpell.MARK_OF_DARKNESS
-            || spell == CombatSpell.WARD_OF_ARCEUUS
-            || spell == CombatSpell.SHADOW_VEIL)
-        {
-            if (value == 0 && remainingTicks[idx] > 0)
-            {
-                clearCooldown(spell);
-            }
-        }
-    }
-
-    public void onChatMessage(Client client, String message, int combatSessionId, ImmersiveCombatOverlaysConfig config)
-    {
-        if (message == null || message.isEmpty())
-        {
-            return;
-        }
-        String lower = message.toLowerCase();
-
-        // Thralls: active duration = 0.6s per Magic level * CA tier (100% / 150% / 200%)
-        if (lower.contains("you resurrect a") && lower.contains("thrall"))
-        {
-            int magicLevel = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
-            int baseTicks = Math.min(100, magicLevel);
-            float mult = config != null ? config.thrallDurationTier().getMultiplier() : 1.0f;
-            int ticks = Math.round(baseTicks * mult);
-            startCooldown(CombatSpell.RESURRECT_THRALL, ticks, combatSessionId);
-            return;
-        }
-        if (lower.contains("your thrall has returned to the grave"))
-        {
-            clearCooldown(CombatSpell.RESURRECT_THRALL);
-            return;
-        }
-
-        // Death Charge & Greater Death Charge: track recast cooldown (varbit 12411 handles 2-charge state)
-        if (lower.contains("you have cast death charge") || lower.contains("greater death charge"))
-        {
-            int varbit = client.getVarbitValue(CombatSpell.DEATH_CHARGE.getCooldownVarbitId());
-            if (varbit != 2)
-            {
-                startCooldown(CombatSpell.DEATH_CHARGE, 100, combatSessionId);
-            }
-            return;
-        }
-
-        // Mark of Darkness (5x duration when wielding Purging Staff)
-        if (lower.contains("you cast mark of darkness") || lower.contains("have placed a mark of darkness"))
-        {
-            int magicLevel = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
-            int baseTicks = Math.min(300, Math.max(100, magicLevel * 3));
-            int ticks = isWieldingPurgingStaff(client) ? Math.min(500, baseTicks * 5) : baseTicks;
-            startCooldown(CombatSpell.MARK_OF_DARKNESS, ticks, combatSessionId);
-            return;
-        }
-        if (lower.contains("your mark of darkness has faded"))
-        {
-            clearCooldown(CombatSpell.MARK_OF_DARKNESS);
-            return;
-        }
-
-        // Ward of Arceuus
-        if (lower.contains("you cast ward of arceuus") || lower.contains("your ward of arceuus"))
-        {
-            if (lower.contains("faded") || lower.contains("expired"))
-            {
-                clearCooldown(CombatSpell.WARD_OF_ARCEUUS);
+                activeTicks[chargeIdx] = 0;
             }
             else
             {
-                int magicLevel = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
-                startCooldown(CombatSpell.WARD_OF_ARCEUUS, Math.max(50, magicLevel), combatSessionId);
+                int ticks = charge * 2;
+                if (activeTicks[chargeIdx] <= 0)
+                {
+                    activeTotal[chargeIdx] = ticks;
+                    markCast(chargeIdx);
+                }
+                activeTicks[chargeIdx] = ticks;
+                activeTotal[chargeIdx] = Math.max(activeTotal[chargeIdx], ticks);
             }
-            return;
         }
 
-        // Shadow Veil
-        if (lower.contains("your shadow veil") || lower.contains("you cast shadow veil"))
+        for (int i = 0; i < SPELL_COUNT; i++)
         {
-            if (lower.contains("faded") || lower.contains("expired"))
-            {
-                clearCooldown(CombatSpell.SHADOW_VEIL);
-            }
-            else
-            {
-                int magicLevel = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
-                startCooldown(CombatSpell.SHADOW_VEIL, Math.max(50, magicLevel), combatSessionId);
-            }
-            return;
-        }
-
-        // Corruption
-        if (lower.contains("lesser corruption") || lower.contains("greater corruption"))
-        {
-            startCooldown(CombatSpell.CORRUPTION, 100, combatSessionId);
-            return;
-        }
-
-        // Vengeance / Vengeance Other (recast cooldown tracked from cast / varbit 2451, not proc)
-        if (lower.contains("you cast vengeance"))
-        {
-            startCooldown(CombatSpell.VENGEANCE, 50, combatSessionId);
-            return;
-        }
-
-        // Charge
-        if (lower.contains("you feel charged with magical power"))
-        {
-            startCooldown(CombatSpell.CHARGE, 100, combatSessionId);
-        }
-        else if (lower.contains("your magical charge fades away"))
-        {
-            clearCooldown(CombatSpell.CHARGE);
+            refresh(i);
         }
     }
 
-    public void startCooldown(CombatSpell spell, int ticks, int combatSessionId)
+    public void onChatMessage(Client client, String rawMessage, ImmersiveCombatOverlaysConfig config)
+    {
+        if (rawMessage == null || rawMessage.isEmpty() || client == null)
+        {
+            return;
+        }
+        String message = stripTags(rawMessage);
+
+        if (message.startsWith(MSG_THRALL_START) && message.endsWith(MSG_THRALL_END))
+        {
+            int magic = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
+            ThrallDurationTier tier = config != null ? config.thrallDurationTier() : ThrallDurationTier.AUTO;
+            boolean master = client.getVarbitValue(VarbitID.CA_TIER_STATUS_MASTER) == 2;
+            startActive(CombatSpell.RESURRECT_THRALL, magic * tier.getMultiplier(master));
+        }
+        else if (message.equals(MSG_MARK_OF_DARKNESS))
+        {
+            int magic = Math.max(1, client.getRealSkillLevel(Skill.MAGIC));
+            int ticks = magic * 3;
+            if (isWieldingPurgingStaff(client))
+            {
+                ticks *= 5;
+            }
+            startActive(CombatSpell.MARK_OF_DARKNESS, ticks);
+            startCooldownTimer(CombatSpell.MARK_OF_DARKNESS, CombatSpell.MARK_OF_DARKNESS.getCooldownTicks());
+        }
+        else if (message.equals(MSG_WARD_OF_ARCEUUS))
+        {
+            startActive(CombatSpell.WARD_OF_ARCEUUS, Math.max(1, client.getRealSkillLevel(Skill.MAGIC)));
+        }
+        else if (message.equals(MSG_SHADOW_VEIL))
+        {
+            startActive(CombatSpell.SHADOW_VEIL, Math.max(1, client.getRealSkillLevel(Skill.MAGIC)));
+        }
+        else
+        {
+            String lower = message.toLowerCase();
+            if (lower.contains("mark of darkness") && lower.contains("faded"))
+            {
+                activeTicks[CombatSpell.MARK_OF_DARKNESS.ordinal()] = 0;
+                refresh(CombatSpell.MARK_OF_DARKNESS.ordinal());
+            }
+        }
+    }
+
+    /**
+     * Starts (or restarts) a spell's buff duration. Public for tests and debug tooling.
+     */
+    public void startActive(CombatSpell spell, int ticks)
     {
         int idx = spell.ordinal();
         int clamped = Math.max(1, ticks);
-        remainingTicks[idx] = clamped;
-        totalTicks[idx] = clamped;
-        if (combatSessionId >= 0)
-        {
-            lastCastSessionId[idx] = combatSessionId;
-        }
-        reminderStartNanos[idx] = 0L;
-        castThisSession[idx] = true;
-        cooldownCache.put(spell, Cooldown.active(clamped, clamped));
+        activeTicks[idx] = clamped;
+        activeTotal[idx] = clamped;
+        debugTimer[idx] = false;
+        markCast(idx);
+        refresh(idx);
     }
 
-    public void triggerDebugCooldowns(int combatSessionId)
+    /**
+     * Starts (or restarts) a spell's recast cooldown. Public for tests and debug tooling.
+     */
+    public void startCooldownTimer(CombatSpell spell, int ticks)
     {
-        CombatSpell[] spells = CombatSpell.values();
-        for (int i = 0; i < spells.length; i++)
+        int idx = spell.ordinal();
+        int clamped = Math.max(1, ticks);
+        cooldownTicks[idx] = clamped;
+        cooldownTotal[idx] = clamped;
+        markCast(idx);
+        refresh(idx);
+    }
+
+    /**
+     * Starts staggered 9-18s test timers. They are flagged so live varbits do not overwrite them
+     * and so clearing them later never wipes real cooldowns.
+     */
+    public void triggerDebugCooldowns()
+    {
+        for (int i = 0; i < SPELL_COUNT; i++)
         {
-            int ticks = 15 + (i % 4) * 5; // 9s - 18s staggered test timers
-            startCooldown(spells[i], ticks, combatSessionId);
+            int ticks = 15 + (i % 4) * 5;
+            activeTicks[i] = ticks;
+            activeTotal[i] = ticks;
+            debugTimer[i] = true;
+            markCast(i);
+            refresh(i);
         }
     }
 
+    public void clearDebugCooldowns()
+    {
+        for (int i = 0; i < SPELL_COUNT; i++)
+        {
+            if (debugTimer[i])
+            {
+                // Debug timers only ever use the buff slot; real recast cooldowns are left running
+                debugTimer[i] = false;
+                activeTicks[i] = 0;
+                refresh(i);
+            }
+        }
+    }
+
+    /**
+     * Buffs and summons end on death; recast cooldowns keep running.
+     */
     public void onPlayerDeath()
     {
-        clearCooldown(CombatSpell.RESURRECT_THRALL);
-        clearCooldown(CombatSpell.MARK_OF_DARKNESS);
-        clearCooldown(CombatSpell.WARD_OF_ARCEUUS);
-        clearCooldown(CombatSpell.SHADOW_VEIL);
-        clearCooldown(CombatSpell.CHARGE);
+        for (int i = 0; i < SPELL_COUNT; i++)
+        {
+            activeTicks[i] = 0;
+            refresh(i);
+        }
     }
 
     public void clearCooldown(CombatSpell spell)
     {
         int idx = spell.ordinal();
-        remainingTicks[idx] = 0;
-        totalTicks[idx] = 0;
-        if (reminderStartNanos[idx] == 0L)
-        {
-            reminderStartNanos[idx] = System.nanoTime();
-        }
-        cooldownCache.put(spell, Cooldown.ready());
+        activeTicks[idx] = 0;
+        cooldownTicks[idx] = 0;
+        debugTimer[idx] = false;
+        refresh(idx);
     }
 
     public Cooldown getCooldown(CombatSpell spell)
     {
-        return cooldownCache.getOrDefault(spell, Cooldown.ready());
+        return cooldownCache[spell.ordinal()];
+    }
+
+    public boolean wasCastSinceLogin(CombatSpell spell)
+    {
+        return castSinceLogin[spell.ordinal()];
     }
 
     /**
-     * Returns true if this spell is enabled, off cooldown (ready to recast),
-     * and passes the combat-only check.
+     * System.nanoTime() of the most recent tracked spell cast, used to ignore Magic XP from utility spells.
      */
-    public void registerWidgetSpriteId(CombatSpell spell, int spriteId)
+    public long getLastCastNanos()
     {
-        if (spell != null && spriteId > 0)
-        {
-            liveSpriteIds[spell.ordinal()] = spriteId;
-        }
+        return lastCastNanos;
     }
 
     public void registerWidget(CombatSpell spell, int widgetId, int spriteId)
     {
-        if (spell != null)
+        if (spell == null)
         {
-            if (widgetId > 0)
-            {
-                liveWidgetIds[spell.ordinal()] = widgetId;
-            }
-            if (spriteId > 0)
-            {
-                liveSpriteIds[spell.ordinal()] = spriteId;
-            }
+            return;
+        }
+        if (widgetId > 0)
+        {
+            liveWidgetIds[spell.ordinal()] = widgetId;
+        }
+        if (spriteId > 0)
+        {
+            liveSpriteIds[spell.ordinal()] = spriteId;
         }
     }
 
@@ -332,6 +354,9 @@ public class CombatSpellTracker
         return id > 0 ? id : spell.getFallbackSpriteId();
     }
 
+    /**
+     * True if this spell is enabled, ready to recast, and passes the combat / after-cast filters.
+     */
     public boolean isSpellReadyReminder(
         CombatSpell spell,
         CombatStateTracker combatState,
@@ -351,36 +376,11 @@ public class CombatSpellTracker
             return false;
         }
         int idx = spell.ordinal();
-        if (config.spellOnlyRemindAfterCast() && !castThisSession[idx])
-        {
-            if (!(spell == CombatSpell.RESURRECT_THRALL && config.thrallRemindOnCombatStart()))
-            {
-                return false;
-            }
-        }
-        return remainingTicks[idx] <= 0;
-    }
-
-    /**
-     * Populates pre-allocated primitive arrays with all currently ready/expired spells.
-     * Zero allocations per frame.
-     *
-     * @return number of active ready spells written
-     */
-    private static boolean isWieldingPurgingStaff(Client client)
-    {
-        ItemContainer equip = client.getItemContainer(InventoryID.EQUIPMENT);
-        if (equip == null)
+        if (!passesAfterCastFilter(spell, config))
         {
             return false;
         }
-        Item weapon = equip.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx());
-        if (weapon == null)
-        {
-            return false;
-        }
-        var comp = client.getItemDefinition(weapon.getId());
-        return comp != null && comp.getName() != null && comp.getName().toLowerCase().contains("purging staff");
+        return cooldownCache[idx].isReady();
     }
 
     public boolean isWithinShowerDuration(CombatSpell spell, int combatSessionId, int maxSeconds, long nowNanos)
@@ -392,10 +392,11 @@ public class CombatSpellTracker
         int idx = spell.ordinal();
         if (combatSessionId != lastObservedCombatSession)
         {
+            // A new combat session (after a long enough break) re-arms reminders for every ready spell
             lastObservedCombatSession = combatSessionId;
             for (int i = 0; i < SPELL_COUNT; i++)
             {
-                if (remainingTicks[i] <= 0)
+                if (cooldownCache[i].isReady())
                 {
                     reminderStartNanos[i] = nowNanos;
                 }
@@ -408,6 +409,11 @@ public class CombatSpellTracker
         return (nowNanos - reminderStartNanos[idx]) <= (maxSeconds * 1_000_000_000L);
     }
 
+    /**
+     * Writes every currently ready/expired spell into pre-allocated arrays. No per-frame allocation.
+     *
+     * @return number of ready spells written
+     */
     public int collectReadySpells(
         CombatStateTracker combatState,
         ImmersiveCombatOverlaysConfig config,
@@ -418,12 +424,10 @@ public class CombatSpellTracker
     )
     {
         int count = 0;
-        int leadTicks = 0;
         boolean liveAllowed = config.spellsEnabled() && (!config.spellOnlyInCombat() || combatState.isInCombat());
-        CombatSpell[] spells = CombatSpell.values();
-        for (int i = 0; i < spells.length; i++)
+        for (int i = 0; i < SPELL_COUNT; i++)
         {
-            CombatSpell spell = spells[i];
+            CombatSpell spell = SPELLS[i];
             if (ImmersiveCombatOverlaysConfig.isDebugSpellActive(config, spell))
             {
                 outSpellOrdinals[count] = i;
@@ -435,18 +439,15 @@ public class CombatSpellTracker
             {
                 continue;
             }
-            if (filterBySpellbook && !castThisSession[i] && spell.getSpellbook().getVarbitValue() != currentSpellbookVarbit)
+            if (filterBySpellbook && !castSinceLogin[i] && spell.getSpellbook().getVarbitValue() != currentSpellbookVarbit)
             {
                 continue;
             }
-            if (config.spellOnlyRemindAfterCast() && !castThisSession[i])
+            if (!passesAfterCastFilter(spell, config))
             {
-                if (!(spell == CombatSpell.RESURRECT_THRALL && config.thrallRemindOnCombatStart()))
-                {
-                    continue;
-                }
+                continue;
             }
-            if (remainingTicks[i] <= leadTicks)
+            if (cooldownCache[i].isReady())
             {
                 outSpellOrdinals[count] = i;
                 outColorsArgb[count] = ImmersiveCombatOverlaysConfig.getSpellColor(config, spell).getRGB();
@@ -454,5 +455,83 @@ public class CombatSpellTracker
             }
         }
         return count;
+    }
+
+    private boolean passesAfterCastFilter(CombatSpell spell, ImmersiveCombatOverlaysConfig config)
+    {
+        if (!config.spellOnlyRemindAfterCast() || castSinceLogin[spell.ordinal()])
+        {
+            return true;
+        }
+        return spell == CombatSpell.RESURRECT_THRALL && config.thrallRemindOnCombatStart();
+    }
+
+    private void markCast(int idx)
+    {
+        castSinceLogin[idx] = true;
+        reminderStartNanos[idx] = 0L;
+        lastCastNanos = System.nanoTime();
+    }
+
+    private void refresh(int idx)
+    {
+        int active = activeTicks[idx];
+        int cd = cooldownTicks[idx];
+        boolean wasReady = cooldownCache[idx].isReady();
+        if (active <= 0 && cd <= 0)
+        {
+            cooldownCache[idx] = Cooldown.READY;
+            if (!wasReady)
+            {
+                reminderStartNanos[idx] = 0L;
+            }
+            return;
+        }
+        if (active >= cd)
+        {
+            cooldownCache[idx] = Cooldown.active(active, Math.max(active, activeTotal[idx]));
+        }
+        else
+        {
+            cooldownCache[idx] = Cooldown.active(cd, Math.max(cd, cooldownTotal[idx]));
+        }
+    }
+
+    private static boolean isWieldingPurgingStaff(Client client)
+    {
+        ItemContainer worn = client.getItemContainer(InventoryID.WORN);
+        if (worn == null)
+        {
+            return false;
+        }
+        Item weapon = worn.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx());
+        return weapon != null && weapon.getId() == ItemID.PURGING_STAFF;
+    }
+
+    static String stripTags(String s)
+    {
+        if (s.indexOf('<') < 0)
+        {
+            return s;
+        }
+        StringBuilder sb = new StringBuilder(s.length());
+        boolean inTag = false;
+        for (int i = 0; i < s.length(); i++)
+        {
+            char c = s.charAt(i);
+            if (c == '<')
+            {
+                inTag = true;
+            }
+            else if (c == '>')
+            {
+                inTag = false;
+            }
+            else if (!inTag)
+            {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 }

@@ -1,7 +1,13 @@
 package com.immersivecombatoverlays.model;
 
+/**
+ * Immutable cooldown snapshot. {@link #READY} is a shared instance so the common "nothing on
+ * cooldown" path never allocates.
+ */
 public final class Cooldown
 {
+    public static final Cooldown READY = new Cooldown(0, 0, false, true);
+
     private final int remainingTicks;
     private final int totalTicks;
     private final boolean unknownDuration;
@@ -17,12 +23,16 @@ public final class Cooldown
 
     public static Cooldown ready()
     {
-        return new Cooldown(0, 0, false, true);
+        return READY;
     }
 
     public static Cooldown active(int remainingTicks, int totalTicks)
     {
-        return new Cooldown(remainingTicks, totalTicks, false, remainingTicks <= 0);
+        if (remainingTicks <= 0)
+        {
+            return READY;
+        }
+        return new Cooldown(remainingTicks, totalTicks, false, false);
     }
 
     public static Cooldown unknown(int remainingTicks)
@@ -52,7 +62,7 @@ public final class Cooldown
 
     public float getRemainingFraction()
     {
-        if (ready || totalTicks <= 0)
+        if (isReady() || totalTicks <= 0)
         {
             return 0f;
         }

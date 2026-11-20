@@ -2,14 +2,24 @@ package com.immersivecombatoverlays.tracker;
 
 import com.immersivecombatoverlays.model.BoostPotion;
 import com.immersivecombatoverlays.model.PotionEffect;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Maps OSRS inventory items (by item name and known IDs) to PotionEffect and BoostPotion families.
- * Using item name matching avoids fragile ItemID constant renames across RuneLite releases
- * and automatically supports all dose counts (1)-(4), mixes, and raid variants.
+ * Maps OSRS inventory items (by item name) to PotionEffect and BoostPotion families.
+ * Name matching supports every dose count (1)-(4), mixes, and raid variants without a large ID table.
+ *
+ * Results are memoised per name: these lookups run for every inventory item on every frame and on
+ * every menu sort, so the string scanning must only happen once per distinct item.
+ * All callers run on the client thread.
  */
 public final class PotionItems
 {
+    private static final int CACHE_LIMIT = 512;
+    private static final Object NONE = new Object();
+    private static final Map<String, Object> EFFECT_CACHE = new HashMap<>();
+    private static final Map<String, Object> BOOST_CACHE = new HashMap<>();
+
     private PotionItems()
     {
     }
@@ -20,8 +30,42 @@ public final class PotionItems
         {
             return null;
         }
-        String lower = itemName.toLowerCase();
+        Object cached = EFFECT_CACHE.get(itemName);
+        if (cached == null)
+        {
+            PotionEffect effect = classifyEffect(itemName.toLowerCase());
+            cached = effect != null ? effect : NONE;
+            if (EFFECT_CACHE.size() >= CACHE_LIMIT)
+            {
+                EFFECT_CACHE.clear();
+            }
+            EFFECT_CACHE.put(itemName, cached);
+        }
+        return cached == NONE ? null : (PotionEffect) cached;
+    }
 
+    public static BoostPotion getBoost(int itemId, String itemName)
+    {
+        if (itemName == null || itemName.isEmpty())
+        {
+            return null;
+        }
+        Object cached = BOOST_CACHE.get(itemName);
+        if (cached == null)
+        {
+            BoostPotion boost = classifyBoost(itemName.toLowerCase());
+            cached = boost != null ? boost : NONE;
+            if (BOOST_CACHE.size() >= CACHE_LIMIT)
+            {
+                BOOST_CACHE.clear();
+            }
+            BOOST_CACHE.put(itemName, cached);
+        }
+        return cached == NONE ? null : (BoostPotion) cached;
+    }
+
+    static PotionEffect classifyEffect(String lower)
+    {
         // Cooldown & raid consumables
         if (lower.contains("surge potion")) return PotionEffect.SURGE;
         if (lower.contains("blighted overload")) return PotionEffect.BLIGHTED_OVERLOAD;
@@ -50,35 +94,35 @@ public final class PotionItems
         if (lower.contains("prayer regeneration")) return PotionEffect.PRAYER_REGENERATION;
         if (lower.contains("super antifire")) return PotionEffect.SUPER_ANTIFIRE;
         if (lower.contains("antifire")) return PotionEffect.ANTIFIRE;
-        if (lower.contains("anti-venom")) return PotionEffect.ANTIVENOM;
+        if (lower.contains("anti-venom") || lower.contains("antivenom")) return PotionEffect.ANTIVENOM;
         if (lower.contains("antipoison") || lower.contains("antidote")) return PotionEffect.ANTIPOISON;
-        if (lower.contains("guthix rest")) return PotionEffect.GUTHIX_REST;
 
         return null;
     }
 
-    public static BoostPotion getBoost(int itemId, String itemName)
+    static BoostPotion classifyBoost(String lower)
     {
-        if (itemName == null || itemName.isEmpty())
-        {
-            return null;
-        }
-        String lower = itemName.toLowerCase();
         if (lower.contains("divine"))
         {
             return null;
         }
         if (lower.contains("guthixian root")) return BoostPotion.GUTHIXIAN_ROOT;
         if (lower.contains("super combat")) return BoostPotion.SUPER_COMBAT;
-        if (lower.contains("combat potion")) return BoostPotion.COMBAT;
+        if (lower.contains("combat potion") || lower.contains("combat mix")) return BoostPotion.COMBAT;
         if (lower.contains("bastion potion")) return BoostPotion.BASTION;
         if (lower.contains("battlemage potion")) return BoostPotion.BATTLEMAGE;
-        if (lower.contains("attack potion") || lower.contains("super attack")) return BoostPotion.ATTACK;
-        if (lower.contains("strength potion") || lower.contains("super strength")) return BoostPotion.STRENGTH;
-        if (lower.contains("defence potion") || lower.contains("super defence")) return BoostPotion.DEFENCE;
-        if (lower.contains("ranging potion")) return BoostPotion.RANGED;
-        if (lower.contains("magic potion") || lower.contains("ancient brew") || lower.contains("forgotten brew")) return BoostPotion.MAGIC;
-        if (lower.contains("armadyl brew")) return BoostPotion.RANGED;
+        if (lower.contains("super attack") || lower.contains("super attack mix")) return BoostPotion.SUPER_ATTACK;
+        if (lower.contains("super strength")) return BoostPotion.SUPER_STRENGTH;
+        if (lower.contains("super defence")) return BoostPotion.SUPER_DEFENCE;
+        if (lower.contains("super ranging")) return BoostPotion.SUPER_RANGED;
+        if (lower.contains("super magic")) return BoostPotion.SUPER_MAGIC;
+        if (lower.contains("attack potion") || lower.contains("attack mix")) return BoostPotion.ATTACK;
+        if (lower.contains("strength potion") || lower.contains("strength mix")) return BoostPotion.STRENGTH;
+        if (lower.contains("defence potion") || lower.contains("defence mix")) return BoostPotion.DEFENCE;
+        if (lower.contains("ranging potion") || lower.contains("ranging mix")) return BoostPotion.RANGED;
+        if (lower.contains("ancient brew") || lower.contains("ancient mix")) return BoostPotion.ANCIENT_BREW;
+        if (lower.contains("forgotten brew")) return BoostPotion.FORGOTTEN_BREW;
+        if (lower.contains("magic potion") || lower.contains("magic mix")) return BoostPotion.MAGIC;
 
         return null;
     }

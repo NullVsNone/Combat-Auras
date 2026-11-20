@@ -41,6 +41,10 @@ public class CooldownRenderer
         outlineCache.clear();
     }
 
+    /**
+     * @param readyStrength 0..1 strength of the "ready" highlight when the cooldown is finished (0 = draw nothing).
+     *                      Computed by the caller from the ready animation/duration settings.
+     */
     public void renderItemCooldown(
         Graphics2D g,
         Rectangle bounds,
@@ -48,7 +52,8 @@ public class CooldownRenderer
         Cooldown cooldown,
         ImmersiveCombatOverlaysConfig config,
         ItemManager itemManager,
-        long nowNanos
+        long nowNanos,
+        float readyStrength
     )
     {
         if (cooldown == null || bounds == null)
@@ -58,7 +63,10 @@ public class CooldownRenderer
 
         if (cooldown.isReady())
         {
-            drawReadyIndicator(g, bounds, itemId, config, itemManager, nowNanos);
+            if (readyStrength > 0.01f && config.allowItemGlows())
+            {
+                drawReadyIndicator(g, bounds, itemId, config, itemManager, nowNanos, readyStrength);
+            }
             return;
         }
 
@@ -119,21 +127,14 @@ public class CooldownRenderer
         int itemId,
         ImmersiveCombatOverlaysConfig config,
         ItemManager itemManager,
-        long nowNanos
+        long nowNanos,
+        float pulse
     )
     {
-        ReadyStyle style = config.readyStyle();
         BorderStyle border = config.borderStyle();
-        if (style == ReadyStyle.NONE || border == BorderStyle.NONE)
+        if (border == BorderStyle.NONE)
         {
             return;
-        }
-
-        float pulse = 1.0f;
-        if (style == ReadyStyle.PULSE || style == ReadyStyle.SINGLE_FLASH)
-        {
-            double phase = (nowNanos / 1_000_000_000.0) * 3.2;
-            pulse = 0.45f + 0.55f * (float) (0.5 + 0.5 * Math.sin(phase));
         }
 
         Color base = config.readyColor();
@@ -355,6 +356,40 @@ public class CooldownRenderer
         g.setColor(color);
         g.drawString(text, textX, textY);
         g.setFont(oldFont);
+    }
+
+    /**
+     * Strength (0..1) of an item's ready highlight, {@code elapsedNanos} after its cooldown finished.
+     * Returns 0 when the highlight should no longer be drawn.
+     */
+    public static float readyStrength(ReadyStyle style, boolean permanent, int durationSeconds, long elapsedNanos, long nowNanos)
+    {
+        if (style == null || style == ReadyStyle.NONE || elapsedNanos < 0L)
+        {
+            return 0f;
+        }
+        long durNanos = Math.max(1, durationSeconds) * 1_000_000_000L;
+        if (!permanent && elapsedNanos >= durNanos)
+        {
+            return 0f;
+        }
+        switch (style)
+        {
+            case SINGLE_FLASH:
+            {
+                // One bright flash that fades out; a permanent highlight settles at a dim steady outline
+                float t = Math.min(1f, elapsedNanos / (float) durNanos);
+                float fade = (1f - t) * (1f - t);
+                return permanent ? Math.max(0.35f, fade) : fade;
+            }
+            case PULSE:
+            {
+                double phase = (nowNanos / 1_000_000_000.0) * 3.2;
+                return 0.45f + 0.55f * (float) (0.5 + 0.5 * Math.sin(phase));
+            }
+            default:
+                return 1f;
+        }
     }
 
     public static String formatSeconds(float seconds)

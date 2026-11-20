@@ -2,131 +2,110 @@ package com.immersivecombatoverlays.tracker;
 
 import com.immersivecombatoverlays.model.BoostPotion;
 import com.immersivecombatoverlays.model.Cooldown;
+import java.util.Arrays;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.VarbitID;
 
 /**
  * Estimates time until a useful re-dose on combat boost potions using boosted stats
  * and the shared stat decay clock (accounting for Preserve prayer).
+ *
+ * The decay clock is global: drinking a potion does not reset it. We re-sync the clock only
+ * when we observe a boosted stat decaying by one level.
  */
 public class BoostPotionTimers
 {
-    private static final int VARBIT_PRAYER_PRESERVE = 5466;
     private static final int NORMAL_DECAY_TICKS = 100;
     private static final int PRESERVE_DECAY_TICKS = 150;
+    private static final Skill[] COMBAT_SKILLS = {Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE, Skill.RANGED, Skill.MAGIC};
 
     private int ticksUntilNextDecay = NORMAL_DECAY_TICKS;
     private boolean previousPreserve = false;
-    private int lastBoostSum = 0;
+    private final int[] lastBoost = new int[COMBAT_SKILLS.length];
     private final boolean[] usedThisSession = new boolean[BoostPotion.values().length];
 
     public void reset()
     {
         ticksUntilNextDecay = NORMAL_DECAY_TICKS;
         previousPreserve = false;
-        lastBoostSum = 0;
-        java.util.Arrays.fill(usedThisSession, false);
+        Arrays.fill(lastBoost, 0);
+        Arrays.fill(usedThisSession, false);
     }
 
     public void onGameTick(Client client)
     {
-        boolean preserve = client.getVarbitValue(VARBIT_PRAYER_PRESERVE) == 1;
+        boolean preserve = client.getVarbitValue(VarbitID.PRAYER_PRESERVE) == 1;
         int decayPeriod = preserve ? PRESERVE_DECAY_TICKS : NORMAL_DECAY_TICKS;
 
-        int boostSum = getPositiveBoostSum(client);
-        if (boostSum > lastBoostSum)
+        if (preserve != previousPreserve)
+        {
+            ticksUntilNextDecay = preserve
+                ? Math.min(PRESERVE_DECAY_TICKS, Math.round(ticksUntilNextDecay * 1.5f))
+                : Math.max(1, Math.round(ticksUntilNextDecay / 1.5f));
+        }
+
+        boolean decayed = false;
+        for (int i = 0; i < COMBAT_SKILLS.length; i++)
+        {
+            Skill skill = COMBAT_SKILLS[i];
+            int boost = Math.max(0, client.getBoostedSkillLevel(skill) - client.getRealSkillLevel(skill));
+            if (boost == lastBoost[i] - 1)
+            {
+                decayed = true;
+            }
+            lastBoost[i] = boost;
+        }
+
+        if (decayed)
         {
             ticksUntilNextDecay = decayPeriod;
         }
-        else if (boostSum > 0)
+        else
         {
-            if (preserve != previousPreserve)
-            {
-                ticksUntilNextDecay = preserve
-                    ? Math.min(PRESERVE_DECAY_TICKS, Math.round(ticksUntilNextDecay * 1.5f))
-                    : Math.max(1, Math.round(ticksUntilNextDecay / 1.5f));
-            }
             ticksUntilNextDecay--;
             if (ticksUntilNextDecay <= 0)
             {
                 ticksUntilNextDecay = decayPeriod;
             }
         }
-        else
-        {
-            ticksUntilNextDecay = decayPeriod;
-        }
-
         previousPreserve = preserve;
-        lastBoostSum = boostSum;
-    }
-
-    private int getPositiveBoostSum(Client client)
-    {
-        int sum = 0;
-        sum += Math.max(0, client.getBoostedSkillLevel(Skill.ATTACK) - client.getRealSkillLevel(Skill.ATTACK));
-        sum += Math.max(0, client.getBoostedSkillLevel(Skill.STRENGTH) - client.getRealSkillLevel(Skill.STRENGTH));
-        sum += Math.max(0, client.getBoostedSkillLevel(Skill.DEFENCE) - client.getRealSkillLevel(Skill.DEFENCE));
-        sum += Math.max(0, client.getBoostedSkillLevel(Skill.RANGED) - client.getRealSkillLevel(Skill.RANGED));
-        sum += Math.max(0, client.getBoostedSkillLevel(Skill.MAGIC) - client.getRealSkillLevel(Skill.MAGIC));
-        return sum;
     }
 
     public Cooldown getCooldown(Client client, BoostPotion potion, int redoseThreshold)
     {
         if (potion == null)
         {
-            return Cooldown.ready();
+            return Cooldown.READY;
         }
 
         int maxRemainingLevels = 0;
         for (Skill skill : potion.getSkills())
         {
             int real = client.getRealSkillLevel(skill);
-            int boosted = client.getBoostedSkillLevel(skill);
-            int diff = boosted - real;
-            int expectedMax = getExpectedMaxBoost(potion, skill, real);
-            if (diff > expectedMax - redoseThreshold)
+            int diff = client.getBoostedSkillLevel(skill) - real;
+            int redoseAt = potion.getMaxBoost(skill, real) - redoseThreshold;
+            if (diff > redoseAt)
             {
-                maxRemainingLevels = Math.max(maxRemainingLevels, diff - (expectedMax - redoseThreshold));
+                maxRemainingLevels = Math.max(maxRemainingLevels, diff - redoseAt);
             }
         }
 
         if (maxRemainingLevels <= 0)
         {
-            return Cooldown.ready();
+            return Cooldown.READY;
         }
 
         int decayPeriod = previousPreserve ? PRESERVE_DECAY_TICKS : NORMAL_DECAY_TICKS;
         int estimatedTicks = ticksUntilNextDecay + (maxRemainingLevels - 1) * decayPeriod;
-        int totalTicks = Math.max(estimatedTicks, decayPeriod * 2);
+        int totalTicks = Math.max(estimatedTicks, (redoseThreshold + 1) * decayPeriod);
         usedThisSession[potion.ordinal()] = true;
         return Cooldown.active(estimatedTicks, totalTicks);
     }
 
-    private int getExpectedMaxBoost(BoostPotion potion, Skill skill, int realLevel)
+    public int getTicksUntilNextDecay()
     {
-        if (potion == BoostPotion.RANGED)
-        {
-            return 4 + (int) Math.floor(realLevel * 0.10);
-        }
-        if (potion == BoostPotion.MAGIC)
-        {
-            return 4;
-        }
-        if (potion == BoostPotion.COMBAT)
-        {
-            return 3 + (int) Math.floor(realLevel * 0.10);
-        }
-        if (potion == BoostPotion.BASTION && skill == Skill.RANGED)
-        {
-            return 4 + (int) Math.floor(realLevel * 0.10);
-        }
-        if (potion == BoostPotion.BATTLEMAGE && skill == Skill.MAGIC)
-        {
-            return 4;
-        }
-        return 5 + (int) Math.floor(realLevel * 0.15);
+        return ticksUntilNextDecay;
     }
 
     public boolean wasUsedThisSession(BoostPotion potion)

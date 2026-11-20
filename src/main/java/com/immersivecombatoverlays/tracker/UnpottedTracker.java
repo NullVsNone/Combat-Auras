@@ -20,7 +20,10 @@ public class UnpottedTracker
 
     private final int[] lastXp = new int[Skill.values().length];
     private final boolean[] xpInitialized = new boolean[Skill.values().length];
+    private static final long UTILITY_CAST_WINDOW_NANOS = 1_300_000_000L; // ~2 game ticks
+
     private long alertUntilNanos = 0L;
+    private long pendingMagicAlertNanos = 0L;
     private Skill lastTriggeredSkill = null;
 
     public void reset()
@@ -28,6 +31,7 @@ public class UnpottedTracker
         java.util.Arrays.fill(lastXp, 0);
         java.util.Arrays.fill(xpInitialized, false);
         alertUntilNanos = 0L;
+        pendingMagicAlertNanos = 0L;
         lastTriggeredSkill = null;
     }
 
@@ -99,8 +103,14 @@ public class UnpottedTracker
         int threshold = config.unpottedThreshold();
         if (boostedLevel <= realLevel + threshold)
         {
-            lastTriggeredSkill = skill;
-            alertUntilNanos = nowNanos + Math.max(1L, (long) config.unpottedAlertDurationSeconds()) * 1_000_000_000L;
+            if (skill == Skill.MAGIC)
+            {
+                // Utility spells (thralls, Death Charge, Vengeance...) also grant Magic XP. Their cast is only
+                // confirmed by a varbit/chat message that can arrive after this XP drop, so defer the decision.
+                pendingMagicAlertNanos = nowNanos;
+                return;
+            }
+            raise(skill, config, nowNanos);
         }
         else if (skill == lastTriggeredSkill)
         {
@@ -108,8 +118,27 @@ public class UnpottedTracker
         }
     }
 
-    public void onGameTick(Client client, ImmersiveCombatOverlaysConfig config)
+    private void raise(Skill skill, ImmersiveCombatOverlaysConfig config, long nowNanos)
     {
+        lastTriggeredSkill = skill;
+        alertUntilNanos = nowNanos + Math.max(1L, (long) config.unpottedAlertDurationSeconds()) * 1_000_000_000L;
+    }
+
+    /**
+     * @param lastUtilityCastNanos System.nanoTime() of the latest tracked utility spell cast (0 if none)
+     */
+    public void onGameTick(Client client, ImmersiveCombatOverlaysConfig config, long lastUtilityCastNanos, long nowNanos)
+    {
+        if (pendingMagicAlertNanos != 0L)
+        {
+            boolean utilityCast = lastUtilityCastNanos != 0L
+                && Math.abs(lastUtilityCastNanos - pendingMagicAlertNanos) <= UTILITY_CAST_WINDOW_NANOS;
+            if (!utilityCast)
+            {
+                raise(Skill.MAGIC, config, pendingMagicAlertNanos);
+            }
+            pendingMagicAlertNanos = 0L;
+        }
         if (alertUntilNanos == 0L || lastTriggeredSkill == null || client == null)
         {
             return;

@@ -1,22 +1,36 @@
 package com.immersivecombatoverlays.model;
 
+/**
+ * Thrall duration scaling. Completing the Master Combat Achievement tier doubles thrall duration.
+ * AUTO reads the tier from the game, so most players never need to change it.
+ */
 public enum ThrallDurationTier
 {
-    STANDARD("Standard (100%)", 1.0f),
-    MASTER_CA("Master+ CA (200%)", 2.0f);
+    AUTO("Auto-detect"),
+    STANDARD("Standard (100%)"),
+    MASTER_CA("Master+ CA (200%)");
 
     private final String label;
-    private final float multiplier;
 
-    ThrallDurationTier(String label, float multiplier)
+    ThrallDurationTier(String label)
     {
         this.label = label;
-        this.multiplier = multiplier;
     }
 
-    public float getMultiplier()
+    /**
+     * @param masterTierComplete whether the game reports the Master CA tier as complete (used by AUTO)
+     */
+    public int getMultiplier(boolean masterTierComplete)
     {
-        return multiplier;
+        switch (this)
+        {
+            case MASTER_CA:
+                return 2;
+            case STANDARD:
+                return 1;
+            default:
+                return masterTierComplete ? 2 : 1;
+        }
     }
 
     @Override

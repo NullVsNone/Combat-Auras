@@ -26,7 +26,6 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
 import net.runelite.api.HitsplatID;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
@@ -42,6 +41,7 @@ import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.PostMenuSort;
 import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -193,6 +193,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     protected void startUp()
     {
         resetAll();
+        combatState.setSimulatedCombat(config.debugSimulateCombat());
         overlayManager.add(statusOverlay);
         overlayManager.add(inventoryOverlay);
         overlayManager.add(spellOverlay);
@@ -257,7 +258,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         freezeTracker.onGameTick(client);
         idleTracker.onGameTick(client, config, combatState, notifier, nowNanos);
         foodTracker.onGameTick();
-        unpottedTracker.onGameTick(client, config);
+        unpottedTracker.onGameTick(client, config, spellTracker.getLastCastNanos(), nowNanos);
         statusOverlay.updateClientState();
         inventoryOverlay.cacheInventoryItemNames();
         spellOverlay.updateSpellbook(combatState.isInCombat());
@@ -274,7 +275,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
 
         String msg = event.getMessage();
         long nowNanos = System.nanoTime();
-        spellTracker.onChatMessage(client, msg, combatState.getCombatSessionId(), config);
+        spellTracker.onChatMessage(client, msg, config);
         potionTimers.onChatMessage(msg);
         freezeTracker.onChatMessage(client.getLocalPlayer(), msg, nowNanos);
     }
@@ -282,7 +283,10 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     @Subscribe
     public void onVarbitChanged(VarbitChanged event)
     {
-        spellTracker.onVarbitChanged(client, event.getVarbitId());
+        if (client.getGameState() == GameState.LOGGED_IN)
+        {
+            spellTracker.syncVars(client);
+        }
     }
 
     @Subscribe
@@ -341,7 +345,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             {
                 venomTickTracker.trigger(nowNanos, 0.95f);
             }
-            else if (amount > 0)
+            else if (amount > 0 && isDamageHitsplat(type))
             {
                 float strength = Math.min(1f, 0.25f + (amount / 40f));
                 damageTracker.trigger(nowNanos, strength);
@@ -393,7 +397,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     {
         if (event.getActor() == client.getLocalPlayer())
         {
-            potionTimers.reset();
+            potionTimers.onPlayerDeath();
             freezeTracker.reset();
             spellTracker.onPlayerDeath();
             combatState.reset();
@@ -437,11 +441,12 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             if (config.debugTriggerSpellCooldowns())
             {
-                spellTracker.triggerDebugCooldowns(combatState.getCombatSessionId());
+                spellTracker.triggerDebugCooldowns();
             }
             else
             {
-                spellTracker.reset();
+                // Only remove the test timers; real cooldowns keep running
+                spellTracker.clearDebugCooldowns();
             }
         }
         if ("debugTriggerPotionCooldowns".equals(event.getKey()))
@@ -453,15 +458,48 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             }
             else
             {
-                heartTracker.reset();
-                potionTimers.reset();
+                heartTracker.clearDebugCooldown();
+                potionTimers.clearDebugCooldowns();
             }
+        }
+    }
+
+    /**
+     * Only real damage flashes the screen; heals, shields, prayer/sanity drains etc. do not.
+     */
+    static boolean isDamageHitsplat(int type)
+    {
+        switch (type)
+        {
+            case HitsplatID.DAMAGE_ME:
+            case HitsplatID.DAMAGE_OTHER:
+            case HitsplatID.DAMAGE_ME_CYAN:
+            case HitsplatID.DAMAGE_OTHER_CYAN:
+            case HitsplatID.DAMAGE_ME_ORANGE:
+            case HitsplatID.DAMAGE_OTHER_ORANGE:
+            case HitsplatID.DAMAGE_ME_YELLOW:
+            case HitsplatID.DAMAGE_OTHER_YELLOW:
+            case HitsplatID.DAMAGE_ME_WHITE:
+            case HitsplatID.DAMAGE_OTHER_WHITE:
+            case HitsplatID.DAMAGE_MAX_ME:
+            case HitsplatID.DAMAGE_MAX_ME_CYAN:
+            case HitsplatID.DAMAGE_MAX_ME_ORANGE:
+            case HitsplatID.DAMAGE_MAX_ME_YELLOW:
+            case HitsplatID.DAMAGE_MAX_ME_WHITE:
+            case HitsplatID.DAMAGE_ME_POISE:
+            case HitsplatID.DAMAGE_OTHER_POISE:
+            case HitsplatID.DAMAGE_MAX_ME_POISE:
+            case HitsplatID.BLEED:
+            case HitsplatID.BURN:
+                return true;
+            default:
+                return false;
         }
     }
 
     private boolean hasSaturatedHeart()
     {
-        ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
+        ItemContainer inv = client.getItemContainer(InventoryID.INV);
         if (inv == null)
         {
             return false;

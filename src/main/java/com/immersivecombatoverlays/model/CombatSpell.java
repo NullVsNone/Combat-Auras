@@ -1,8 +1,13 @@
 package com.immersivecombatoverlays.model;
 
+import net.runelite.api.gameval.VarbitID;
+
 /**
  * Combat spells that expire or have a recast cooldown.
- * All timers track time until the spell can be recast (next recast time).
+ * All timers track time until the spell can be recast (next recast time), which is the
+ * later of the buff ending and the recast cooldown ending.
+ *
+ * Varbit IDs and durations mirror RuneLite's core Timers & Buffs plugin.
  */
 public enum CombatSpell
 {
@@ -10,8 +15,9 @@ public enum CombatSpell
         "Resurrect Thrall",
         Spellbook.ARCEUUS,
         2979,
-        12413,
-        100,
+        VarbitID.ARCEUUS_RESURRECTION_ACTIVE,
+        VarbitID.ARCEUUS_RESURRECTION_COOLDOWN,
+        17,
         new String[]{
             "Resurrect Lesser Ghost", "Resurrect Superior Ghost", "Resurrect Greater Ghost",
             "Resurrect Lesser Skeleton", "Resurrect Superior Skeleton", "Resurrect Greater Skeleton",
@@ -22,7 +28,8 @@ public enum CombatSpell
         "Death Charge",
         Spellbook.ARCEUUS,
         1310,
-        12411,
+        VarbitID.ARCEUUS_DEATH_CHARGE_ACTIVE,
+        VarbitID.ARCEUUS_DEATH_CHARGE_COOLDOWN,
         100,
         new String[]{"Death Charge"}
     ),
@@ -30,15 +37,17 @@ public enum CombatSpell
         "Mark of Darkness",
         Spellbook.ARCEUUS,
         1305,
-        12414,
-        300,
+        -1,
+        -1,
+        10,
         new String[]{"Mark of Darkness"}
     ),
     WARD_OF_ARCEUUS(
         "Ward of Arceuus",
         Spellbook.ARCEUUS,
         1306,
-        12415,
+        -1,
+        VarbitID.ARCEUUS_WARD_COOLDOWN,
         50,
         new String[]{"Ward of Arceuus"}
     ),
@@ -46,8 +55,9 @@ public enum CombatSpell
         "Shadow Veil",
         Spellbook.ARCEUUS,
         1315,
-        12412,
-        100,
+        VarbitID.ARCEUUS_SHADOW_VEIL_ACTIVE,
+        VarbitID.ARCEUUS_SHADOW_VEIL_COOLDOWN,
+        50,
         new String[]{"Shadow Veil"}
     ),
     CORRUPTION(
@@ -55,14 +65,16 @@ public enum CombatSpell
         Spellbook.ARCEUUS,
         1307,
         -1,
-        100,
+        VarbitID.ARCEUUS_CORRUPTION_COOLDOWN,
+        50,
         new String[]{"Lesser Corruption", "Greater Corruption"}
     ),
     VENGEANCE(
         "Vengeance",
         Spellbook.LUNAR,
         564,
-        2451,
+        -1,
+        VarbitID.VENGEANCE_TIMELIMIT,
         50,
         new String[]{"Vengeance"}
     ),
@@ -70,7 +82,8 @@ public enum CombatSpell
         "Vengeance Other",
         Spellbook.LUNAR,
         561,
-        2451,
+        -1,
+        VarbitID.VENGEANCE_TIMELIMIT,
         50,
         new String[]{"Vengeance Other"}
     ),
@@ -79,7 +92,8 @@ public enum CombatSpell
         Spellbook.STANDARD,
         322,
         -1,
-        100,
+        -1,
+        0,
         new String[]{"Charge"}
     );
 
@@ -106,24 +120,27 @@ public enum CombatSpell
     private final String displayName;
     private final Spellbook spellbook;
     private final int fallbackSpriteId;
+    private final int activeVarbitId;
     private final int cooldownVarbitId;
-    private final int defaultRecastTicks;
+    private final int cooldownTicks;
     private final String[] widgetNames;
 
     CombatSpell(
         String displayName,
         Spellbook spellbook,
         int fallbackSpriteId,
+        int activeVarbitId,
         int cooldownVarbitId,
-        int defaultRecastTicks,
+        int cooldownTicks,
         String[] widgetNames
     )
     {
         this.displayName = displayName;
         this.spellbook = spellbook;
         this.fallbackSpriteId = fallbackSpriteId;
+        this.activeVarbitId = activeVarbitId;
         this.cooldownVarbitId = cooldownVarbitId;
-        this.defaultRecastTicks = defaultRecastTicks;
+        this.cooldownTicks = cooldownTicks;
         this.widgetNames = widgetNames;
     }
 
@@ -142,14 +159,28 @@ public enum CombatSpell
         return fallbackSpriteId;
     }
 
+    /**
+     * Varbit that is non-zero while the spell's buff/summon is active, or -1 if the game exposes none.
+     */
+    public int getActiveVarbitId()
+    {
+        return activeVarbitId;
+    }
+
+    /**
+     * Varbit that is 1 while the spell is on its recast cooldown, or -1 if the game exposes none.
+     */
     public int getCooldownVarbitId()
     {
         return cooldownVarbitId;
     }
 
-    public int getDefaultRecastTicks()
+    /**
+     * Length of the recast cooldown in game ticks (0 if the spell has none).
+     */
+    public int getCooldownTicks()
     {
-        return defaultRecastTicks;
+        return cooldownTicks;
     }
 
     public String[] getWidgetNames()

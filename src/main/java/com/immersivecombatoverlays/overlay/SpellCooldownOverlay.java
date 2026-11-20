@@ -25,7 +25,9 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.SpritePixels;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -40,9 +42,13 @@ import net.runelite.client.util.Text;
 public class SpellCooldownOverlay extends Overlay
 {
     private static final int SPELLBOOK_GROUP_ID = 218;
-    private static final int VARBIT_SPELLBOOK = 4070;
     private static final int SPRITE_TAB_MAGIC = 780;
     private static final int SPRITE_SPEC_ORB = 1607;
+    private static final int[] MAGIC_TAB_COMPONENTS = {
+        InterfaceID.Toplevel.STONE6,
+        InterfaceID.ToplevelOsrsStretch.STONE6,
+        InterfaceID.ToplevelPreEoc.STONE6,
+    };
 
     private final Client client;
     private final ImmersiveCombatOverlaysConfig config;
@@ -81,9 +87,9 @@ public class SpellCooldownOverlay extends Overlay
 
     public void updateSpellbook(boolean combatActive)
     {
-        this.currentSpellbook = client.getVarbitValue(VARBIT_SPELLBOOK);
+        this.currentSpellbook = client.getVarbitValue(VarbitID.SPELLBOOK);
         boolean specOk = config.specEnabled() && (!config.specOnlyInCombat() || combatActive);
-        this.specReadyLive = specOk && (client.getVarpValue(300) / 10) >= config.specThresholdPercent();
+        this.specReadyLive = specOk && (client.getVarpValue(VarPlayerID.SA_ENERGY) / 10) >= config.specThresholdPercent();
     }
 
     @Override
@@ -101,6 +107,11 @@ public class SpellCooldownOverlay extends Overlay
 
         // 1. Render cooldowns & ready glows over visible spell widgets in the spellbook
         renderSpellbookSpells(graphics, pulse);
+
+        if (!config.allowItemGlows())
+        {
+            return null;
+        }
 
         // 2. Render blended glow on the Magic spellbook tab icon when any spell is expired/ready
         if (config.spellbookTabGlow())
@@ -342,7 +353,7 @@ public class SpellCooldownOverlay extends Overlay
 
     private void renderSpecOrbGlow(Graphics2D g, double pulse)
     {
-        Widget specOrb = client.getWidget(WidgetInfo.MINIMAP_SPEC_ORB);
+        Widget specOrb = client.getWidget(InterfaceID.Orbs.ORB_SPECENERGY);
         if (specOrb == null || specOrb.isHidden())
         {
             Widget minimapRoot = client.getWidget(160, 0);
@@ -391,15 +402,13 @@ public class SpellCooldownOverlay extends Overlay
 
     private Widget findMagicTabWidget()
     {
-        Widget w = client.getWidget(WidgetInfo.FIXED_VIEWPORT_MAGIC_TAB);
-        if (w != null && !w.isHidden())
+        for (int componentId : MAGIC_TAB_COMPONENTS)
         {
-            return w;
-        }
-        w = client.getWidget(WidgetInfo.RESIZABLE_VIEWPORT_MAGIC_TAB);
-        if (w != null && !w.isHidden())
-        {
-            return w;
+            Widget w = client.getWidget(componentId);
+            if (w != null && !w.isHidden())
+            {
+                return w;
+            }
         }
         // Scan modern resizable bottom-line (164), classic resizable (161), and fixed (548) for Magic tab
         int[] groups = {164, 161, 548};
@@ -521,7 +530,7 @@ public class SpellCooldownOverlay extends Overlay
 
     private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse)
     {
-        BorderStyle style = config.borderStyle();
+        BorderStyle style = config.spellBorderStyle();
         boolean needsSprite = spriteId > 0 && (
             style == BorderStyle.ITEM_OUTLINE
             || style == BorderStyle.SOFT_GLOW

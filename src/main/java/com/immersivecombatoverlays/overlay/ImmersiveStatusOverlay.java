@@ -26,13 +26,14 @@ import javax.inject.Singleton;
 import javax.inject.Named;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Prayer;
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.overlay.Overlay;
@@ -47,7 +48,6 @@ import net.runelite.client.ui.overlay.OverlayPosition;
 @Singleton
 public class ImmersiveStatusOverlay extends Overlay
 {
-    private static final int VARBIT_SPELLBOOK = 4070;
     private static final int SPRITE_SKILL_PRAYER = 201;
     private static final int SPRITE_SKILL_HITPOINTS = 203;
     private static final int SPRITE_ICE_BARRAGE = 328;
@@ -156,7 +156,7 @@ public class ImmersiveStatusOverlay extends Overlay
             return;
         }
 
-        cachedSpellbook = client.getVarbitValue(VARBIT_SPELLBOOK);
+        cachedSpellbook = client.getVarbitValue(VarbitID.SPELLBOOK);
         float escalation = config.dangerEscalation() / 100f;
 
         // Low Health
@@ -203,7 +203,7 @@ public class ImmersiveStatusOverlay extends Overlay
         float specSev = 0f;
         if (config.specEnabled() && (!config.specOnlyInCombat() || combatState.isInCombat()))
         {
-            int specPct = client.getVarpValue(300) / 10;
+            int specPct = client.getVarpValue(VarPlayerID.SA_ENERGY) / 10;
             if (specPct >= config.specThresholdPercent())
             {
                 specSev = 0.65f;
@@ -231,13 +231,13 @@ public class ImmersiveStatusOverlay extends Overlay
 
     private void sampleInventoryBuffItems()
     {
-        if (config.spellOnlyInCombat() && !combatState.isInCombat())
+        if (config.buffOnlyInCombat() && !combatState.isInCombat())
         {
             liveBuffItemCount = 0;
             return;
         }
 
-        ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
+        ItemContainer inv = client.getItemContainer(InventoryID.INV);
         if (inv == null)
         {
             liveBuffItemCount = 0;
@@ -257,7 +257,7 @@ public class ImmersiveStatusOverlay extends Overlay
                 continue;
             }
             int id = item.getId();
-            if (!addedHeart && config.heartScreenReminder() && HeartCooldownTracker.isHeart(id))
+            if (!addedHeart && (config.heartScreenReminder() || config.heartShower()) && HeartCooldownTracker.isHeart(id))
             {
                 Cooldown cd = heartTracker.getCooldown(id);
                 boolean usedOk = !config.buffOnlyRemindAfterUse() || heartTracker.wasUsedThisSession();
@@ -271,7 +271,7 @@ public class ImmersiveStatusOverlay extends Overlay
                 continue;
             }
 
-            if (config.buffScreenReminder())
+            if (config.buffScreenReminder() || config.buffShower())
             {
                 ItemComposition comp = itemManager.getItemComposition(id);
                 String name = comp != null ? comp.getName() : null;
@@ -531,7 +531,7 @@ public class ImmersiveStatusOverlay extends Overlay
 
     private void applyStatusGlowToggle(StatusEffect effect, boolean glowEnabled)
     {
-        if (glowEnabled)
+        if (glowEnabled && config.allowScreenGlows())
         {
             statusSeverities[effect.ordinal()] = rawStatusSeverities[effect.ordinal()];
         }
@@ -553,7 +553,7 @@ public class ImmersiveStatusOverlay extends Overlay
         {
             int id = readyItemIds[i];
             boolean isHeart = HeartCooldownTracker.isHeart(id);
-            if ((isHeart && config.heartScreenReminder()) || (!isHeart && config.buffScreenReminder()))
+            if (config.allowScreenGlows() && ((isHeart && config.heartScreenReminder()) || (!isHeart && config.buffScreenReminder())))
             {
                 glowExtraColors[out++] = readyItemColors[i];
             }
@@ -564,6 +564,10 @@ public class ImmersiveStatusOverlay extends Overlay
     private int buildShowerItems(int rawItemCount)
     {
         int out = 0;
+        if (!config.allowIconShowers())
+        {
+            return 0;
+        }
         for (int i = 0; i < rawItemCount; i++)
         {
             int id = readyItemIds[i];
@@ -587,6 +591,10 @@ public class ImmersiveStatusOverlay extends Overlay
     private int buildUnifiedSpriteShower(int spellCount)
     {
         int out = 0;
+        if (!config.allowIconShowers())
+        {
+            return 0;
+        }
         CombatSpell[] all = CombatSpell.values();
         for (int i = 0; i < spellCount; i++)
         {
