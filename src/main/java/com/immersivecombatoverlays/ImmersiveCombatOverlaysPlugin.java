@@ -16,6 +16,10 @@ import com.immersivecombatoverlays.tracker.FoodCooldownTracker;
 import com.immersivecombatoverlays.tracker.IdleTracker;
 import com.immersivecombatoverlays.tracker.UnpottedTracker;
 import com.immersivecombatoverlays.tracker.ImpactTracker;
+import com.immersivecombatoverlays.tracker.ParasiteTracker;
+import com.immersivecombatoverlays.tracker.SpellRecastProtection;
+import com.immersivecombatoverlays.tracker.WarningNotifier;
+import com.immersivecombatoverlays.model.CombatSpell;
 import net.runelite.client.Notifier;
 import com.immersivecombatoverlays.tracker.PotionTimers;
 import com.immersivecombatoverlays.tracker.RepotProtection;
@@ -83,6 +87,10 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     private final IdleTracker idleTracker = new IdleTracker();
     private final FoodCooldownTracker foodTracker = new FoodCooldownTracker();
     private final UnpottedTracker unpottedTracker = new UnpottedTracker();
+    private final ParasiteTracker parasiteTracker = new ParasiteTracker();
+    private final SpellRecastProtection spellRecastProtection = new SpellRecastProtection();
+    private final WarningNotifier warningNotifier = new WarningNotifier();
+    private final boolean[] spellReadyLastTick = new boolean[CombatSpell.values().length];
 
     private final CooldownRenderer cooldownRenderer = new CooldownRenderer();
     private final ProceduralRenderer proceduralRenderer = new ProceduralRenderer();
@@ -184,6 +192,12 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     }
 
     @Provides
+    ParasiteTracker provideParasiteTracker()
+    {
+        return parasiteTracker;
+    }
+
+    @Provides
     UnpottedTracker provideUnpottedTracker()
     {
         return unpottedTracker;
@@ -226,6 +240,9 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         idleTracker.reset();
         foodTracker.reset();
         unpottedTracker.reset();
+        parasiteTracker.reset();
+        warningNotifier.reset();
+        java.util.Arrays.fill(spellReadyLastTick, false);
     }
 
     @Subscribe
@@ -262,6 +279,43 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         statusOverlay.updateClientState();
         inventoryOverlay.cacheInventoryItemNames();
         spellOverlay.updateSpellbook(combatState.isInCombat());
+        parasiteTracker.onGameTick();
+        updateNotifications(nowNanos);
+    }
+
+    /**
+     * Sends the per-warning RuneLite notifications (each one OFF by default) on the tick a warning starts.
+     */
+    private void updateNotifications(long nowNanos)
+    {
+        warningNotifier.update(WarningNotifier.Warning.LOW_HEALTH, statusOverlay.isLowHealthLive(), config.lowHealthNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.LOW_PRAYER, statusOverlay.isLowPrayerLive(), config.lowPrayerNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.SPEC_READY, statusOverlay.isSpecReadyLive(), config.specNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.BUFF_EXPIRED, statusOverlay.isBuffExpiredLive(), config.buffNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.FREEZE,
+            config.freezeEnabled() && freezeTracker.getSeverity(nowNanos) > 0f, config.freezeNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.UNPOTTED,
+            unpottedTracker.getSeverity(config, nowNanos) > 0f, config.unpottedNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.HEART_READY,
+            config.heartsEnabled() && heartTracker.wasUsedThisSession() && heartTracker.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID).isReady(),
+            config.heartNotification(), notifier, nowNanos);
+        warningNotifier.update(WarningNotifier.Warning.PARASITE,
+            config.parasiteEnabled() && parasiteTracker.isActive(), config.parasiteNotification(), notifier, nowNanos);
+
+        boolean newlyReady = false;
+        for (CombatSpell spell : CombatSpell.values())
+        {
+            boolean ready = spellTracker.wasCastSinceLogin(spell) && spellTracker.isSpellReadyReminder(spell, combatState, config);
+            if (ready && !spellReadyLastTick[spell.ordinal()])
+            {
+                newlyReady = true;
+            }
+            spellReadyLastTick[spell.ordinal()] = ready;
+        }
+        if (newlyReady)
+        {
+            warningNotifier.fire(WarningNotifier.Warning.SPELL_READY, config.spellNotification(), notifier, nowNanos);
+        }
     }
 
     @Subscribe
@@ -277,6 +331,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         long nowNanos = System.nanoTime();
         spellTracker.onChatMessage(client, msg, config);
         potionTimers.onChatMessage(msg);
+        parasiteTracker.onChatMessage(msg);
         freezeTracker.onChatMessage(client.getLocalPlayer(), msg, nowNanos);
     }
 
@@ -345,7 +400,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             {
                 venomTickTracker.trigger(nowNanos, 0.95f);
             }
-            else if (amount > 0 && isDamageHitsplat(type))
+            else if (amount > 0 && amount >= config.damageMinAmount() && isDamageHitsplat(type))
             {
                 float strength = Math.min(1f, 0.25f + (amount / 40f));
                 damageTracker.trigger(nowNanos, strength);
@@ -408,6 +463,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     public void onPostMenuSort(PostMenuSort event)
     {
         repotProtection.onPostMenuSort(client, config, heartTracker, potionTimers, boostTimers);
+        spellRecastProtection.onPostMenuSort(client, config, spellTracker);
     }
 
     @Subscribe

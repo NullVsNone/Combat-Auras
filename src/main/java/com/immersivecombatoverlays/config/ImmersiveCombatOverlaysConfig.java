@@ -80,6 +80,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigSection(name = "Potions, Boosts & Food", description = "Potion/boost/raid/food cooldowns, pre-remind, color, glow, shower, and debug preview.", position = 22, closedByDefault = true)
     String warnPotionsBuffsSection = "warnPotionsBuffsSection";
 
+    @ConfigSection(name = "Nightmare Parasite", description = "Phosani's / Nightmare parasite warning: color, glow, shower, notification and debug preview.", position = 23, closedByDefault = true)
+    String warnParasiteSection = "warnParasiteSection";
+
     @ConfigSection(name = "Spell: Resurrect Thrall", description = "Thrall CA tier, combat-start reminder, color, glow, shower, and debug preview.", position = 30, closedByDefault = true)
     String spellThrallSection = "spellThrallSection";
 
@@ -245,6 +248,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "healthPulseStrength", name = "Heartbeat pulse", description = "Strength of the low-health heartbeat pulse.", section = warnLowHealthSection, position = 5)
     default int healthPulseStrength() { return 60; }
 
+    @ConfigItem(keyName = "lowHealthNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when HP drops below the threshold.", section = warnLowHealthSection, position = 6)
+    default Notification lowHealthNotification() { return Notification.OFF; }
+
     @ConfigItem(keyName = "damageFeedbackEnabled", name = "Enable", description = "Flash and/or shower hitsplat when taking damage.", section = warnDamageSection, position = 10)
     default boolean damageFeedbackEnabled() { return true; }
 
@@ -267,6 +273,10 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "damageShower", name = "Shower icon", description = "Shower red hitsplat icon when taking damage.", section = warnDamageSection, position = 15)
     default boolean damageShower() { return false; }
+
+    @Range(min = 0, max = 99)
+    @ConfigItem(keyName = "damageMinAmount", name = "Minimum damage", description = "Only flash for hits of at least this much damage (0 = every hit).", section = warnDamageSection, position = 17)
+    default int damageMinAmount() { return 0; }
 
     // =========================================================================
     // 4. Warning: Low Prayer
@@ -295,6 +305,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "lowPrayerInventoryGlow", name = "Glow inventory restores", description = "Highlight prayer-restoring potions in your inventory when prayer is low.", section = warnPrayerSection, position = 6)
     default boolean lowPrayerInventoryGlow() { return true; }
+
+    @ConfigItem(keyName = "lowPrayerNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when prayer drops below the threshold.", section = warnPrayerSection, position = 7)
+    default Notification lowPrayerNotification() { return Notification.OFF; }
 
     // =========================================================================
     // 5. Warning: Poison, Venom, Disease & Freeze
@@ -356,6 +369,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @Units(Units.SECONDS)
     @ConfigItem(keyName = "freezeMaxDisplaySeconds", name = "Max display duration", description = "Hide freeze overlay after this many seconds (0 = show for full freeze duration).", section = warnFreezeSection, position = 34)
     default int freezeMaxDisplaySeconds() { return 0; }
+
+    @ConfigItem(keyName = "freezeNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when you are frozen.", section = warnFreezeSection, position = 35)
+    default Notification freezeNotification() { return Notification.OFF; }
 
     // =========================================================================
     // 6. Warning: Idle, Spec & Low Run
@@ -422,6 +438,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "specOrbGlow", name = "Glow spec orb", description = "Glow the minimap Special Attack orb when spec is ready.", section = warnSpecSection, position = 21)
     default boolean specOrbGlow() { return true; }
 
+    @ConfigItem(keyName = "specNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when special attack reaches the threshold.", section = warnSpecSection, position = 23)
+    default Notification specNotification() { return Notification.OFF; }
+
     @ConfigItem(keyName = "lowRunEnabled", name = "Enable", description = "Track low run energy warning.", section = warnLowRunSection, position = 30)
     default boolean lowRunEnabled() { return false; }
 
@@ -443,6 +462,25 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "lowRunShower", name = "Shower icon", description = "Shower Run orb icon when run energy is low.", section = warnLowRunSection, position = 35)
     default boolean lowRunShower() { return true; }
 
+    @ConfigItem(keyName = "parasiteEnabled", name = "Enable", description = "Warn while a Nightmare parasite is growing inside you (drink Sanfew / Relicym's).", section = warnParasiteSection, position = 0)
+    default boolean parasiteEnabled() { return true; }
+
+    @Alpha
+    @ConfigItem(keyName = "parasiteColor", name = "Color", description = "Color of the parasite warning.", section = warnParasiteSection, position = 1)
+    default Color parasiteColor() { return new Color(236, 72, 153, 215); }
+
+    @ConfigItem(keyName = "parasiteGlow", name = "Screen glow", description = "Show screen-edge glow while a parasite is growing.", section = warnParasiteSection, position = 2)
+    default boolean parasiteGlow() { return true; }
+
+    @ConfigItem(keyName = "parasiteShower", name = "Shower icon", description = "Shower Sanfew serum icons while a parasite is growing.", section = warnParasiteSection, position = 3)
+    default boolean parasiteShower() { return true; }
+
+    @ConfigItem(keyName = "parasiteNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when a parasite is implanted.", section = warnParasiteSection, position = 4)
+    default Notification parasiteNotification() { return Notification.OFF; }
+
+    @ConfigItem(keyName = "debugParasite", name = "Debug preview", description = "Preview the parasite warning.", section = warnParasiteSection, position = 5)
+    default boolean debugParasite() { return false; }
+
     // =========================================================================
     // 7. Warning: Heart, Buffs, Unpotted & Food
     // =========================================================================
@@ -459,6 +497,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @Alpha
     @ConfigItem(keyName = "heartReminderColor", name = "Color", description = "Color when Imbued/Saturated Heart is ready.", section = warnHeartSection, position = 3)
     default Color heartReminderColor() { return new Color(185, 65, 225, 200); }
+
+    @ConfigItem(keyName = "heartNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when your Heart is ready again.", section = warnHeartSection, position = 4)
+    default Notification heartNotification() { return Notification.OFF; }
 
     @ConfigItem(keyName = "potionCooldownsEnabled", name = "Potions: Track cooldowns", description = "Show inventory overlays on Surge potions and cooldown consumables.", section = warnPotionsBuffsSection, position = 10)
     default boolean potionCooldownsEnabled() { return true; }
@@ -485,6 +526,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @Alpha
     @ConfigItem(keyName = "buffReminderColor", name = "Potions: Color", description = "Color when an inventory buff/potion expires.", section = warnPotionsBuffsSection, position = 17)
     default Color buffReminderColor() { return new Color(65, 215, 145, 200); }
+
+    @ConfigItem(keyName = "buffNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when a used potion buff expires.", section = warnPotionsBuffsSection, position = 23)
+    default Notification buffNotification() { return Notification.OFF; }
 
     @ConfigItem(keyName = "buffOnlyRemindAfterUse", name = "Heart/Buffs: Only remind after use", description = "Only remind when a Heart or buff/utility potion expires after you use it (prevents alerts on combat start for unused items in inventory).", section = warnPotionsBuffsSection, position = 18)
     default boolean buffOnlyRemindAfterUse() { return true; }
@@ -521,6 +565,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "unpottedShower", name = "Shower icon", description = "Shower Stats (three bars) icon when unpotted in combat.", section = warnUnpottedSection, position = 25)
     default boolean unpottedShower() { return true; }
+
+    @ConfigItem(keyName = "unpottedNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when you are unpotted in combat.", section = warnUnpottedSection, position = 27)
+    default Notification unpottedNotification() { return Notification.OFF; }
 
     @ConfigItem(keyName = "foodCooldownsEnabled", name = "Food: Combo-eat & Hunter meat timers", description = "Show 3-tick eat/combo-eat locks and 7-tick Hunter meat delayed heal.", section = warnPotionsBuffsSection, position = 30)
     default boolean foodCooldownsEnabled() { return true; }
@@ -562,6 +609,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @Alpha
     @ConfigItem(keyName = "spellCooldownOverlayColor", name = "Spell cooldown tint", description = "Translucent tint drawn over spells while on cooldown.", section = sharedSpellsSection, position = 9)
     default Color spellCooldownOverlayColor() { return new Color(0, 0, 0, 145); }
+
+    @ConfigItem(keyName = "spellNotification", name = "Spell ready notification", description = "RuneLite notification (sound/tray/flash) when a tracked spell becomes ready to recast.", section = sharedSpellsSection, position = 10)
+    default Notification spellNotification() { return Notification.OFF; }
 
     // Per-spell controls
     @ConfigItem(keyName = "spellThrallEnabled", name = "Enable", description = "Track Resurrect Thrall.", section = spellThrallSection, position = 10)
@@ -678,6 +728,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "spellVengeanceSpellbook", name = "Spellbook glow", description = "Glow Vengeance in spellbook.", section = spellVengeanceSection, position = 64)
     default boolean spellVengeanceSpellbook() { return true; }
+
+    @ConfigItem(keyName = "vengeanceRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Vengeance while it is still charged or on cooldown (right-click still casts).", section = spellVengeanceSection, position = 65)
+    default boolean vengeanceRecastProtection() { return true; }
 
     @ConfigItem(keyName = "spellVengeanceOtherEnabled", name = "Enable", description = "Track Vengeance Other recast cooldown.", section = spellVengeanceOtherSection, position = 70)
     default boolean spellVengeanceOtherEnabled() { return false; }

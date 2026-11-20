@@ -14,5 +14,6 @@ public enum StatusEffect
     IDLE,
     SPEC_READY,
     LOW_RUN_ENERGY,
-    UNPOTTED
+    UNPOTTED,
+    PARASITE
 }

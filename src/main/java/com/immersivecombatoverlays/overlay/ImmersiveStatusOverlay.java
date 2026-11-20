@@ -16,6 +16,8 @@ import com.immersivecombatoverlays.tracker.FreezeTracker;
 import com.immersivecombatoverlays.tracker.HeartCooldownTracker;
 import com.immersivecombatoverlays.tracker.IdleTracker;
 import com.immersivecombatoverlays.tracker.UnpottedTracker;
+import com.immersivecombatoverlays.tracker.ParasiteTracker;
+import net.runelite.api.gameval.ItemID;
 import com.immersivecombatoverlays.tracker.ImpactTracker;
 import com.immersivecombatoverlays.tracker.PotionTimers;
 import com.immersivecombatoverlays.tracker.RepotProtection;
@@ -75,6 +77,8 @@ public class ImmersiveStatusOverlay extends Overlay
     private final FreezeTracker freezeTracker;
     private final IdleTracker idleTracker;
     private final UnpottedTracker unpottedTracker;
+    private final ParasiteTracker parasiteTracker;
+    private volatile boolean liveBuffExpired = false;
 
     // Client-thread-sampled live values (safe to read on render thread)
     private volatile int cachedSpellbook = 0;
@@ -120,7 +124,8 @@ public class ImmersiveStatusOverlay extends Overlay
         @Named("venomTick") ImpactTracker venomTickTracker,
         FreezeTracker freezeTracker,
         IdleTracker idleTracker,
-        UnpottedTracker unpottedTracker
+        UnpottedTracker unpottedTracker,
+        ParasiteTracker parasiteTracker
     )
     {
         this.client = client;
@@ -139,6 +144,7 @@ public class ImmersiveStatusOverlay extends Overlay
         this.freezeTracker = freezeTracker;
         this.idleTracker = idleTracker;
         this.unpottedTracker = unpottedTracker;
+        this.parasiteTracker = parasiteTracker;
 
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.UNDER_WIDGETS);
@@ -230,6 +236,7 @@ public class ImmersiveStatusOverlay extends Overlay
 
     private void sampleInventoryBuffItems()
     {
+        liveBuffExpired = false;
         if (config.buffOnlyInCombat() && !combatState.isInCombat())
         {
             liveBuffItemCount = 0;
@@ -298,6 +305,7 @@ public class ImmersiveStatusOverlay extends Overlay
                     liveBuffItemIds[count] = id;
                     liveBuffItemColors[count] = config.buffReminderColor().getRGB();
                     count++;
+                    liveBuffExpired = true;
                 }
             }
         }
@@ -444,6 +452,11 @@ public class ImmersiveStatusOverlay extends Overlay
                 statusColors[StatusEffect.IDLE.ordinal()] = config.idleColor().getRGB();
             }
         }
+        if (config.parasiteEnabled() && parasiteTracker.isActive())
+        {
+            rawStatusSeverities[StatusEffect.PARASITE.ordinal()] = parasiteTracker.getSeverity();
+            statusColors[StatusEffect.PARASITE.ordinal()] = config.parasiteColor().getRGB();
+        }
         if (config.unpottedEnabled())
         {
             float unpotSev = unpottedTracker.getSeverity(config, nowNanos);
@@ -508,6 +521,11 @@ public class ImmersiveStatusOverlay extends Overlay
             rawStatusSeverities[StatusEffect.LOW_RUN_ENERGY.ordinal()] = pSev;
             statusColors[StatusEffect.LOW_RUN_ENERGY.ordinal()] = config.lowRunColor().getRGB();
         }
+        if (config.debugParasite())
+        {
+            rawStatusSeverities[StatusEffect.PARASITE.ordinal()] = pSev;
+            statusColors[StatusEffect.PARASITE.ordinal()] = config.parasiteColor().getRGB();
+        }
         if (config.debugUnpotted())
         {
             rawStatusSeverities[StatusEffect.UNPOTTED.ordinal()] = pSev;
@@ -526,6 +544,7 @@ public class ImmersiveStatusOverlay extends Overlay
         applyStatusGlowToggle(StatusEffect.SPEC_READY, config.specGlow());
         applyStatusGlowToggle(StatusEffect.LOW_RUN_ENERGY, config.lowRunGlow());
         applyStatusGlowToggle(StatusEffect.UNPOTTED, config.unpottedGlow());
+        applyStatusGlowToggle(StatusEffect.PARASITE, config.parasiteGlow());
     }
 
     private void applyStatusGlowToggle(StatusEffect effect, boolean glowEnabled)
@@ -577,6 +596,12 @@ public class ImmersiveStatusOverlay extends Overlay
                 readyItemColors[out] = readyItemColors[i];
                 out++;
             }
+        }
+        if (rawStatusSeverities[StatusEffect.PARASITE.ordinal()] > 0.01f && config.parasiteShower() && out < readyItemIds.length)
+        {
+            readyItemIds[out] = ItemID.SANFEW_SALVE_4_DOSE;
+            readyItemColors[out] = statusColors[StatusEffect.PARASITE.ordinal()];
+            out++;
         }
         if (rawStatusSeverities[StatusEffect.VENOM.ordinal()] > 0.01f && config.venomShower() && out < readyItemIds.length)
         {
@@ -722,7 +747,7 @@ public class ImmersiveStatusOverlay extends Overlay
         if (config.debugLowHealth() || config.debugLowPrayer() || config.debugPoison()
             || config.debugVenom() || config.debugDisease() || config.debugFreeze()
             || config.debugDamageFlash() || config.debugIdle() || config.debugSpecReady()
-            || config.debugLowRun() || config.debugUnpotted()
+            || config.debugLowRun() || config.debugUnpotted() || config.debugParasite()
             || config.debugHeartReady() || config.debugBuffExpired())
         {
             return true;
@@ -750,6 +775,26 @@ public class ImmersiveStatusOverlay extends Overlay
             }
         }
         return count;
+    }
+
+    public boolean isLowHealthLive()
+    {
+        return liveLowHealthSev > 0.01f;
+    }
+
+    public boolean isLowPrayerLive()
+    {
+        return liveLowPrayerSev > 0.01f;
+    }
+
+    public boolean isSpecReadyLive()
+    {
+        return liveSpecSev > 0.01f;
+    }
+
+    public boolean isBuffExpiredLive()
+    {
+        return liveBuffExpired;
     }
 
     public boolean isPrayerLow()
