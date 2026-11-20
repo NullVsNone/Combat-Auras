@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.immersivecombatoverlays.TrackersTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-20T16:14:37" hostname="NOVA" time="0.044">
+  <properties/>
+  <testcase name="testUnpottedTrackerIgnoresAlchingAndSupportsCannonRanged" classname="com.immersivecombatoverlays.TrackersTest" time="0.002"/>
+  <testcase name="testComboEatFoodCooldownsAndHunterMeatDelayedHeal" classname="com.immersivecombatoverlays.TrackersTest" time="0.002"/>
+  <testcase name="testIdleTrackerAfkLogoutWarning" classname="com.immersivecombatoverlays.TrackersTest" time="0.003"/>
+  <testcase name="testHeartAndPotionDebugTimers" classname="com.immersivecombatoverlays.TrackersTest" time="0.005"/>
+  <testcase name="testUnpottedIgnoresLongrangeDefenceAndOverloadBrewDip" classname="com.immersivecombatoverlays.TrackersTest" time="0.001"/>
+  <testcase name="testRepotProtectionStripsColorTagsAndDeprioritizesSuperAntifire" classname="com.immersivecombatoverlays.TrackersTest" time="0.025"/>
+  <testcase name="testFreezeSpotAnimsAndImpactTrackers" classname="com.immersivecombatoverlays.TrackersTest" time="0.003"/>
+  <testcase name="testIdleTrackerMovementAndRampAndAutoHide" classname="com.immersivecombatoverlays.TrackersTest" time="0.001"/>
+  <testcase name="testPotionItemMatchingAllFamilies" classname="com.immersivecombatoverlays.TrackersTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
