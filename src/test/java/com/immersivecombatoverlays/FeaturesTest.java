@@ -185,12 +185,12 @@ public class FeaturesTest
     public void presetsOnlyTouchRealSettingsWithMatchingTypes() throws Exception
     {
         Set<String> managed = new HashSet<>(Arrays.asList(Preset.MANAGED_KEYS));
-        Assert.assertTrue(Preset.CUSTOM.values().isEmpty());
+        Assert.assertTrue(Preset.CUSTOM.settings().isEmpty());
         Assert.assertEquals(Preset.CUSTOM, DEFAULTS.preset());
 
         for (Preset preset : Preset.values())
         {
-            for (Map.Entry<String, Object> e : preset.values().entrySet())
+            for (Map.Entry<String, Object> e : preset.settings().entrySet())
             {
                 Method m = ImmersiveCombatOverlaysConfig.class.getMethod(e.getKey());
                 Assert.assertTrue(preset + " touches unmanaged key " + e.getKey(), managed.contains(e.getKey()));
@@ -203,13 +203,13 @@ public class FeaturesTest
             }
         }
         // STANDARD resets every managed key to its default
-        Assert.assertEquals(managed, Preset.STANDARD.values().keySet());
-        for (Object v : Preset.STANDARD.values().values())
+        Assert.assertEquals(managed, Preset.STANDARD.settings().keySet());
+        for (Object v : Preset.STANDARD.settings().values())
         {
             Assert.assertNull(v);
         }
-        Assert.assertEquals(Boolean.FALSE, Preset.MINIMAL.values().get("allowIconShowers"));
-        Assert.assertEquals(Boolean.TRUE, Preset.EVERYTHING.values().get("specEnabled"));
+        Assert.assertEquals(Boolean.FALSE, Preset.MINIMAL.settings().get("allowIconShowers"));
+        Assert.assertEquals(Boolean.TRUE, Preset.EVERYTHING.settings().get("specEnabled"));
     }
 
     @Test

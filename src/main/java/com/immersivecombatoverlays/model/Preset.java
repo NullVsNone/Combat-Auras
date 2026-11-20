@@ -26,7 +26,7 @@ public enum Preset
     /**
      * @return key -> value to write; a null value means "reset to the default" (unset).
      */
-    public Map<String, Object> values()
+    public Map<String, Object> settings()
     {
         Map<String, Object> v = new LinkedHashMap<>();
         switch (this)

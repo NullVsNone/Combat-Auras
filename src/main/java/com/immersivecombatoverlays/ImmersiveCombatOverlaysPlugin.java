@@ -542,7 +542,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             return;
         }
-        for (java.util.Map.Entry<String, Object> e : preset.values().entrySet())
+        for (java.util.Map.Entry<String, Object> e : preset.settings().entrySet())
         {
             if (e.getValue() == null)
             {
