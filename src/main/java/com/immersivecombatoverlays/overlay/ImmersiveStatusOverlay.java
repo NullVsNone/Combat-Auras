@@ -29,7 +29,6 @@ import net.runelite.api.GameState;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.Prayer;
 import net.runelite.api.Skill;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarPlayerID;
@@ -760,13 +759,7 @@ public class ImmersiveStatusOverlay extends Overlay
 
     private boolean isAnyPrayerActive()
     {
-        for (Prayer p : Prayer.values())
-        {
-            if (client.isPrayerActive(p))
-            {
-                return true;
-            }
-        }
-        return false;
+        // Bitfield of every active prayer (covers Deadeye / Mystic Vigour, unlike the deprecated isPrayerActive)
+        return client.getVarbitValue(VarbitID.PRAYER_ALLACTIVE) != 0;
     }
 }

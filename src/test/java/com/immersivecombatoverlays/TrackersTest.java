@@ -278,11 +278,18 @@ public class TrackersTest
         MenuEntry antifire = menuEntry("Drink", 22209, "<col=ff9040>Super antifire potion(4)</col>", deprioritized, 0);
         MenuEntry stamina = menuEntry("Drink", 12625, "<col=ff9040>Stamina potion(4)</col>", deprioritized, 1);
         FakeClient menuClient = new FakeClient();
+        net.runelite.api.Menu menu = (net.runelite.api.Menu) Proxy.newProxyInstance(
+            net.runelite.api.Menu.class.getClassLoader(),
+            new Class<?>[]{net.runelite.api.Menu.class},
+            (p, m, a) -> "getMenuEntries".equals(m.getName())
+                ? new MenuEntry[]{antifire, stamina}
+                : FakeClient.defaultValue(m.getReturnType())
+        );
         Object proxy = Proxy.newProxyInstance(
             net.runelite.api.Client.class.getClassLoader(),
             new Class<?>[]{net.runelite.api.Client.class},
-            (p, m, a) -> "getMenuEntries".equals(m.getName())
-                ? new MenuEntry[]{antifire, stamina}
+            (p, m, a) -> "getMenu".equals(m.getName())
+                ? menu
                 : m.getName().equals("getVarbitValue") || m.getName().endsWith("SkillLevel") ? 1 : FakeClient.defaultValue(m.getReturnType())
         );
 
@@ -390,6 +397,8 @@ public class TrackersTest
         FakeClient fc = new FakeClient();
         fc.localPlayer = local;
         freeze.reset();
+        freeze.onGraphicChanged(local, t0); // no freeze spotanim on the player -> nothing
+        Assert.assertEquals(0f, freeze.getSeverity(t0), 0.001f);
         freeze.onGraphicChanged(local, 369, t0);
         pose[0] = 823; // rotate
         freeze.onGameTick(fc.client);

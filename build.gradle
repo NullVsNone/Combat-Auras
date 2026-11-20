@@ -29,11 +29,21 @@ version = '1.0.0'
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release.set(11)
+    options.compilerArgs << '-Xlint:deprecation'
 }
 
 tasks.named('test') {
     systemProperty 'java.awt.headless', 'true'
     jvmArgs '-ea'
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+    }
+    afterSuite { desc, result ->
+        if (!desc.parent) {
+            println "Tests: ${result.testCount} run, ${result.successfulTestCount} passed, ${result.failedTestCount} failed, ${result.skippedTestCount} skipped"
+        }
+    }
 }
 
 tasks.register('run', JavaExec) {

@@ -313,7 +313,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         Player local = client.getLocalPlayer();
         if (local != null && event.getActor() == local)
         {
-            freezeTracker.onGraphicChanged(local, local.getGraphic(), System.nanoTime());
+            freezeTracker.onGraphicChanged(local, System.nanoTime());
         }
     }
 

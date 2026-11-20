@@ -26,7 +26,7 @@ public class RepotProtection
             return;
         }
 
-        MenuEntry[] entries = client.getMenuEntries();
+        MenuEntry[] entries = client.getMenu().getMenuEntries();
         if (entries == null || entries.length == 0)
         {
             return;

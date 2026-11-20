@@ -25,6 +25,27 @@ public class FreezeTracker
         freezeStartNanos = 0L;
     }
 
+    private static final int[] FREEZE_SPOTANIMS = {181, 180, 179, 361, 363, 367, 369};
+
+    /**
+     * Checks every spotanim on the player (an actor can have several at once) for a freeze/bind graphic.
+     */
+    public void onGraphicChanged(Player localPlayer, long nowNanos)
+    {
+        if (localPlayer == null)
+        {
+            return;
+        }
+        for (int id : FREEZE_SPOTANIMS)
+        {
+            if (localPlayer.hasSpotAnim(id))
+            {
+                onGraphicChanged(localPlayer, id, nowNanos);
+                return;
+            }
+        }
+    }
+
     public void onGraphicChanged(Player localPlayer, int spotAnimId, long nowNanos)
     {
         int ticks = getFreezeTicksForSpotAnim(spotAnimId);
