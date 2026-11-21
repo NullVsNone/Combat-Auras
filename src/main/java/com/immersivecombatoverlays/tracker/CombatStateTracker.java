@@ -283,9 +283,9 @@ public class CombatStateTracker
         {
             return false;
         }
-        String clean = CombatSpellTracker.stripTags(target);
-        int arrow = clean.indexOf("->");
-        String spell = (arrow >= 0 ? clean.substring(0, arrow) : clean).trim();
+        // Split before stripping tags: the tag stripper would also eat the '>' of "->"
+        int arrow = target.indexOf("->");
+        String spell = CombatSpellTracker.stripTags(arrow >= 0 ? target.substring(0, arrow) : target).trim();
         return UTILITY_TARGET_SPELLS.contains(spell);
     }
 
