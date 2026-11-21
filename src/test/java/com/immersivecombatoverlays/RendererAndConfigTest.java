@@ -67,12 +67,56 @@ public class RendererAndConfigTest
         {
             canvas = new BufferedImage(400, 300, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = canvas.createGraphics();
-            renderer.render(g, 400, 300, t, cfg, null, null, null, null, severities, colors,
+            renderer.render(g, 400, 300, t, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg), null, null, null, severities, colors,
                 0, new int[0], 0, new int[0], new int[0], 0, new int[0], new int[0]);
             g.dispose();
             t += 50_000_000L;
         }
         return canvas;
+    }
+
+    @Test
+    public void glowEdgesCanBeAnyCombination()
+    {
+        int[] colors = new int[StatusEffect.values().length];
+        colors[StatusEffect.LOW_HEALTH.ordinal()] = 0xFFFF0000;
+        ImmersiveCombatOverlaysConfig onlyBottom = new ImmersiveCombatOverlaysConfig()
+        {
+            @Override
+            public boolean glowTop() { return false; }
+
+            @Override
+            public boolean glowLeft() { return false; }
+
+            @Override
+            public boolean glowRight() { return false; }
+
+            @Override
+            public int screenTint() { return 0; }
+        };
+        BufferedImage img = renderGlow(onlyBottom, sev(StatusEffect.LOW_HEALTH, 1f), colors, 5);
+        Assert.assertEquals("top edge off", 0, (img.getRGB(200, 1) >>> 24) & 0xFF);
+        Assert.assertEquals("left edge off", 0, (img.getRGB(1, 150) >>> 24) & 0xFF);
+        Assert.assertTrue("bottom edge on", ((img.getRGB(200, 298) >>> 24) & 0xFF) > 0);
+        Assert.assertTrue("bottom strip runs through the corner (no hard cut)", ((img.getRGB(1, 298) >>> 24) & 0xFF) > 0);
+        Assert.assertEquals("top-left corner stays empty", 0, (img.getRGB(1, 1) >>> 24) & 0xFF);
+
+        Assert.assertEquals("both edges: radial corner", "corner",
+            com.immersivecombatoverlays.render.ProceduralRenderer.pickCornerPaint(true, true, "corner", "h", "v"));
+        Assert.assertEquals("h", com.immersivecombatoverlays.render.ProceduralRenderer.pickCornerPaint(true, false, "corner", "h", "v"));
+        Assert.assertEquals("v", com.immersivecombatoverlays.render.ProceduralRenderer.pickCornerPaint(false, true, "corner", "h", "v"));
+        Assert.assertNull(com.immersivecombatoverlays.render.ProceduralRenderer.pickCornerPaint(false, false, "corner", "h", "v"));
+    }
+
+    @Test
+    public void everyEnumEntryHasASettingsBinding()
+    {
+        Assert.assertEquals(CombatSpell.values().length, com.immersivecombatoverlays.settings.Bindings.SPELLS.size());
+        Assert.assertEquals(StatusEffect.values().length, com.immersivecombatoverlays.settings.Bindings.STATUSES.size());
+        Assert.assertEquals(com.immersivecombatoverlays.model.ReminderFamily.values().length, com.immersivecombatoverlays.settings.Bindings.FAMILIES.size());
+        Assert.assertEquals(com.immersivecombatoverlays.model.PotionFamily.values().length, com.immersivecombatoverlays.settings.Bindings.POTIONS.size());
+        // Building a snapshot from the defaults exercises every binding
+        Assert.assertNotNull(com.immersivecombatoverlays.settings.SettingsSnapshot.of(new ImmersiveCombatOverlaysConfig() {}));
     }
 
     @Test
@@ -180,8 +224,8 @@ public class RendererAndConfigTest
             int[] itemCols = new int[]{cfg.heartReminderColor().getRGB(), cfg.buffReminderColor().getRGB()};
 
             renderer.render(
-                g, 400, 300, System.nanoTime(), cfg,
-                null, null, null, null,
+                g, 400, 300, System.nanoTime(), com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg),
+                null, null, null,
                 severities, colors,
                 spriteIds.length, spriteCols,
                 spriteIds.length, spriteIds, spriteCols,
@@ -221,11 +265,11 @@ public class RendererAndConfigTest
         Assert.assertEquals(9, CombatSpell.values().length);
         for (CombatSpell spell : CombatSpell.values())
         {
-            Assert.assertNotNull(ImmersiveCombatOverlaysConfig.getSpellColor(cfg, spell));
-            Assert.assertFalse(ImmersiveCombatOverlaysConfig.isDebugSpellActive(cfg, spell));
-            Assert.assertTrue(ImmersiveCombatOverlaysConfig.isSpellGlowEnabled(cfg, spell));
-            Assert.assertTrue(ImmersiveCombatOverlaysConfig.isSpellShowerEnabled(cfg, spell));
-            Assert.assertTrue(ImmersiveCombatOverlaysConfig.isSpellbookGlowEnabled(cfg, spell));
+            Assert.assertNotNull(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellAwtColor[spell.ordinal()]);
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellDebug[spell.ordinal()]);
+            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellGlow[spell.ordinal()]);
+            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellShower[spell.ordinal()]);
+            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellbookGlow[spell.ordinal()]);
         }
 
         Set<String> sections = new HashSet<>();
@@ -284,11 +328,11 @@ public class RendererAndConfigTest
         };
         for (CombatSpell spell : CombatSpell.values())
         {
-            Assert.assertFalse(ImmersiveCombatOverlaysConfig.isSpellGlowEnabled(noGlow, spell));
-            Assert.assertTrue("glow off must not disable icons", ImmersiveCombatOverlaysConfig.isSpellShowerEnabled(noGlow, spell));
-            Assert.assertFalse(ImmersiveCombatOverlaysConfig.isSpellShowerEnabled(noIcons, spell));
-            Assert.assertTrue("icons off must not disable glow", ImmersiveCombatOverlaysConfig.isSpellGlowEnabled(noIcons, spell));
-            Assert.assertFalse(ImmersiveCombatOverlaysConfig.isSpellbookGlowEnabled(noItemGlow, spell));
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noGlow).spellGlow[spell.ordinal()]);
+            Assert.assertTrue("glow off must not disable icons", com.immersivecombatoverlays.settings.SettingsSnapshot.of(noGlow).spellShower[spell.ordinal()]);
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noIcons).spellShower[spell.ordinal()]);
+            Assert.assertTrue("icons off must not disable glow", com.immersivecombatoverlays.settings.SettingsSnapshot.of(noIcons).spellGlow[spell.ordinal()]);
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noItemGlow).spellbookGlow[spell.ordinal()]);
         }
 
         // Every spell has its own glow/shower/spellbook toggle (previously 4 spells were hard-wired on)
@@ -306,11 +350,11 @@ public class RendererAndConfigTest
             @Override
             public boolean spellVengeanceOtherGlow() { return false; }
         };
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isSpellGlowEnabled(veilOff, CombatSpell.SHADOW_VEIL));
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isSpellShowerEnabled(veilOff, CombatSpell.CORRUPTION));
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isSpellbookGlowEnabled(veilOff, CombatSpell.CHARGE));
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isSpellGlowEnabled(veilOff, CombatSpell.VENGEANCE_OTHER));
-        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isSpellShowerEnabled(veilOff, CombatSpell.SHADOW_VEIL));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellGlow[CombatSpell.SHADOW_VEIL.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellShower[CombatSpell.CORRUPTION.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellbookGlow[CombatSpell.CHARGE.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellGlow[CombatSpell.VENGEANCE_OTHER.ordinal()]);
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellShower[CombatSpell.SHADOW_VEIL.ordinal()]);
 
         // With zero master intensity the renderer draws nothing at the screen edge
         int[] colors = new int[StatusEffect.values().length];

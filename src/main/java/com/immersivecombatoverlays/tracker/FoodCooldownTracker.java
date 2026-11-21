@@ -2,14 +2,10 @@ package com.immersivecombatoverlays.tracker;
 
 import com.immersivecombatoverlays.model.Cooldown;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.IntFunction;
 import net.runelite.api.Item;
-import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 
 /**
@@ -25,6 +21,7 @@ import net.runelite.api.ItemContainer;
  * match. A lock starts only when the clicked item actually leaves its slot, and clicks the game would ignore
  * (timer still running) are ignored here too, so spam-clicking never extends a lock.
  */
+@javax.inject.Singleton
 public class FoodCooldownTracker
 {
     public enum ConsumableType
@@ -61,8 +58,6 @@ public class FoodCooldownTracker
     private int pendingItemId = -1;
     private int pendingTick = 0;
 
-    private static final Object NONE = new Object();
-    private final Map<Integer, Object> classifyCache = new HashMap<>(); // client thread only
 
     public void reset()
     {
@@ -179,22 +174,9 @@ public class FoodCooldownTracker
     }
 
     /**
-     * Memoised classification from item data; null for anything that cannot be eaten or drunk.
+     * Eat / drink timer class from item data; null for anything that cannot be eaten or drunk.
+     * Cached per item id by {@link ConsumableCatalog}.
      */
-    public ConsumableType classify(int itemId, IntFunction<ItemComposition> lookup)
-    {
-        Object cached = classifyCache.get(itemId);
-        if (cached == null)
-        {
-            ItemComposition comp = lookup.apply(itemId);
-            ConsumableType type = comp == null ? null
-                : classify(comp.getName(), comp.getInventoryActions(), comp.getNote() != -1);
-            cached = type != null ? type : NONE;
-            classifyCache.put(itemId, cached);
-        }
-        return cached == NONE ? null : (ConsumableType) cached;
-    }
-
     public static ConsumableType classify(String name, String[] actions, boolean noted)
     {
         if (name == null || noted)

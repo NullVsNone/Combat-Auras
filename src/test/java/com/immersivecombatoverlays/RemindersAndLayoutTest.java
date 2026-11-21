@@ -5,7 +5,8 @@ import com.immersivecombatoverlays.model.BoostPotion;
 import com.immersivecombatoverlays.model.Cooldown;
 import com.immersivecombatoverlays.model.PotionEffect;
 import com.immersivecombatoverlays.tracker.BoostPotionTimers;
-import com.immersivecombatoverlays.tracker.ExpiryReminders;
+import com.immersivecombatoverlays.tracker.ReminderPipeline;
+import com.immersivecombatoverlays.tracker.ReminderPolicy;
 import com.immersivecombatoverlays.tracker.PotionTimers;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -29,8 +30,8 @@ public class RemindersAndLayoutTest
     @Test
     public void reminderFiresOnlyOnExpiryNotForUnusedItems()
     {
-        ExpiryReminders r = new ExpiryReminders();
-        int k = ExpiryReminders.key(PotionEffect.ANTIVENOM);
+        ReminderPipeline r = new ReminderPipeline(null, null, null, null, null, null, null);
+        int k = ReminderPipeline.key(PotionEffect.ANTIVENOM);
         long t = 100 * SEC;
 
         // Never active (potion just sitting in the inventory): no reminder, ever
@@ -53,37 +54,55 @@ public class RemindersAndLayoutTest
 
         r.reset();
         Assert.assertFalse(r.isShowing(k, 0, t + 7 * SEC));
-        Assert.assertNotEquals(ExpiryReminders.key(PotionEffect.SURGE), ExpiryReminders.key(BoostPotion.ATTACK));
-        Assert.assertNotEquals(ExpiryReminders.HEART, ExpiryReminders.key(PotionEffect.SURGE));
+        Assert.assertNotEquals(ReminderPipeline.key(PotionEffect.SURGE), ReminderPipeline.key(BoostPotion.ATTACK));
+        Assert.assertNotEquals(ReminderPipeline.HEART, ReminderPipeline.key(PotionEffect.SURGE));
     }
 
     @Test
     public void preRemindLeadStartsReminderEarly()
     {
         Cooldown cd = Cooldown.active(10, 500); // 6s left
-        Assert.assertTrue("no lead: still active", ImmersiveCombatOverlaysPlugin.isActiveBeyondLead(cd, 0));
-        Assert.assertFalse("10s lead: already inside the pre-remind window", ImmersiveCombatOverlaysPlugin.isActiveBeyondLead(cd, 10));
-        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isActiveBeyondLead(Cooldown.active(100, 500), 10));
-        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isActiveBeyondLead(Cooldown.READY, 0));
-        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isActiveBeyondLead(null, 0));
+        Assert.assertTrue("no lead: still active", ReminderPolicy.activeBeyondLead(cd, com.immersivecombatoverlays.settings.SettingsSnapshot.secondsToTicks(0)));
+        Assert.assertFalse("10s lead: already inside the pre-remind window", ReminderPolicy.activeBeyondLead(cd, com.immersivecombatoverlays.settings.SettingsSnapshot.secondsToTicks(10)));
+        Assert.assertTrue(ReminderPolicy.activeBeyondLead(Cooldown.active(100, 500), com.immersivecombatoverlays.settings.SettingsSnapshot.secondsToTicks(10)));
+        Assert.assertFalse(ReminderPolicy.activeBeyondLead(Cooldown.READY, com.immersivecombatoverlays.settings.SettingsSnapshot.secondsToTicks(0)));
+        Assert.assertFalse(ReminderPolicy.activeBeyondLead(null, com.immersivecombatoverlays.settings.SettingsSnapshot.secondsToTicks(0)));
     }
 
     @Test
-    public void preRemindOnlyAppliesToBoostingPotions()
+    public void everyPotionFamilyHasItsOwnExpiringSoonLead()
     {
         ImmersiveCombatOverlaysConfig cfg = new ImmersiveCombatOverlaysConfig()
         {
             @Override
-            public int divinePreRemindSeconds() { return 8; }
+            public int divinePreRemindSeconds() { return 6; }
+
+            @Override
+            public int raidBoostLeadSeconds() { return 12; }
+
+            @Override
+            public int antifireLeadSeconds() { return 30; }
+
+            @Override
+            public int staminaLeadSeconds() { return 3; }
         };
-        Assert.assertEquals(8, ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(cfg, PotionEffect.DIVINE_COMBAT));
-        Assert.assertEquals(8, ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(cfg, PotionEffect.DIVINE_BASTION));
-        Assert.assertEquals(8, ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(cfg, PotionEffect.OVERLOAD));
-        Assert.assertEquals(8, ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(cfg, PotionEffect.SMELLING_SALTS));
-        Assert.assertEquals("protection potions remind on expiry only", 0, ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(cfg, PotionEffect.ANTIVENOM));
-        Assert.assertEquals(0, ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(cfg, PotionEffect.STAMINA));
-        Assert.assertEquals(0, ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(cfg, PotionEffect.SUPER_ANTIFIRE));
-        Assert.assertEquals("off by default", 0, ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(DEFAULTS, PotionEffect.DIVINE_COMBAT));
+        com.immersivecombatoverlays.settings.SettingsSnapshot s = com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg);
+        Assert.assertEquals(10, s.leadTicks(PotionEffect.DIVINE_COMBAT));
+        Assert.assertEquals(10, s.leadTicks(PotionEffect.DIVINE_BASTION));
+        Assert.assertEquals(20, s.leadTicks(PotionEffect.OVERLOAD));
+        Assert.assertEquals(20, s.leadTicks(PotionEffect.SMELLING_SALTS));
+        Assert.assertEquals(50, s.leadTicks(PotionEffect.SUPER_ANTIFIRE));
+        Assert.assertEquals(5, s.leadTicks(PotionEffect.STAMINA));
+        Assert.assertEquals("untouched families warn at expiry", 0, s.leadTicks(PotionEffect.ANTIVENOM));
+        com.immersivecombatoverlays.settings.SettingsSnapshot d = com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS);
+        for (PotionEffect e : PotionEffect.values())
+        {
+            Assert.assertEquals("every lead is off by default: " + e, 0, d.leadTicks(e));
+        }
+        for (com.immersivecombatoverlays.model.CombatSpell spell : com.immersivecombatoverlays.model.CombatSpell.values())
+        {
+            Assert.assertEquals(0, d.spellLeadTicks[spell.ordinal()]);
+        }
         Assert.assertEquals(0, DEFAULTS.heartPreRemindSeconds());
         Assert.assertEquals(0, DEFAULTS.boostPreRemindSeconds());
     }
@@ -91,13 +110,13 @@ public class RemindersAndLayoutTest
     @Test
     public void perFamilyReminderToggles()
     {
-        Assert.assertFalse("stamina expiry reminder off by default", ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.STAMINA));
-        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.ANTIVENOM));
-        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.DIVINE_MAGIC));
-        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.OVERLOAD));
-        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.SURGE));
-        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.GOADING));
-        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(DEFAULTS, PotionEffect.PRAYER_REGENERATION));
+        Assert.assertFalse("stamina expiry reminder off by default", com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.STAMINA.ordinal()]);
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.ANTIVENOM.ordinal()]);
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.DIVINE_MAGIC.ordinal()]);
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.OVERLOAD.ordinal()]);
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.SURGE.ordinal()]);
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.GOADING.ordinal()]);
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.PRAYER_REGENERATION.ordinal()]);
         ImmersiveCombatOverlaysConfig separate = new ImmersiveCombatOverlaysConfig()
         {
             @Override
@@ -109,10 +128,10 @@ public class RemindersAndLayoutTest
             @Override
             public boolean remindPrayerRegeneration() { return false; }
         };
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(separate, PotionEffect.SURGE));
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(separate, PotionEffect.GOADING));
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(separate, PotionEffect.PRAYER_REGENERATION));
-        Assert.assertTrue("other potions toggle unaffected", ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(separate, PotionEffect.MENAPHITE_REMEDY));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind[PotionEffect.SURGE.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind[PotionEffect.GOADING.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind[PotionEffect.PRAYER_REGENERATION.ordinal()]);
+        Assert.assertTrue("other potions toggle unaffected", com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind[PotionEffect.MENAPHITE_REMEDY.ordinal()]);
         ImmersiveCombatOverlaysConfig noAnti = new ImmersiveCombatOverlaysConfig()
         {
             @Override
@@ -121,10 +140,10 @@ public class RemindersAndLayoutTest
             @Override
             public boolean raidPotionsEnabled() { return false; }
         };
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(noAnti, PotionEffect.ANTIPOISON));
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(noAnti, PotionEffect.ANTIVENOM));
-        Assert.assertFalse(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(noAnti, PotionEffect.SMELLING_SALTS));
-        Assert.assertTrue(ImmersiveCombatOverlaysConfig.isPotionReminderEnabled(noAnti, PotionEffect.ANTIFIRE));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind[PotionEffect.ANTIPOISON.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind[PotionEffect.ANTIVENOM.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind[PotionEffect.SMELLING_SALTS.ordinal()]);
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind[PotionEffect.ANTIFIRE.ordinal()]);
     }
 
     // ---------------------------------------------------------------- stamina stale varbit
@@ -158,23 +177,23 @@ public class RemindersAndLayoutTest
             @Override
             public int boostRedoseDefence() { return 5; }
         };
-        Assert.assertEquals(7, ImmersiveCombatOverlaysConfig.getRedoseLevel(cfg, Skill.RANGED));
-        Assert.assertEquals(0, ImmersiveCombatOverlaysConfig.getRedoseLevel(cfg, Skill.HITPOINTS));
+        Assert.assertEquals(7, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).redoseLevel(Skill.RANGED));
+        Assert.assertEquals(0, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).redoseLevel(Skill.HITPOINTS));
 
         // Bastion: ranged +13 > 7 and defence +18 > 5 -> not ready yet
-        Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.BASTION, cfg).isReady());
+        Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.BASTION, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg)).isReady());
         fc.level(Skill.RANGED, 99, 106).level(Skill.DEFENCE, 99, 104);
-        Assert.assertTrue("both at/below their own levels", boosts.getCooldown(fc.client, BoostPotion.BASTION, cfg).isReady());
+        Assert.assertTrue("both at/below their own levels", boosts.getCooldown(fc.client, BoostPotion.BASTION, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg)).isReady());
         fc.level(Skill.DEFENCE, 99, 110);
-        Assert.assertFalse("defence still above +5", boosts.getCooldown(fc.client, BoostPotion.BASTION, cfg).isReady());
+        Assert.assertFalse("defence still above +5", boosts.getCooldown(fc.client, BoostPotion.BASTION, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg)).isReady());
 
         ImmersiveCombatOverlaysConfig untracked = new ImmersiveCombatOverlaysConfig()
         {
             @Override
             public int boostRedoseRanged() { return 0; }
         };
-        Assert.assertNull("0 = don't track", boosts.getCooldown(fc.client, BoostPotion.RANGED, untracked));
-        Assert.assertNotNull(boosts.getCooldown(fc.client, BoostPotion.BASTION, untracked));
+        Assert.assertNull("0 = don't track", boosts.getCooldown(fc.client, BoostPotion.RANGED, com.immersivecombatoverlays.settings.SettingsSnapshot.of(untracked)));
+        Assert.assertNotNull(boosts.getCooldown(fc.client, BoostPotion.BASTION, com.immersivecombatoverlays.settings.SettingsSnapshot.of(untracked)));
     }
 
     // ---------------------------------------------------------------- settings layout

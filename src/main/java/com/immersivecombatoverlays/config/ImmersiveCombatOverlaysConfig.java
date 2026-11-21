@@ -2,11 +2,8 @@ package com.immersivecombatoverlays.config;
 
 import com.immersivecombatoverlays.model.AnimationMode;
 import com.immersivecombatoverlays.model.BorderStyle;
-import com.immersivecombatoverlays.model.CombatSpell;
 import com.immersivecombatoverlays.model.DisplayMode;
 import com.immersivecombatoverlays.model.GlowColorMode;
-import com.immersivecombatoverlays.model.PotionEffect;
-import net.runelite.api.Skill;
 import com.immersivecombatoverlays.model.Preset;
 import com.immersivecombatoverlays.model.ReadyStyle;
 import com.immersivecombatoverlays.model.ReminderContext;
@@ -90,10 +87,13 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigSection(name = "Potions & Raid Consumables", description = "Potion/raid consumable cooldown overlays and expiry reminders.", position = 23, closedByDefault = true)
     String warnPotionsBuffsSection = "warnPotionsBuffsSection";
 
-    @ConfigSection(name = "Boost Potions", description = "Per-stat re-dose reminders for combat boost potions (Preserve-aware).", position = 24, closedByDefault = true)
+    @ConfigSection(name = "Boost Potions", description = "Per-stat re-dose reminders for combat boost potions (Preserve-aware).", position = 25, closedByDefault = true)
     String boostSection = "boostSection";
 
-    @ConfigSection(name = "Food", description = "Combo-eat and Hunter meat timers.", position = 25, closedByDefault = true)
+    @ConfigSection(name = "Potion Reminders", description = "Which potion effects get an expiry reminder, and how many seconds early each one warns.", position = 24, closedByDefault = true)
+    String potionRemindersSection = "potionRemindersSection";
+
+    @ConfigSection(name = "Food", description = "Combo-eat and Hunter meat timers.", position = 26, closedByDefault = true)
     String foodSection = "foodSection";
 
     @ConfigSection(name = "Spell: Resurrect Thrall", description = "Resurrect Thrall tracking and reminder.", position = 30, closedByDefault = true)
@@ -161,6 +161,18 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "glowColorMode", name = "Glow colour mixing", description = "When several warnings are active: blend their colours, or use the strongest warning's colour.", section = generalDisplaySection, position = 8)
     default GlowColorMode glowColorMode() { return GlowColorMode.BLEND; }
+
+    @ConfigItem(keyName = "glowTop", name = "Glow edge: Top", description = "Draw the screen glow along the top edge. Any combination works; corners blend only where two enabled edges meet.", section = generalDisplaySection, position = 9)
+    default boolean glowTop() { return true; }
+
+    @ConfigItem(keyName = "glowBottom", name = "Glow edge: Bottom", description = "Draw the screen glow along the bottom edge. Any combination works; corners blend only where two enabled edges meet.", section = generalDisplaySection, position = 10)
+    default boolean glowBottom() { return true; }
+
+    @ConfigItem(keyName = "glowLeft", name = "Glow edge: Left", description = "Draw the screen glow along the left edge. Any combination works; corners blend only where two enabled edges meet.", section = generalDisplaySection, position = 11)
+    default boolean glowLeft() { return true; }
+
+    @ConfigItem(keyName = "glowRight", name = "Glow edge: Right", description = "Draw the screen glow along the right edge. Any combination works; corners blend only where two enabled edges meet.", section = generalDisplaySection, position = 12)
+    default boolean glowRight() { return true; }
 
     // =========================================================================
     // Icon Shower
@@ -719,7 +731,7 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @Range(min = 0, max = 60)
     @Units(Units.SECONDS)
-    @ConfigItem(keyName = "heartPreRemindSeconds", name = "Pre-remind (0 = off)", description = "Remind this many seconds before the Heart can be used again, so you can re-dose without losing uptime. 0 = remind on expiry only.", section = warnHeartSection, position = 2)
+    @ConfigItem(keyName = "heartPreRemindSeconds", name = "Warn early", description = "Start the Heart reminder this many seconds before it can be used again, so you can re-dose without losing uptime (0 = when ready).", section = warnHeartSection, position = 2)
     default int heartPreRemindSeconds() { return 0; }
 
     @Alpha
@@ -759,33 +771,33 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "buffOnlyInCombat", name = "Only remind in combat", description = "Only show potion expiry reminders while in combat.", section = warnPotionsBuffsSection, position = 3)
     default boolean buffOnlyInCombat() { return true; }
 
-    @ConfigItem(keyName = "remindStamina", name = "Remind: stamina", description = "Remind when a stamina potion effect expires.", section = warnPotionsBuffsSection, position = 4)
+    @ConfigItem(keyName = "remindStamina", name = "Stamina", description = "Remind when a stamina potion effect expires.", section = potionRemindersSection, position = 1)
     default boolean remindStamina() { return false; }
 
-    @ConfigItem(keyName = "remindAntipoison", name = "Remind: antipoison / anti-venom", description = "Remind when antipoison or anti-venom protection expires.", section = warnPotionsBuffsSection, position = 5)
+    @ConfigItem(keyName = "remindAntipoison", name = "Antipoison / anti-venom", description = "Remind when antipoison or anti-venom protection expires.", section = potionRemindersSection, position = 3)
     default boolean remindAntipoison() { return true; }
 
-    @ConfigItem(keyName = "remindAntifire", name = "Remind: antifire", description = "Remind when (super) antifire protection expires.", section = warnPotionsBuffsSection, position = 6)
+    @ConfigItem(keyName = "remindAntifire", name = "Antifire", description = "Remind when (super) antifire protection expires.", section = potionRemindersSection, position = 5)
     default boolean remindAntifire() { return true; }
 
-    @ConfigItem(keyName = "remindDivine", name = "Remind: divine potions", description = "Remind when a divine potion expires.", section = warnPotionsBuffsSection, position = 7)
+    @ConfigItem(keyName = "remindDivine", name = "Divine potions", description = "Remind when a divine potion expires.", section = potionRemindersSection, position = 7)
     default boolean remindDivine() { return true; }
 
-    @ConfigItem(keyName = "remindOtherPotions", name = "Remind: other potions", description = "Remind when Menaphite remedy or moonlight potions expire.", section = warnPotionsBuffsSection, position = 8)
+    @ConfigItem(keyName = "remindOtherPotions", name = "Other (menaphite, moonlight, raid items)", description = "Remind when Menaphite remedy, moonlight potions or other raid consumables expire.", section = potionRemindersSection, position = 27)
     default boolean remindOtherPotions() { return true; }
 
-    @ConfigItem(keyName = "remindSurge", name = "Remind: surge potion", description = "Remind when the surge potion cooldown ends (needs Track surge potions).", section = warnPotionsBuffsSection, position = 16)
+    @ConfigItem(keyName = "remindSurge", name = "Surge potion", description = "Remind when the surge potion cooldown ends (needs Track surge potions).", section = potionRemindersSection, position = 21)
     default boolean remindSurge() { return true; }
 
-    @ConfigItem(keyName = "remindGoading", name = "Remind: goading potion", description = "Remind when the goading potion effect expires.", section = warnPotionsBuffsSection, position = 17)
+    @ConfigItem(keyName = "remindGoading", name = "Goading potion", description = "Remind when the goading potion effect expires.", section = potionRemindersSection, position = 23)
     default boolean remindGoading() { return true; }
 
-    @ConfigItem(keyName = "remindPrayerRegeneration", name = "Remind: prayer regeneration", description = "Remind when the prayer regeneration potion effect expires.", section = warnPotionsBuffsSection, position = 18)
+    @ConfigItem(keyName = "remindPrayerRegeneration", name = "Prayer regeneration", description = "Remind when the prayer regeneration potion effect expires.", section = potionRemindersSection, position = 25)
     default boolean remindPrayerRegeneration() { return true; }
 
     @Range(min = 0, max = 60)
     @Units(Units.SECONDS)
-    @ConfigItem(keyName = "divinePreRemindSeconds", name = "Boost pre-remind (0 = off)", description = "Remind this many seconds before a divine potion, overload or smelling salts expires, so you can re-dose without losing uptime. 0 = remind on expiry only.", section = warnPotionsBuffsSection, position = 9)
+    @ConfigItem(keyName = "divinePreRemindSeconds", name = "Divine: warn early", description = "Start the divine potion reminder this many seconds before it expires, so you can re-dose without losing uptime.", section = potionRemindersSection, position = 8)
     default int divinePreRemindSeconds() { return 0; }
 
     @Alpha
@@ -838,7 +850,7 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @Range(min = 0, max = 60)
     @Units(Units.SECONDS)
-    @ConfigItem(keyName = "boostPreRemindSeconds", name = "Pre-remind (0 = off)", description = "Remind this many seconds before a boost reaches its re-dose level, so you can re-dose without losing uptime. 0 = remind on expiry only.", section = boostSection, position = 6)
+    @ConfigItem(keyName = "boostPreRemindSeconds", name = "Warn early", description = "Start the re-dose reminder this many seconds before a boost reaches its re-dose level (0 = when it does).", section = boostSection, position = 6)
     default int boostPreRemindSeconds() { return 0; }
 
     @ConfigItem(keyName = "boostOnlyInCombat", name = "Only remind in combat", description = "Only show boost re-dose reminders while in combat.", section = boostSection, position = 7)
@@ -875,6 +887,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "spellThrallEnabled", name = "Enable", description = "Track Resurrect Thrall.", section = spellThrallSection, position = 0)
     default boolean spellThrallEnabled() { return true; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellThrallLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellThrallSection, position = 4)
+    default int spellThrallLeadSeconds() { return 0; }
 
     @ConfigItem(keyName = "spellThrallRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on a Resurrect spell while a thrall is still up or on cooldown (right-click still casts).", section = spellThrallSection, position = 3)
     default boolean spellThrallRecastProtection() { return true; }
@@ -916,6 +933,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellDeathChargeEnabled", name = "Enable", description = "Track Death Charge recast cooldown.", section = spellDeathChargeSection, position = 0)
     default boolean spellDeathChargeEnabled() { return true; }
 
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellDeathChargeLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellDeathChargeSection, position = 2)
+    default int spellDeathChargeLeadSeconds() { return 0; }
+
     @ConfigItem(keyName = "spellDeathChargeRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Death Charge while it is active or on cooldown (right-click still casts).", section = spellDeathChargeSection, position = 1)
     default boolean spellDeathChargeRecastProtection() { return true; }
 
@@ -949,6 +971,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "spellMarkOfDarknessEnabled", name = "Enable", description = "Track Mark of Darkness (Purging Staff aware).", section = spellMarkOfDarknessSection, position = 0)
     default boolean spellMarkOfDarknessEnabled() { return true; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellMarkOfDarknessLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellMarkOfDarknessSection, position = 2)
+    default int spellMarkOfDarknessLeadSeconds() { return 0; }
 
     @ConfigItem(keyName = "spellMarkOfDarknessRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Mark of Darkness while it is active or on cooldown (off by default: some players refresh it early) (right-click still casts).", section = spellMarkOfDarknessSection, position = 1)
     default boolean spellMarkOfDarknessRecastProtection() { return false; }
@@ -984,6 +1011,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellWardOfArceuusEnabled", name = "Enable", description = "Track Ward of Arceuus.", section = spellWardOfArceuusSection, position = 0)
     default boolean spellWardOfArceuusEnabled() { return false; }
 
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellWardOfArceuusLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellWardOfArceuusSection, position = 2)
+    default int spellWardOfArceuusLeadSeconds() { return 0; }
+
     @ConfigItem(keyName = "spellWardOfArceuusRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Ward of Arceuus while it is on cooldown (right-click still casts).", section = spellWardOfArceuusSection, position = 1)
     default boolean spellWardOfArceuusRecastProtection() { return true; }
 
@@ -1017,6 +1049,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "spellShadowVeilEnabled", name = "Enable", description = "Track Shadow Veil.", section = spellShadowVeilSection, position = 0)
     default boolean spellShadowVeilEnabled() { return false; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellShadowVeilLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellShadowVeilSection, position = 3)
+    default int spellShadowVeilLeadSeconds() { return 0; }
 
     @ConfigItem(keyName = "spellShadowVeilContext", name = "Remind when", description = "Shadow Veil reduces failed-pickpocket stuns, so by default it is only reminded while pickpocketing (within ~60 s of a Pickpocket click).", section = spellShadowVeilSection, position = 2)
     default ReminderContext spellShadowVeilContext() { return ReminderContext.THIEVING; }
@@ -1055,6 +1092,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellCorruptionEnabled", name = "Enable", description = "Track Lesser/Greater Corruption recast cooldown.", section = spellCorruptionSection, position = 0)
     default boolean spellCorruptionEnabled() { return false; }
 
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellCorruptionLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellCorruptionSection, position = 2)
+    default int spellCorruptionLeadSeconds() { return 0; }
+
     @ConfigItem(keyName = "spellCorruptionRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Lesser/Greater Corruption while it is on cooldown (right-click still casts).", section = spellCorruptionSection, position = 1)
     default boolean spellCorruptionRecastProtection() { return true; }
 
@@ -1088,6 +1130,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "spellVengeanceEnabled", name = "Enable", description = "Track Vengeance recast cooldown.", section = spellVengeanceSection, position = 0)
     default boolean spellVengeanceEnabled() { return true; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellVengeanceLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellVengeanceSection, position = 2)
+    default int spellVengeanceLeadSeconds() { return 0; }
 
     @ConfigItem(keyName = "spellVengeanceRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Vengeance while it is still charged or on cooldown (right-click still casts).", section = spellVengeanceSection, position = 1)
     default boolean spellVengeanceRecastProtection() { return true; }
@@ -1123,6 +1170,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellVengeanceOtherEnabled", name = "Enable", description = "Track Vengeance Other recast cooldown.", section = spellVengeanceOtherSection, position = 0)
     default boolean spellVengeanceOtherEnabled() { return false; }
 
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellVengeanceOtherLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellVengeanceOtherSection, position = 2)
+    default int spellVengeanceOtherLeadSeconds() { return 0; }
+
     @ConfigItem(keyName = "spellVengeanceOtherRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Vengeance Other while it is on cooldown (right-click still casts).", section = spellVengeanceOtherSection, position = 1)
     default boolean spellVengeanceOtherRecastProtection() { return true; }
 
@@ -1157,6 +1209,11 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellChargeEnabled", name = "Enable", description = "Track Charge (God Spells) expiry.", section = spellChargeSection, position = 0)
     default boolean spellChargeEnabled() { return false; }
 
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "spellChargeLeadSeconds", name = "Warn early", description = "Start the reminder this many seconds before the spell can be recast (0 = when it can).", section = spellChargeSection, position = 2)
+    default int spellChargeLeadSeconds() { return 0; }
+
     @ConfigItem(keyName = "spellChargeNeedsGodCape", name = "Only with a god cape", description = "Charge only boosts god spells cast while wearing a god cape, so only remind while one is worn.", section = spellChargeSection, position = 1)
     default boolean spellChargeNeedsGodCape() { return true; }
 
@@ -1183,6 +1240,57 @@ public interface ImmersiveCombatOverlaysConfig extends Config
 
     @ConfigItem(keyName = "debugSpellCharge", name = "Debug preview", description = "Preview expired Charge.", section = spellChargeSection, position = 19)
     default boolean debugSpellCharge() { return false; }
+
+
+    // =========================================================================
+    // Potion Reminders (per family: remind toggle + expiring-soon lead)
+    // =========================================================================
+
+    @ConfigItem(keyName = "potionRemindersEnabled", name = "Enable", description = "Show expiry reminders for the potion families below (timers and re-dose protection keep working either way).", section = potionRemindersSection, position = 0)
+    default boolean potionRemindersEnabled() { return true; }
+
+    @ConfigItem(keyName = "remindRaidBoosts", name = "Overload / smelling salts", description = "Remind when an overload or smelling salts boost expires (needs Track raid consumables).", section = potionRemindersSection, position = 9)
+    default boolean remindRaidBoosts() { return true; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "staminaLeadSeconds", name = "Stamina: warn early", description = "Start the stamina reminder this many seconds before it runs out (0 = when it runs out).", section = potionRemindersSection, position = 2)
+    default int staminaLeadSeconds() { return 0; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "antipoisonLeadSeconds", name = "Antipoison: warn early", description = "Start the antipoison / anti-venom reminder this many seconds before the protection ends.", section = potionRemindersSection, position = 4)
+    default int antipoisonLeadSeconds() { return 0; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "antifireLeadSeconds", name = "Antifire: warn early", description = "Start the antifire reminder this many seconds before the protection ends.", section = potionRemindersSection, position = 6)
+    default int antifireLeadSeconds() { return 0; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "raidBoostLeadSeconds", name = "Overload / salts: warn early", description = "Start the overload / smelling salts reminder this many seconds before it expires.", section = potionRemindersSection, position = 20)
+    default int raidBoostLeadSeconds() { return 0; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "surgeLeadSeconds", name = "Surge: warn early", description = "Start the surge reminder this many seconds before its cooldown ends.", section = potionRemindersSection, position = 22)
+    default int surgeLeadSeconds() { return 0; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "goadingLeadSeconds", name = "Goading: warn early", description = "Start the goading reminder this many seconds before it expires.", section = potionRemindersSection, position = 24)
+    default int goadingLeadSeconds() { return 0; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "prayerRegenerationLeadSeconds", name = "Prayer regeneration: warn early", description = "Start the prayer regeneration reminder this many seconds before it expires.", section = potionRemindersSection, position = 26)
+    default int prayerRegenerationLeadSeconds() { return 0; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "otherPotionLeadSeconds", name = "Other: warn early", description = "Start reminders for the other potions this many seconds before they expire.", section = potionRemindersSection, position = 28)
+    default int otherPotionLeadSeconds() { return 0; }
 
     // =========================================================================
     // Static Helpers (Safe with RuneLite ConfigInvocationHandler)
@@ -1219,241 +1327,4 @@ public interface ImmersiveCombatOverlaysConfig extends Config
         "debugSpellVengeanceOther",
         "debugSpellCharge",
     };
-
-    /**
-     * Whether left-click Cast should be deprioritized for this spell while it cannot be recast yet.
-     * Charge has no toggle: it can be recast at any time to refresh it.
-     */
-    static boolean isSpellRecastProtected(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.spellThrallRecastProtection();
-            case DEATH_CHARGE: return config.spellDeathChargeRecastProtection();
-            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessRecastProtection();
-            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusRecastProtection();
-            case SHADOW_VEIL: return config.spellShadowVeilRecastProtection();
-            case CORRUPTION: return config.spellCorruptionRecastProtection();
-            case VENGEANCE: return config.spellVengeanceRecastProtection();
-            case VENGEANCE_OTHER: return config.spellVengeanceOtherRecastProtection();
-            default: return false;
-        }
-    }
-
-    static boolean isSpellEnabled(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.spellThrallEnabled();
-            case DEATH_CHARGE: return config.spellDeathChargeEnabled();
-            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessEnabled();
-            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusEnabled();
-            case SHADOW_VEIL: return config.spellShadowVeilEnabled();
-            case CORRUPTION: return config.spellCorruptionEnabled();
-            case VENGEANCE: return config.spellVengeanceEnabled();
-            case VENGEANCE_OTHER: return config.spellVengeanceOtherEnabled();
-            case CHARGE: return config.spellChargeEnabled();
-            default: return false;
-        }
-    }
-
-    static Color getSpellColor(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.spellThrallColor();
-            case DEATH_CHARGE: return config.spellDeathChargeColor();
-            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessColor();
-            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusColor();
-            case SHADOW_VEIL: return config.spellShadowVeilColor();
-            case CORRUPTION: return config.spellCorruptionColor();
-            case VENGEANCE: return config.spellVengeanceColor();
-            case VENGEANCE_OTHER: return config.spellVengeanceOtherColor();
-            case CHARGE: return config.spellChargeColor();
-            default: return Color.CYAN;
-        }
-    }
-
-    static boolean isSpellGlowEnabled(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        if (!config.allowScreenGlows() || !config.spellScreenGlow())
-        {
-            return false;
-        }
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.spellThrallGlow();
-            case DEATH_CHARGE: return config.spellDeathChargeGlow();
-            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessGlow();
-            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusGlow();
-            case SHADOW_VEIL: return config.spellShadowVeilGlow();
-            case CORRUPTION: return config.spellCorruptionGlow();
-            case VENGEANCE: return config.spellVengeanceGlow();
-            case VENGEANCE_OTHER: return config.spellVengeanceOtherGlow();
-            case CHARGE: return config.spellChargeGlow();
-            default: return false;
-        }
-    }
-
-    static boolean isSpellShowerEnabled(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        if (!config.allowIconShowers() || !config.spellShowerIcons())
-        {
-            return false;
-        }
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.spellThrallShower();
-            case DEATH_CHARGE: return config.spellDeathChargeShower();
-            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessShower();
-            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusShower();
-            case SHADOW_VEIL: return config.spellShadowVeilShower();
-            case CORRUPTION: return config.spellCorruptionShower();
-            case VENGEANCE: return config.spellVengeanceShower();
-            case VENGEANCE_OTHER: return config.spellVengeanceOtherShower();
-            case CHARGE: return config.spellChargeShower();
-            default: return false;
-        }
-    }
-
-    static boolean isSpellbookGlowEnabled(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        if (!config.allowItemGlows() || !config.spellGlowInSpellbook())
-        {
-            return false;
-        }
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.spellThrallSpellbook();
-            case DEATH_CHARGE: return config.spellDeathChargeSpellbook();
-            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessSpellbook();
-            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusSpellbook();
-            case SHADOW_VEIL: return config.spellShadowVeilSpellbook();
-            case CORRUPTION: return config.spellCorruptionSpellbook();
-            case VENGEANCE: return config.spellVengeanceSpellbook();
-            case VENGEANCE_OTHER: return config.spellVengeanceOtherSpellbook();
-            case CHARGE: return config.spellChargeSpellbook();
-            default: return false;
-        }
-    }
-
-    static boolean isDebugSpellActive(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.debugSpellThrall();
-            case DEATH_CHARGE: return config.debugSpellDeathCharge();
-            case MARK_OF_DARKNESS: return config.debugSpellMarkOfDarkness();
-            case WARD_OF_ARCEUUS: return config.debugSpellWardOfArceuus();
-            case SHADOW_VEIL: return config.debugSpellShadowVeil();
-            case CORRUPTION: return config.debugSpellCorruption();
-            case VENGEANCE: return config.debugSpellVengeance();
-            case VENGEANCE_OTHER: return config.debugSpellVengeanceOther();
-            case CHARGE: return config.debugSpellCharge();
-            default: return false;
-        }
-    }
-
-    static Notification getSpellNotification(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.spellThrallNotification();
-            case DEATH_CHARGE: return config.spellDeathChargeNotification();
-            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessNotification();
-            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusNotification();
-            case SHADOW_VEIL: return config.spellShadowVeilNotification();
-            case CORRUPTION: return config.spellCorruptionNotification();
-            case VENGEANCE: return config.spellVengeanceNotification();
-            case VENGEANCE_OTHER: return config.spellVengeanceOtherNotification();
-            case CHARGE: return config.spellChargeNotification();
-            default: return Notification.OFF;
-        }
-    }
-
-    static int getSpellDurationSeconds(ImmersiveCombatOverlaysConfig config, CombatSpell spell)
-    {
-        switch (spell)
-        {
-            case RESURRECT_THRALL: return config.spellThrallDurationSeconds();
-            case DEATH_CHARGE: return config.spellDeathChargeDurationSeconds();
-            case MARK_OF_DARKNESS: return config.spellMarkOfDarknessDurationSeconds();
-            case WARD_OF_ARCEUUS: return config.spellWardOfArceuusDurationSeconds();
-            case SHADOW_VEIL: return config.spellShadowVeilDurationSeconds();
-            case CORRUPTION: return config.spellCorruptionDurationSeconds();
-            case VENGEANCE: return config.spellVengeanceDurationSeconds();
-            case VENGEANCE_OTHER: return config.spellVengeanceOtherDurationSeconds();
-            case CHARGE: return config.spellChargeDurationSeconds();
-            default: return 0;
-        }
-    }
-
-    /**
-     * Whether an expiry reminder is wanted for this potion effect (per-family toggles in the Potions section).
-     */
-    static boolean isPotionReminderEnabled(ImmersiveCombatOverlaysConfig config, PotionEffect effect)
-    {
-        switch (effect.getCategory())
-        {
-            case RAID:
-                return config.raidPotionsEnabled();
-            case COOLDOWN:
-                return config.potionCooldownsEnabled() && config.remindSurge();
-            default:
-                break;
-        }
-        if (!config.potionEffectsEnabled())
-        {
-            return false;
-        }
-        switch (effect)
-        {
-            case STAMINA:
-                return config.remindStamina();
-            case ANTIPOISON:
-            case ANTIVENOM:
-                return config.remindAntipoison();
-            case ANTIFIRE:
-            case SUPER_ANTIFIRE:
-                return config.remindAntifire();
-            case GOADING:
-                return config.remindGoading();
-            case PRAYER_REGENERATION:
-                return config.remindPrayerRegeneration();
-            default:
-                return effect.isDivine() ? config.remindDivine() : config.remindOtherPotions();
-        }
-    }
-
-    /**
-     * Pre-remind lead in seconds for a potion effect: only boosting potions (divines, overloads, salts) are worth re-dosing early.
-     */
-    static int getPotionPreRemindSeconds(ImmersiveCombatOverlaysConfig config, PotionEffect effect)
-    {
-        switch (effect)
-        {
-            case OVERLOAD:
-            case BLIGHTED_OVERLOAD:
-            case SMELLING_SALTS:
-                return config.divinePreRemindSeconds();
-            default:
-                return effect.isDivine() ? config.divinePreRemindSeconds() : 0;
-        }
-    }
-
-    /**
-     * Re-dose level (+N boost) for a combat skill; 0 means the skill is not tracked.
-     */
-    static int getRedoseLevel(ImmersiveCombatOverlaysConfig config, Skill skill)
-    {
-        switch (skill)
-        {
-            case ATTACK: return config.boostRedoseAttack();
-            case STRENGTH: return config.boostRedoseStrength();
-            case DEFENCE: return config.boostRedoseDefence();
-            case RANGED: return config.boostRedoseRanged();
-            case MAGIC: return config.boostRedoseMagic();
-            default: return 0;
-        }
-    }
 }

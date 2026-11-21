@@ -209,15 +209,15 @@ public class CombatSpellTrackerTest
         CombatStateTracker combat = new CombatStateTracker();
         combat.setSimulatedCombat(true);
 
-        Assert.assertFalse("Never cast -> no reminder", tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, DEFAULTS));
+        Assert.assertFalse("Never cast -> no reminder", tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
 
         tracker.startCooldownTimer(CombatSpell.DEATH_CHARGE, 3);
-        Assert.assertFalse(tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, DEFAULTS));
+        Assert.assertFalse(tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
         tracker.clearCooldown(CombatSpell.DEATH_CHARGE);
-        Assert.assertTrue(tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, DEFAULTS));
+        Assert.assertTrue(tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
 
         tracker.reset();
-        Assert.assertFalse("Cast history must clear on login/hop", tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, DEFAULTS));
+        Assert.assertFalse("Cast history must clear on login/hop", tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
     }
 
     @Test
@@ -230,10 +230,10 @@ public class CombatSpellTrackerTest
             @Override
             public boolean thrallRemindOnCombatStart() { return true; }
         };
-        Assert.assertFalse("Out of combat", tracker.isSpellReadyReminder(CombatSpell.RESURRECT_THRALL, combat, cfg));
+        Assert.assertFalse("Out of combat", tracker.isSpellReadyReminder(CombatSpell.RESURRECT_THRALL, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg)));
         combat.setSimulatedCombat(true);
-        Assert.assertTrue(tracker.isSpellReadyReminder(CombatSpell.RESURRECT_THRALL, combat, cfg));
-        Assert.assertFalse(tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, cfg));
+        Assert.assertTrue(tracker.isSpellReadyReminder(CombatSpell.RESURRECT_THRALL, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg)));
+        Assert.assertFalse(tracker.isSpellReadyReminder(CombatSpell.DEATH_CHARGE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg)));
     }
 
     @Test
@@ -260,22 +260,22 @@ public class CombatSpellTrackerTest
             @Override
             public boolean debugSpellVengeance() { return true; }
         };
-        Assert.assertEquals(1, tracker.collectReadySpells(combat, debugCfg, 0, false, ords, cols));
+        Assert.assertEquals(1, tracker.collectReadySpells(combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(debugCfg), 0, false, ords, cols));
         Assert.assertEquals(CombatSpell.VENGEANCE.ordinal(), ords[0]);
 
         combat.setSimulatedCombat(true);
         tracker.startCooldownTimer(CombatSpell.DEATH_CHARGE, 1);
         tracker.clearCooldown(CombatSpell.DEATH_CHARGE);
         // Only remind on the book the spell can be cast from
-        Assert.assertEquals(0, tracker.collectReadySpells(combat, DEFAULTS, 2, true, ords, cols));
-        Assert.assertEquals(1, tracker.collectReadySpells(combat, DEFAULTS, 3, true, ords, cols));
+        Assert.assertEquals(0, tracker.collectReadySpells(combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS), 2, true, ords, cols));
+        Assert.assertEquals(1, tracker.collectReadySpells(combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS), 3, true, ords, cols));
 
         ImmersiveCombatOverlaysConfig disabled = new ImmersiveCombatOverlaysConfig()
         {
             @Override
             public boolean spellDeathChargeEnabled() { return false; }
         };
-        Assert.assertEquals(0, tracker.collectReadySpells(combat, disabled, 3, true, ords, cols));
+        Assert.assertEquals(0, tracker.collectReadySpells(combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(disabled), 3, true, ords, cols));
     }
 
     @Test
@@ -284,11 +284,17 @@ public class CombatSpellTrackerTest
         CombatSpellTracker tracker = new CombatSpellTracker();
         long now = 50_000_000_000L;
 
-        Assert.assertTrue(tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 1, 12, now));
-        Assert.assertTrue(tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 1, 12, now + 10_000_000_000L));
-        Assert.assertFalse(tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 1, 12, now + 13_000_000_000L));
-        Assert.assertTrue("New combat session re-arms", tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 2, 12, now + 135_000_000_000L));
-        Assert.assertTrue("0 = unlimited", tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 2, 0, now + 999_000_000_000L));
+        com.immersivecombatoverlays.settings.SettingsSnapshot twelve = com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS); // thrall reminder duration defaults to 12 s
+        com.immersivecombatoverlays.settings.SettingsSnapshot unlimited = com.immersivecombatoverlays.settings.SettingsSnapshot.of(new ImmersiveCombatOverlaysConfig()
+        {
+            @Override
+            public int spellThrallDurationSeconds() { return 0; }
+        });
+        Assert.assertTrue(tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 1, twelve, now));
+        Assert.assertTrue(tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 1, twelve, now + 10_000_000_000L));
+        Assert.assertFalse(tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 1, twelve, now + 13_000_000_000L));
+        Assert.assertTrue("New combat session re-arms", tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 2, twelve, now + 135_000_000_000L));
+        Assert.assertTrue("0 = unlimited", tracker.isWithinShowerDuration(CombatSpell.RESURRECT_THRALL, 2, unlimited, now + 999_000_000_000L));
     }
 
     @Test

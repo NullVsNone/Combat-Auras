@@ -115,6 +115,26 @@ public enum PotionEffect
         return name().startsWith("DIVINE_");
     }
 
+    /** The reminder family whose toggle and expiring-soon lead apply to this effect. */
+    public PotionFamily getFamily()
+    {
+        switch (this)
+        {
+            case STAMINA: return PotionFamily.STAMINA;
+            case ANTIPOISON:
+            case ANTIVENOM: return PotionFamily.ANTIPOISON;
+            case ANTIFIRE:
+            case SUPER_ANTIFIRE: return PotionFamily.ANTIFIRE;
+            case OVERLOAD:
+            case BLIGHTED_OVERLOAD:
+            case SMELLING_SALTS: return PotionFamily.RAID_BOOST;
+            case SURGE: return PotionFamily.SURGE;
+            case GOADING: return PotionFamily.GOADING;
+            case PRAYER_REGENERATION: return PotionFamily.PRAYER_REGENERATION;
+            default: return isDivine() ? PotionFamily.DIVINE : PotionFamily.OTHER;
+        }
+    }
+
     /**
      * Varbit that must be 1 for the effect to count as active, or -1. Stamina keeps a stale STAMINA_DURATION after
      * the effect ends; only STAMINA_ACTIVE says whether it is really running (matches the game's buff bar script).

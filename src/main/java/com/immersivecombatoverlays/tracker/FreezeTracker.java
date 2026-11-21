@@ -8,6 +8,7 @@ import net.runelite.api.coords.WorldPoint;
 /**
  * Tracks freeze / bind / entangle state from spotanims, chat messages, and movement/unfreeze breaks.
  */
+@javax.inject.Singleton
 public class FreezeTracker
 {
     private static final long GAME_TICK_NANOS = 600_000_000L;

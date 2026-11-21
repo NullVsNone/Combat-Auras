@@ -4,6 +4,7 @@ import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
 import com.immersivecombatoverlays.model.CombatSpell;
 import com.immersivecombatoverlays.model.Cooldown;
 import com.immersivecombatoverlays.model.ThrallDurationTier;
+import com.immersivecombatoverlays.settings.SettingsSnapshot;
 import java.util.Arrays;
 import net.runelite.api.Client;
 import net.runelite.api.EquipmentInventorySlot;
@@ -23,6 +24,7 @@ import net.runelite.api.gameval.VarbitID;
  * exposes a varbit for either state, the varbit is authoritative; chat messages only supply
  * durations the game does not expose (thrall, Mark of Darkness, Ward, Shadow Veil lengths).
  */
+@javax.inject.Singleton
 public class CombatSpellTracker
 {
     private static final int SPELL_COUNT = CombatSpell.values().length;
@@ -48,7 +50,6 @@ public class CombatSpellTracker
     private final int[] liveSpriteIds = new int[SPELL_COUNT];
     private final int[] liveWidgetIds = new int[SPELL_COUNT];
     private int lastObservedCombatSession = -1;
-    private long lastCastNanos = 0L;
 
     public CombatSpellTracker()
     {
@@ -75,7 +76,6 @@ public class CombatSpellTracker
             liveSpriteIds[spell.ordinal()] = spell.getFallbackSpriteId();
         }
         lastObservedCombatSession = -1;
-        lastCastNanos = 0L;
     }
 
     /**
@@ -343,14 +343,6 @@ public class CombatSpellTracker
         return castSinceLogin[spell.ordinal()];
     }
 
-    /**
-     * System.nanoTime() of the most recent tracked spell cast, used to ignore Magic XP from utility spells.
-     */
-    public long getLastCastNanos()
-    {
-        return lastCastNanos;
-    }
-
     public void registerWidget(CombatSpell spell, int widgetId, int spriteId)
     {
         if (spell == null)
@@ -379,36 +371,31 @@ public class CombatSpellTracker
     }
 
     /**
-     * True if this spell is enabled, ready to recast, and passes the combat / after-cast filters.
+     * Ready to recast, or within its "warn early" lead of becoming ready.
      */
-    public boolean isSpellReadyReminder(
-        CombatSpell spell,
-        CombatStateTracker combatState,
-        ImmersiveCombatOverlaysConfig config
-    )
+    public boolean isDue(CombatSpell spell, SettingsSnapshot s)
     {
-        if (ImmersiveCombatOverlaysConfig.isDebugSpellActive(config, spell))
+        Cooldown cd = cooldownCache[spell.ordinal()];
+        return cd.isReady() || cd.getRemainingTicks() <= s.spellLeadTicks[spell.ordinal()];
+    }
+
+    /**
+     * True if this spell is enabled, due (ready or within its lead), and passes the context / after-cast filters.
+     */
+    public boolean isSpellReadyReminder(CombatSpell spell, CombatStateTracker combatState, SettingsSnapshot s)
+    {
+        int idx = spell.ordinal();
+        if (s.spellDebug[idx])
         {
             return true;
         }
-        if (!config.spellsEnabled() || !ImmersiveCombatOverlaysConfig.isSpellEnabled(config, spell))
-        {
-            return false;
-        }
-        if (!contextAllows(spell, combatState, config))
-        {
-            return false;
-        }
-        int idx = spell.ordinal();
-        if (!passesAfterCastFilter(spell, config))
-        {
-            return false;
-        }
-        return cooldownCache[idx].isReady();
+        return s.spellsEnabled && s.spellEnabled[idx] && contextAllows(spell, combatState, s)
+            && passesAfterCastFilter(spell, s) && isDue(spell, s);
     }
 
-    public boolean isWithinShowerDuration(CombatSpell spell, int combatSessionId, int maxSeconds, long nowNanos)
+    public boolean isWithinShowerDuration(CombatSpell spell, int combatSessionId, SettingsSnapshot s, long nowNanos)
     {
+        int maxSeconds = s.spellDurationSeconds[spell.ordinal()];
         if (maxSeconds <= 0)
         {
             return true;
@@ -416,11 +403,11 @@ public class CombatSpellTracker
         int idx = spell.ordinal();
         if (combatSessionId != lastObservedCombatSession)
         {
-            // A new combat session (after a long enough break) re-arms reminders for every ready spell
+            // A new combat session (after a long enough break) re-arms reminders for every due spell
             lastObservedCombatSession = combatSessionId;
             for (int i = 0; i < SPELL_COUNT; i++)
             {
-                if (cooldownCache[i].isReady())
+                if (isDue(SPELLS[i], s))
                 {
                     reminderStartNanos[i] = nowNanos;
                 }
@@ -434,13 +421,13 @@ public class CombatSpellTracker
     }
 
     /**
-     * Writes every currently ready/expired spell into pre-allocated arrays. No per-frame allocation.
+     * Writes every due spell (debug previews first) into pre-allocated arrays. No per-frame allocation.
      *
-     * @return number of ready spells written
+     * @return number of spells written
      */
     public int collectReadySpells(
         CombatStateTracker combatState,
-        ImmersiveCombatOverlaysConfig config,
+        SettingsSnapshot s,
         int currentSpellbookVarbit,
         boolean filterBySpellbook,
         int[] outSpellOrdinals,
@@ -448,20 +435,14 @@ public class CombatSpellTracker
     )
     {
         int count = 0;
-        boolean liveAllowed = config.spellsEnabled();
         for (int i = 0; i < SPELL_COUNT; i++)
         {
             CombatSpell spell = SPELLS[i];
-            if (ImmersiveCombatOverlaysConfig.isDebugSpellActive(config, spell))
+            if (s.spellDebug[i])
             {
                 outSpellOrdinals[count] = i;
-                outColorsArgb[count] = ImmersiveCombatOverlaysConfig.getSpellColor(config, spell).getRGB();
+                outColorsArgb[count] = s.spellColor[i];
                 count++;
-                continue;
-            }
-            if (!liveAllowed || !ImmersiveCombatOverlaysConfig.isSpellEnabled(config, spell)
-                || !contextAllows(spell, combatState, config))
-            {
                 continue;
             }
             // You can only recast from the matching spellbook, so never remind about another book's spells
@@ -469,14 +450,11 @@ public class CombatSpellTracker
             {
                 continue;
             }
-            if (!passesAfterCastFilter(spell, config))
-            {
-                continue;
-            }
-            if (cooldownCache[i].isReady())
+            if (s.spellsEnabled && s.spellEnabled[i] && contextAllows(spell, combatState, s)
+                && passesAfterCastFilter(spell, s) && isDue(spell, s))
             {
                 outSpellOrdinals[count] = i;
-                outColorsArgb[count] = ImmersiveCombatOverlaysConfig.getSpellColor(config, spell).getRGB();
+                outColorsArgb[count] = s.spellColor[i];
                 count++;
             }
         }
@@ -493,42 +471,33 @@ public class CombatSpellTracker
      * Where a reminder for this spell is useful: Shadow Veil while pickpocketing, Charge with a god cape,
      * everything else in combat (or always, with "Only remind in combat" off).
      */
-    public boolean contextAllows(CombatSpell spell, CombatStateTracker combatState, ImmersiveCombatOverlaysConfig config)
+    public boolean contextAllows(CombatSpell spell, CombatStateTracker combatState, SettingsSnapshot s)
     {
-        boolean combatOk = !config.spellOnlyInCombat() || combatState.isInCombat();
+        boolean combatOk = !s.spellOnlyInCombat || combatState.isInCombat();
         switch (spell)
         {
             case SHADOW_VEIL:
-                switch (config.spellShadowVeilContext())
-                {
-                    case THIEVING:
-                        return combatState.isThieving();
-                    case ALWAYS:
-                        return true;
-                    default:
-                        return combatOk;
-                }
+                return ReminderPolicy.contextAllows(s.shadowVeilContext, combatState, combatOk);
             case CHARGE:
-                return combatOk && (godCapeWorn || !config.spellChargeNeedsGodCape());
+                return combatOk && (godCapeWorn || !s.chargeNeedsGodCape);
             default:
                 return combatOk;
         }
     }
 
-    private boolean passesAfterCastFilter(CombatSpell spell, ImmersiveCombatOverlaysConfig config)
+    private boolean passesAfterCastFilter(CombatSpell spell, SettingsSnapshot s)
     {
-        if (!config.spellOnlyRemindAfterCast() || castSinceLogin[spell.ordinal()])
+        if (!s.spellOnlyRemindAfterCast || castSinceLogin[spell.ordinal()])
         {
             return true;
         }
-        return spell == CombatSpell.RESURRECT_THRALL && config.thrallRemindOnCombatStart();
+        return spell == CombatSpell.RESURRECT_THRALL && s.thrallRemindOnCombatStart;
     }
 
     private void markCast(int idx)
     {
         castSinceLogin[idx] = true;
         reminderStartNanos[idx] = 0L;
-        lastCastNanos = System.nanoTime();
     }
 
     private void refresh(int idx)

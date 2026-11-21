@@ -1,7 +1,10 @@
 package com.immersivecombatoverlays.tracker;
 
-import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
 import com.immersivecombatoverlays.model.CombatSpell;
+import com.immersivecombatoverlays.settings.Settings;
+import com.immersivecombatoverlays.settings.SettingsSnapshot;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.gameval.VarbitID;
@@ -12,18 +15,36 @@ import net.runelite.api.gameval.VarbitID;
  * Plugin Hub's no-misclick-veng, extended to every tracked spell with a per-spell toggle).
  * The entry is only moved below "Cancel"; it is never removed, so a right-click cast still works.
  */
+@Singleton
 public class SpellRecastProtection
 {
     private static final CombatSpell[] SPELLS = CombatSpell.values();
     private final boolean[] blocked = new boolean[SPELLS.length];
 
-    public void apply(Client client, ImmersiveCombatOverlaysConfig config, CombatSpellTracker spellTracker)
+    private final Client client;
+    private final Settings settings;
+    private final CombatSpellTracker spellTracker;
+
+    @Inject
+    public SpellRecastProtection(Client client, Settings settings, CombatSpellTracker spellTracker)
+    {
+        this.client = client;
+        this.settings = settings;
+        this.spellTracker = spellTracker;
+    }
+
+    /** Call on ClientTick while the menu is closed (before the client sorts it). */
+    public void apply()
+    {
+        apply(client, settings.get(), spellTracker);
+    }
+
+    public void apply(Client client, SettingsSnapshot s, CombatSpellTracker spellTracker)
     {
         boolean any = false;
         for (int i = 0; i < SPELLS.length; i++)
         {
-            CombatSpell spell = SPELLS[i];
-            blocked[i] = ImmersiveCombatOverlaysConfig.isSpellRecastProtected(config, spell) && !canRecast(client, spell, spellTracker);
+            blocked[i] = s.spellRecastProtection[i] && !canRecast(client, SPELLS[i], spellTracker);
             any |= blocked[i];
         }
         if (!any)

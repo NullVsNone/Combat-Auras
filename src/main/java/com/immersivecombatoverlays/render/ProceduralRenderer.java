@@ -1,6 +1,6 @@
 package com.immersivecombatoverlays.render;
 
-import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
+import com.immersivecombatoverlays.settings.SettingsSnapshot;
 import com.immersivecombatoverlays.model.ShowerStartLocation;
 import com.immersivecombatoverlays.model.StatusEffect;
 import java.awt.AlphaComposite;
@@ -18,7 +18,6 @@ import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import com.immersivecombatoverlays.tracker.CombatSpellTracker;
 import net.runelite.api.Client;
 import net.runelite.api.SpritePixels;
 import net.runelite.client.game.ItemManager;
@@ -33,6 +32,7 @@ import net.runelite.client.game.SpriteManager;
  * - Nothing touches Graphics2D when no warning is active.
  * - Shower icons are scaled once and cached (Resource Pack sprite overrides respected).
  */
+@javax.inject.Singleton
 public class ProceduralRenderer
 {
     private static final int ALPHA_STEPS = 64;
@@ -97,11 +97,10 @@ public class ProceduralRenderer
         int width,
         int height,
         long nowNanos,
-        ImmersiveCombatOverlaysConfig config,
+        SettingsSnapshot config,
         Client client,
         SpriteManager spriteManager,
         ItemManager itemManager,
-        CombatSpellTracker spellTracker,
         float[] statusSeverities,
         int[] statusColors,
         int glowExtraCount,
@@ -147,8 +146,8 @@ public class ProceduralRenderer
             showerStartNanos = 0L;
         }
 
-        float masterIntensity = config.effectIntensity() / 100f;
-        float motion = config.motionStrength() / 100f;
+        float masterIntensity = config.effectIntensity;
+        float motion = config.motionStrength;
         double timeSec = nowNanos / 1_000_000_000.0;
 
         // 1. Blended screen-edge vignette (cached gradient paints: 4 edges + 4 rounded corners)
@@ -193,7 +192,7 @@ public class ProceduralRenderer
         int height,
         long nowNanos,
         double timeSec,
-        ImmersiveCombatOverlaysConfig config,
+        SettingsSnapshot config,
         float masterIntensity,
         float motion,
         float[] statusSeverities,
@@ -212,9 +211,9 @@ public class ProceduralRenderer
         int strongestArgb = 0;
 
         float pulseHealth = 1f;
-        if (statusSeverities[StatusEffect.LOW_HEALTH.ordinal()] > 0f && config.healthPulseStrength() > 0)
+        if (statusSeverities[StatusEffect.LOW_HEALTH.ordinal()] > 0f && config.healthPulseStrength > 0f)
         {
-            float pStr = (config.healthPulseStrength() / 100f) * motion;
+            float pStr = config.healthPulseStrength * motion;
             double beat = 0.5 + 0.5 * Math.sin(timeSec * 5.2);
             pulseHealth = (1f - 0.35f * pStr) + (0.35f * pStr) * (float) beat;
         }
@@ -273,7 +272,7 @@ public class ProceduralRenderer
         int r;
         int gr;
         int b;
-        if (config.glowColorMode() == GlowColorMode.STRONGEST)
+        if (config.glowColorMode == GlowColorMode.STRONGEST)
         {
             r = (strongestArgb >>> 16) & 0xFF;
             gr = (strongestArgb >>> 8) & 0xFF;
@@ -286,7 +285,7 @@ public class ProceduralRenderer
             b = Math.min(255, Math.round(bAcc / weightSum));
         }
 
-        float depth = Math.max(0.10f, config.edgeDepth() / 100f) * 0.5f;
+        float depth = Math.max(0.10f, config.edgeDepth) * 0.5f;
         float targetAlpha = Math.min(0.92f, maxStrength * masterIntensity);
         float dtSec;
         if (lastGlowFrameNanos == 0L)
@@ -315,34 +314,9 @@ public class ProceduralRenderer
         Composite oldComposite = g.getComposite();
         g.setComposite(quantizedAlpha(globalAlpha));
 
-        int midW = width - 2 * edgeW;
-        int midH = height - 2 * edgeH;
-        // Edges (between the corners, so nothing is painted twice)
-        if (midW > 0)
-        {
-            g.setPaint(glowPaints[0]);
-            g.fillRect(edgeW, 0, midW, edgeH);
-            g.setPaint(glowPaints[1]);
-            g.fillRect(edgeW, height - edgeH, midW, edgeH);
-        }
-        if (midH > 0)
-        {
-            g.setPaint(glowPaints[2]);
-            g.fillRect(0, edgeH, edgeW, midH);
-            g.setPaint(glowPaints[3]);
-            g.fillRect(width - edgeW, edgeH, edgeW, midH);
-        }
-        // Rounded corners
-        g.setPaint(glowPaints[4]);
-        g.fillRect(0, 0, edgeW, edgeH);
-        g.setPaint(glowPaints[5]);
-        g.fillRect(width - edgeW, 0, edgeW, edgeH);
-        g.setPaint(glowPaints[6]);
-        g.fillRect(0, height - edgeH, edgeW, edgeH);
-        g.setPaint(glowPaints[7]);
-        g.fillRect(width - edgeW, height - edgeH, edgeW, edgeH);
+        drawEdges(g, width, height, edgeW, edgeH, config.glowTop, config.glowBottom, config.glowLeft, config.glowRight);
 
-        float tint = (config.screenTint() / 100f) * 0.22f;
+        float tint = config.screenTint * 0.22f;
         if (tint > 0.01f)
         {
             g.setComposite(quantizedAlpha(Math.min(90f / 255f, tint * globalAlpha)));
@@ -352,6 +326,74 @@ public class ProceduralRenderer
 
         g.setComposite(oldComposite);
         g.setPaint(oldPaint);
+    }
+
+    /**
+     * Edge strips plus corners for any combination of enabled edges. Where both edges of a corner are on, the
+     * rounded radial corner joins them; where only one is on, that edge's strip continues straight through the
+     * corner (its gradient already spans it), so a single edge never ends in a hard cut. Nothing is drawn for
+     * disabled edges, and the cached paints are reused unchanged.
+     */
+    private void drawEdges(Graphics2D g, int width, int height, int edgeW, int edgeH,
+        boolean top, boolean bottom, boolean left, boolean right)
+    {
+        int midW = width - 2 * edgeW;
+        int midH = height - 2 * edgeH;
+        if (midW > 0)
+        {
+            if (top)
+            {
+                g.setPaint(glowPaints[0]);
+                g.fillRect(edgeW, 0, midW, edgeH);
+            }
+            if (bottom)
+            {
+                g.setPaint(glowPaints[1]);
+                g.fillRect(edgeW, height - edgeH, midW, edgeH);
+            }
+        }
+        if (midH > 0)
+        {
+            if (left)
+            {
+                g.setPaint(glowPaints[2]);
+                g.fillRect(0, edgeH, edgeW, midH);
+            }
+            if (right)
+            {
+                g.setPaint(glowPaints[3]);
+                g.fillRect(width - edgeW, edgeH, edgeW, midH);
+            }
+        }
+        drawCorner(g, 0, 0, edgeW, edgeH, top, left, glowPaints[4], glowPaints[0], glowPaints[2]);
+        drawCorner(g, width - edgeW, 0, edgeW, edgeH, top, right, glowPaints[5], glowPaints[0], glowPaints[3]);
+        drawCorner(g, 0, height - edgeH, edgeW, edgeH, bottom, left, glowPaints[6], glowPaints[1], glowPaints[2]);
+        drawCorner(g, width - edgeW, height - edgeH, edgeW, edgeH, bottom, right, glowPaints[7], glowPaints[1], glowPaints[3]);
+    }
+
+    private static void drawCorner(Graphics2D g, int x, int y, int w, int h, boolean horizontalEdge, boolean verticalEdge,
+        java.awt.Paint corner, java.awt.Paint horizontalStrip, java.awt.Paint verticalStrip)
+    {
+        java.awt.Paint paint = pickCornerPaint(horizontalEdge, verticalEdge, corner, horizontalStrip, verticalStrip);
+        if (paint != null)
+        {
+            g.setPaint(paint);
+            g.fillRect(x, y, w, h);
+        }
+    }
+
+    /** Which paint fills a corner: radial when both edges are on, the single edge's strip, or nothing. */
+    public static <P> P pickCornerPaint(boolean horizontalEdge, boolean verticalEdge, P corner, P horizontalStrip, P verticalStrip)
+    {
+        if (horizontalEdge && verticalEdge)
+        {
+            return corner;
+        }
+        if (horizontalEdge)
+        {
+            return horizontalStrip;
+        }
+        return verticalEdge ? verticalStrip : null;
     }
 
     private void ensureGlowPaints(int rgb, int width, int height, int edgeW, int edgeH)
@@ -409,7 +451,7 @@ public class ProceduralRenderer
         int height,
         long nowNanos,
         double timeSec,
-        ImmersiveCombatOverlaysConfig config,
+        SettingsSnapshot config,
         Client client,
         SpriteManager spriteManager,
         ItemManager itemManager,
@@ -427,12 +469,12 @@ public class ProceduralRenderer
             return;
         }
 
-        int maxIcons = Math.min(showerPhaseOffset.length, config.spellShowerMaxIcons());
-        int iconSize = config.spellShowerIconSize();
-        float speedMult = config.spellShowerSpeed() / 100f;
+        int maxIcons = Math.min(showerPhaseOffset.length, config.showerMaxIcons);
+        int iconSize = config.showerIconSize;
+        float speedMult = config.showerSpeed;
         float baseSpeed = 0.22f * speedMult;
-        float screenFrac = Math.max(0.10f, Math.min(1.0f, config.showerScreenPercent() / 100f));
-        ShowerStartLocation startLoc = config.showerStartLocation();
+        float screenFrac = config.showerScreenFraction;
+        ShowerStartLocation startLoc = config.showerStartLocation;
 
         for (int i = 0; i < maxIcons; i++)
         {

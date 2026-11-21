@@ -38,42 +38,42 @@ public class TrackersTest
     @Test
     public void potionItemMatchingAllFamilies()
     {
-        Assert.assertEquals(PotionEffect.SURGE, PotionItems.getEffect(1, "Surge potion(4)"));
-        Assert.assertEquals(PotionEffect.OVERLOAD, PotionItems.getEffect(1, "Overload (+) (4)"));
-        Assert.assertEquals(PotionEffect.OVERLOAD, PotionItems.getEffect(1, "Overload (4)"));
-        Assert.assertEquals(PotionEffect.BLIGHTED_OVERLOAD, PotionItems.getEffect(1, "Blighted overload(4)"));
-        Assert.assertEquals(PotionEffect.SMELLING_SALTS, PotionItems.getEffect(1, "Smelling salts(2)"));
-        Assert.assertEquals(PotionEffect.LIQUID_ADRENALINE, PotionItems.getEffect(1, "Liquid adrenaline(2)"));
-        Assert.assertEquals(PotionEffect.SILK_DRESSING, PotionItems.getEffect(1, "Silk dressing(2)"));
-        Assert.assertEquals(PotionEffect.BLESSED_CRYSTAL_SCARAB, PotionItems.getEffect(1, "Blessed crystal scarab(2)"));
-        Assert.assertEquals(PotionEffect.DIVINE_COMBAT, PotionItems.getEffect(1, "Divine super combat potion(4)"));
-        Assert.assertEquals(PotionEffect.DIVINE_BASTION, PotionItems.getEffect(1, "Divine bastion potion(4)"));
-        Assert.assertEquals(PotionEffect.SUPER_ANTIFIRE, PotionItems.getEffect(1, "Extended super antifire(4)"));
-        Assert.assertEquals(PotionEffect.ANTIFIRE, PotionItems.getEffect(1, "Extended antifire(4)"));
-        Assert.assertEquals(PotionEffect.ANTIVENOM, PotionItems.getEffect(1, "Anti-venom+(4)"));
-        Assert.assertEquals(PotionEffect.ANTIPOISON, PotionItems.getEffect(1, "Antidote++(4)"));
-        Assert.assertEquals(PotionEffect.PRAYER_REGENERATION, PotionItems.getEffect(1, "Prayer regeneration potion(4)"));
-        Assert.assertNull("Guthix rest has no timer and must not be treated as a ready buff", PotionItems.getEffect(1, "Guthix rest(4)"));
-        Assert.assertNull(PotionItems.getEffect(1, "Shark"));
-        Assert.assertNull(PotionItems.getEffect(1, null));
+        Assert.assertEquals(PotionEffect.SURGE, PotionItems.getEffect("Surge potion(4)"));
+        Assert.assertEquals(PotionEffect.OVERLOAD, PotionItems.getEffect("Overload (+) (4)"));
+        Assert.assertEquals(PotionEffect.OVERLOAD, PotionItems.getEffect("Overload (4)"));
+        Assert.assertEquals(PotionEffect.BLIGHTED_OVERLOAD, PotionItems.getEffect("Blighted overload(4)"));
+        Assert.assertEquals(PotionEffect.SMELLING_SALTS, PotionItems.getEffect("Smelling salts(2)"));
+        Assert.assertEquals(PotionEffect.LIQUID_ADRENALINE, PotionItems.getEffect("Liquid adrenaline(2)"));
+        Assert.assertEquals(PotionEffect.SILK_DRESSING, PotionItems.getEffect("Silk dressing(2)"));
+        Assert.assertEquals(PotionEffect.BLESSED_CRYSTAL_SCARAB, PotionItems.getEffect("Blessed crystal scarab(2)"));
+        Assert.assertEquals(PotionEffect.DIVINE_COMBAT, PotionItems.getEffect("Divine super combat potion(4)"));
+        Assert.assertEquals(PotionEffect.DIVINE_BASTION, PotionItems.getEffect("Divine bastion potion(4)"));
+        Assert.assertEquals(PotionEffect.SUPER_ANTIFIRE, PotionItems.getEffect("Extended super antifire(4)"));
+        Assert.assertEquals(PotionEffect.ANTIFIRE, PotionItems.getEffect("Extended antifire(4)"));
+        Assert.assertEquals(PotionEffect.ANTIVENOM, PotionItems.getEffect("Anti-venom+(4)"));
+        Assert.assertEquals(PotionEffect.ANTIPOISON, PotionItems.getEffect("Antidote++(4)"));
+        Assert.assertEquals(PotionEffect.PRAYER_REGENERATION, PotionItems.getEffect("Prayer regeneration potion(4)"));
+        Assert.assertNull("Guthix rest has no timer and must not be treated as a ready buff", PotionItems.getEffect("Guthix rest(4)"));
+        Assert.assertNull(PotionItems.getEffect("Shark"));
+        Assert.assertNull(PotionItems.getEffect(null));
 
-        Assert.assertEquals(BoostPotion.SUPER_COMBAT, PotionItems.getBoost(1, "Super combat potion(4)"));
-        Assert.assertEquals(BoostPotion.COMBAT, PotionItems.getBoost(1, "Combat potion(4)"));
-        Assert.assertEquals(BoostPotion.ATTACK, PotionItems.getBoost(1, "Attack potion(4)"));
-        Assert.assertEquals(BoostPotion.SUPER_ATTACK, PotionItems.getBoost(1, "Super attack(4)"));
-        Assert.assertEquals(BoostPotion.SUPER_RANGED, PotionItems.getBoost(1, "Super ranging (4)"));
-        Assert.assertEquals(BoostPotion.RANGED, PotionItems.getBoost(1, "Ranging potion(4)"));
-        Assert.assertEquals(BoostPotion.BASTION, PotionItems.getBoost(1, "Bastion potion(4)"));
-        Assert.assertEquals(BoostPotion.FORGOTTEN_BREW, PotionItems.getBoost(1, "Forgotten brew(4)"));
-        Assert.assertEquals(BoostPotion.ANCIENT_BREW, PotionItems.getBoost(1, "Ancient brew(4)"));
-        Assert.assertNull(PotionItems.getBoost(1, "Divine super combat potion(4)"));
+        Assert.assertEquals(BoostPotion.SUPER_COMBAT, PotionItems.getBoost("Super combat potion(4)"));
+        Assert.assertEquals(BoostPotion.COMBAT, PotionItems.getBoost("Combat potion(4)"));
+        Assert.assertEquals(BoostPotion.ATTACK, PotionItems.getBoost("Attack potion(4)"));
+        Assert.assertEquals(BoostPotion.SUPER_ATTACK, PotionItems.getBoost("Super attack(4)"));
+        Assert.assertEquals(BoostPotion.SUPER_RANGED, PotionItems.getBoost("Super ranging (4)"));
+        Assert.assertEquals(BoostPotion.RANGED, PotionItems.getBoost("Ranging potion(4)"));
+        Assert.assertEquals(BoostPotion.BASTION, PotionItems.getBoost("Bastion potion(4)"));
+        Assert.assertEquals(BoostPotion.FORGOTTEN_BREW, PotionItems.getBoost("Forgotten brew(4)"));
+        Assert.assertEquals(BoostPotion.ANCIENT_BREW, PotionItems.getBoost("Ancient brew(4)"));
+        Assert.assertNull(PotionItems.getBoost("Divine super combat potion(4)"));
 
         // Memoised lookups return identical results
-        Assert.assertEquals(BoostPotion.SUPER_COMBAT, PotionItems.getBoost(1, "Super combat potion(4)"));
+        Assert.assertEquals(BoostPotion.SUPER_COMBAT, PotionItems.getBoost("Super combat potion(4)"));
 
-        Assert.assertTrue(InventoryCooldownOverlay.isPrayerRestoreItem("Super restore(4)"));
-        Assert.assertTrue(InventoryCooldownOverlay.isPrayerRestoreItem("Prayer potion(4)"));
-        Assert.assertFalse(InventoryCooldownOverlay.isPrayerRestoreItem("Shark"));
+        Assert.assertTrue(com.immersivecombatoverlays.tracker.ConsumableCatalog.isPrayerRestore("Super restore(4)"));
+        Assert.assertTrue(com.immersivecombatoverlays.tracker.ConsumableCatalog.isPrayerRestore("Prayer potion(4)"));
+        Assert.assertFalse(com.immersivecombatoverlays.tracker.ConsumableCatalog.isPrayerRestore("Shark"));
     }
 
     @Test
@@ -139,20 +139,20 @@ public class TrackersTest
         HeartCooldownTracker heart = new HeartCooldownTracker();
         potions.onGameTick(fc.client);
         heart.onGameTick(fc.client);
-        Assert.assertFalse(com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
+        Assert.assertFalse(com.immersivecombatoverlays.tracker.ItemCooldowns.isDivineBoostActive(heart, potions));
 
         fc.varbit(VarbitID.DIVINECOMBAT_POTION_TIME, 300);
         potions.onGameTick(fc.client);
-        Assert.assertTrue("divine super combat running", com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
+        Assert.assertTrue("divine super combat running", com.immersivecombatoverlays.tracker.ItemCooldowns.isDivineBoostActive(heart, potions));
 
         fc.varbit(VarbitID.DIVINECOMBAT_POTION_TIME, 0);
         potions.onGameTick(fc.client);
         heart.onInvigorate(HeartCooldownTracker.SATURATED_HEART_ID);
         fc.varbit(VarbitID.IMBUED_HEART_TIMER, 50);
         heart.onGameTick(fc.client);
-        Assert.assertTrue("saturated heart boost running", com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
+        Assert.assertTrue("saturated heart boost running", com.immersivecombatoverlays.tracker.ItemCooldowns.isDivineBoostActive(heart, potions));
         heart.onInvigorate(HeartCooldownTracker.IMBUED_HEART_ID);
-        Assert.assertFalse("imbued heart is not divine", com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
+        Assert.assertFalse("imbued heart is not divine", com.immersivecombatoverlays.tracker.ItemCooldowns.isDivineBoostActive(heart, potions));
     }
 
     @Test
@@ -288,13 +288,29 @@ public class TrackersTest
 
     // ---------------------------------------------------------------- re-dose protection
 
+    /** Item definition with a name and one inventory action. */
+    static net.runelite.api.ItemComposition item(String name, String action)
+    {
+        return (net.runelite.api.ItemComposition) Proxy.newProxyInstance(
+            net.runelite.api.ItemComposition.class.getClassLoader(), new Class<?>[]{net.runelite.api.ItemComposition.class},
+            (p, m, a) -> {
+                switch (m.getName())
+                {
+                    case "getName": return name;
+                    case "getInventoryActions": return new String[]{action, null, null, null, "Drop"};
+                    case "getNote": return -1;
+                    default: return FakeClient.defaultValue(m.getReturnType());
+                }
+            });
+    }
+
+
     @Test
     public void repotProtectionStripsColorTagsAndDeprioritizesActivePotions()
     {
         HeartCooldownTracker heart = new HeartCooldownTracker();
         PotionTimers potions = new PotionTimers();
         BoostPotionTimers boosts = new BoostPotionTimers();
-        RepotProtection repot = new RepotProtection();
 
         FakeClient state = new FakeClient().varbit(VarbitID.SUPER_ANTIFIRE_POTION, 12);
         potions.onGameTick(state.client);
@@ -318,7 +334,12 @@ public class TrackersTest
                 : m.getName().equals("getVarbitValue") || m.getName().endsWith("SkillLevel") ? 1 : FakeClient.defaultValue(m.getReturnType())
         );
 
-        repot.apply((net.runelite.api.Client) proxy, DEFAULTS, heart, potions, boosts);
+        net.runelite.api.Client client = (net.runelite.api.Client) proxy;
+        com.immersivecombatoverlays.tracker.ConsumableCatalog catalog = new com.immersivecombatoverlays.tracker.ConsumableCatalog(
+            id -> item(id == 22209 ? "Super antifire potion(4)" : "Stamina potion(4)", "Drink"));
+        com.immersivecombatoverlays.tracker.ItemCooldowns cooldowns = new com.immersivecombatoverlays.tracker.ItemCooldowns(
+            client, new com.immersivecombatoverlays.settings.Settings(DEFAULTS), catalog, heart, potions, boosts);
+        new RepotProtection(client, DEFAULTS, cooldowns).apply();
         Assert.assertTrue("Active super antifire is deprioritized", deprioritized[0]);
         Assert.assertFalse("Inactive stamina stays left-click", deprioritized[1]);
 
@@ -328,7 +349,7 @@ public class TrackersTest
             public boolean repotProtectionEnabled() { return false; }
         };
         deprioritized[0] = false;
-        repot.apply((net.runelite.api.Client) proxy, off, heart, potions, boosts);
+        new RepotProtection(client, off, cooldowns).apply();
         Assert.assertFalse(deprioritized[0]);
         Assert.assertNotNull(menuClient.client);
     }

@@ -1,6 +1,6 @@
 package com.immersivecombatoverlays.tracker;
 
-import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
+import com.immersivecombatoverlays.settings.SettingsSnapshot;
 import com.immersivecombatoverlays.model.BoostPotion;
 import com.immersivecombatoverlays.model.Cooldown;
 import java.util.Arrays;
@@ -15,6 +15,7 @@ import net.runelite.api.gameval.VarbitID;
  * The decay clock is global: drinking a potion does not reset it. We re-sync the clock only
  * when we observe a boosted stat decaying by one level.
  */
+@javax.inject.Singleton
 public class BoostPotionTimers
 {
     private static final int NORMAL_DECAY_TICKS = 100;
@@ -79,7 +80,7 @@ public class BoostPotionTimers
      *
      * @return null when none of the potion's skills are tracked (re-dose level 0), so callers treat the item as untracked
      */
-    public Cooldown getCooldown(Client client, BoostPotion potion, ImmersiveCombatOverlaysConfig config)
+    public Cooldown getCooldown(Client client, BoostPotion potion, SettingsSnapshot settings)
     {
         if (potion == null)
         {
@@ -89,7 +90,7 @@ public class BoostPotionTimers
         Skill[] skills = potion.getSkills();
         for (int i = 0; i < skills.length; i++)
         {
-            levelScratch[i] = ImmersiveCombatOverlaysConfig.getRedoseLevel(config, skills[i]);
+            levelScratch[i] = settings.redoseLevel(skills[i]);
         }
         return getCooldown(client, potion, levelScratch);
     }

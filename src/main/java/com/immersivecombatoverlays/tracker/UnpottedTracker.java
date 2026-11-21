@@ -15,6 +15,7 @@ import net.runelite.api.Skill;
  * so the decision waits up to {@link #HIT_WAIT_TICKS} ticks for that hit. Magic XP is also vetoed when a
  * non-attack spell was cast in the last few ticks (alching while a slow weapon hits).
  */
+@javax.inject.Singleton
 public class UnpottedTracker
 {
     /** Longest projectile flight we wait for (long-range spells and bolts take up to ~5 ticks). */

@@ -26,6 +26,7 @@ import net.runelite.client.game.ItemManager;
 /**
  * Renders inventory item cooldown overlays, timer text, and ready indicators.
  */
+@javax.inject.Singleton
 public class CooldownRenderer
 {
     private static final Stroke BOX_STROKE = new BasicStroke(1.5f);

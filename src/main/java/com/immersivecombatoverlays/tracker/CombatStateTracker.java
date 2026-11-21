@@ -24,6 +24,7 @@ import net.runelite.api.Player;
  * non-combat magic casts (used to veto Magic XP in the Unpotted alert).
  * Time is counted in game ticks so lag and loading screens cannot skew it.
  */
+@javax.inject.Singleton
 public class CombatStateTracker
 {
     /**

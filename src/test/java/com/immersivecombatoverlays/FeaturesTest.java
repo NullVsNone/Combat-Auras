@@ -99,7 +99,7 @@ public class FeaturesTest
     @Test
     public void vengeanceCastIsDeprioritizedOnlyWhileChargedOrOnCooldown()
     {
-        SpellRecastProtection protection = new SpellRecastProtection();
+        SpellRecastProtection protection = new SpellRecastProtection(null, null, null);
         CombatSpellTracker spells = new CombatSpellTracker();
         FakeClient state = new FakeClient();
         boolean[] veng = {false};
@@ -110,11 +110,11 @@ public class FeaturesTest
             entry("Cast", "<col=00ff00>Vengeance Other</col>", vengOther),
             entry("Cast", "<col=00ff00>High Level Alchemy</col>", alch));
 
-        protection.apply(client, DEFAULTS, spells);
+        protection.apply(client, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS), spells);
         Assert.assertFalse("ready -> left-click allowed", veng[0]);
 
         state.varbit(VarbitID.VENGEANCE_REBOUND, 1);
-        protection.apply(client, DEFAULTS, spells);
+        protection.apply(client, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS), spells);
         Assert.assertTrue("still charged -> deprioritized", veng[0]);
         Assert.assertFalse(vengOther[0]);
         Assert.assertFalse(alch[0]);
@@ -122,7 +122,7 @@ public class FeaturesTest
         veng[0] = false;
         state.varbit(VarbitID.VENGEANCE_REBOUND, 0);
         spells.startCooldownTimer(CombatSpell.VENGEANCE, 20);
-        protection.apply(client, DEFAULTS, spells);
+        protection.apply(client, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS), spells);
         Assert.assertTrue("on cooldown -> deprioritized", veng[0]);
 
         veng[0] = false;
@@ -131,14 +131,14 @@ public class FeaturesTest
             @Override
             public boolean spellVengeanceRecastProtection() { return false; }
         };
-        protection.apply(client, off, spells);
+        protection.apply(client, com.immersivecombatoverlays.settings.SettingsSnapshot.of(off), spells);
         Assert.assertFalse(veng[0]);
     }
 
     @Test
     public void thrallAndArceuusCastsAreDeprioritizedWhileNotRecastable()
     {
-        SpellRecastProtection protection = new SpellRecastProtection();
+        SpellRecastProtection protection = new SpellRecastProtection(null, null, null);
         CombatSpellTracker spells = new CombatSpellTracker();
         FakeClient state = new FakeClient();
         boolean[] thrall = {false};
@@ -151,13 +151,13 @@ public class FeaturesTest
             entry("Cast", "<col=00ff00>Mark of Darkness</col>", mark),
             entry("Cast", "<col=00ff00>Charge</col>", charge));
 
-        protection.apply(client, DEFAULTS, spells);
+        protection.apply(client, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS), spells);
         Assert.assertFalse("everything ready -> left-click allowed", thrall[0] || veil[0] || mark[0] || charge[0]);
 
         spells.startCooldownTimer(CombatSpell.RESURRECT_THRALL, 17);
         spells.startCooldownTimer(CombatSpell.MARK_OF_DARKNESS, 10);
         spells.startCooldownTimer(CombatSpell.CHARGE, 100);
-        protection.apply(client, DEFAULTS, spells);
+        protection.apply(client, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS), spells);
         Assert.assertTrue("thrall not recastable -> deprioritized", thrall[0]);
         Assert.assertFalse("Shadow Veil is ready", veil[0]);
         Assert.assertFalse("Mark of Darkness protection is off by default", mark[0]);
@@ -169,7 +169,7 @@ public class FeaturesTest
             @Override
             public boolean spellThrallRecastProtection() { return false; }
         };
-        protection.apply(client, off, spells);
+        protection.apply(client, com.immersivecombatoverlays.settings.SettingsSnapshot.of(off), spells);
         Assert.assertFalse("per-spell toggle off", thrall[0]);
     }
 
@@ -179,7 +179,7 @@ public class FeaturesTest
         for (CombatSpell spell : CombatSpell.values())
         {
             boolean expected = spell != CombatSpell.CHARGE && spell != CombatSpell.MARK_OF_DARKNESS;
-            Assert.assertEquals(spell.name(), expected, ImmersiveCombatOverlaysConfig.isSpellRecastProtected(DEFAULTS, spell));
+            Assert.assertEquals(spell.name(), expected, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).spellRecastProtection[spell.ordinal()]);
         }
     }
 
@@ -189,19 +189,36 @@ public class FeaturesTest
         CombatSpellTracker spells = new CombatSpellTracker();
         com.immersivecombatoverlays.tracker.CombatStateTracker combat = new com.immersivecombatoverlays.tracker.CombatStateTracker();
         combat.onCombatActivity(1L, 120);
-        Assert.assertFalse("in combat but not thieving", spells.contextAllows(CombatSpell.SHADOW_VEIL, combat, DEFAULTS));
+        Assert.assertFalse("in combat but not thieving", spells.contextAllows(CombatSpell.SHADOW_VEIL, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
         combat.onMenuOptionClicked(net.runelite.api.MenuAction.NPC_THIRD_OPTION, "Pickpocket", "Knight of Ardougne", null, 1L, 120);
-        Assert.assertTrue(spells.contextAllows(CombatSpell.SHADOW_VEIL, combat, DEFAULTS));
+        Assert.assertTrue(spells.contextAllows(CombatSpell.SHADOW_VEIL, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
 
-        Assert.assertFalse("no god cape", spells.contextAllows(CombatSpell.CHARGE, combat, DEFAULTS));
+        Assert.assertFalse("no god cape", spells.contextAllows(CombatSpell.CHARGE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
         spells.setGodCapeWorn(true);
-        Assert.assertTrue(spells.contextAllows(CombatSpell.CHARGE, combat, DEFAULTS));
-        Assert.assertTrue(spells.contextAllows(CombatSpell.VENGEANCE, combat, DEFAULTS));
+        Assert.assertTrue(spells.contextAllows(CombatSpell.CHARGE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
+        Assert.assertTrue(spells.contextAllows(CombatSpell.VENGEANCE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
 
         Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isGodCape("Imbued saradomin cape"));
         Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isGodCape("Zamorak max cape"));
         Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isGodCape("Fire cape"));
         Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isGodCape("Saradomin d'hide body"));
+    }
+
+    @Test
+    public void spellWarnEarlyLeadMakesASpellDueBeforeItIsReady()
+    {
+        CombatSpellTracker spells = new CombatSpellTracker();
+        spells.startCooldownTimer(CombatSpell.VENGEANCE, 10); // 6 s left
+        com.immersivecombatoverlays.settings.SettingsSnapshot none = com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS);
+        com.immersivecombatoverlays.settings.SettingsSnapshot early = com.immersivecombatoverlays.settings.SettingsSnapshot.of(
+            new ImmersiveCombatOverlaysConfig()
+            {
+                @Override
+                public int spellVengeanceLeadSeconds() { return 8; }
+            });
+        Assert.assertFalse("no lead: not due until ready", spells.isDue(CombatSpell.VENGEANCE, none));
+        Assert.assertTrue("8 s lead: due already", spells.isDue(CombatSpell.VENGEANCE, early));
+        Assert.assertFalse("other spells keep their own lead", spells.isDue(CombatSpell.DEATH_CHARGE, early) && !spells.getCooldown(CombatSpell.DEATH_CHARGE).isReady());
     }
 
     @Test
@@ -261,7 +278,7 @@ public class FeaturesTest
         Assert.assertFalse(DEFAULTS.buffNotification().isEnabled());
         for (CombatSpell spell : CombatSpell.values())
         {
-            Assert.assertFalse(ImmersiveCombatOverlaysConfig.getSpellNotification(DEFAULTS, spell).isEnabled());
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).spellNotification[spell.ordinal()].isEnabled());
         }
         Assert.assertFalse(DEFAULTS.poisonNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.boostNotification().isEnabled());

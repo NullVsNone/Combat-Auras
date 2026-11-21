@@ -7,6 +7,8 @@ import com.immersivecombatoverlays.model.SpellCooldownDisplayMode;
 import com.immersivecombatoverlays.model.BorderStyle;
 import com.immersivecombatoverlays.render.CooldownRenderer;
 import com.immersivecombatoverlays.render.ItemOutlineCache;
+import com.immersivecombatoverlays.settings.Settings;
+import com.immersivecombatoverlays.settings.SettingsSnapshot;
 import com.immersivecombatoverlays.tracker.CombatSpellTracker;
 import com.immersivecombatoverlays.tracker.CombatStateTracker;
 import java.awt.image.BufferedImage;
@@ -58,6 +60,7 @@ public class SpellCooldownOverlay extends Overlay
 
     private final Client client;
     private final ImmersiveCombatOverlaysConfig config;
+    private final Settings settings;
     private final CombatSpellTracker spellTracker;
     private final CombatStateTracker combatState;
     private final SpriteManager spriteManager;
@@ -79,11 +82,13 @@ public class SpellCooldownOverlay extends Overlay
         ImmersiveCombatOverlaysConfig config,
         CombatSpellTracker spellTracker,
         CombatStateTracker combatState,
-        SpriteManager spriteManager
+        SpriteManager spriteManager,
+        Settings settings
     )
     {
         this.client = client;
         this.config = config;
+        this.settings = settings;
         this.spellTracker = spellTracker;
         this.combatState = combatState;
         this.spriteManager = spriteManager;
@@ -197,7 +202,9 @@ public class SpellCooldownOverlay extends Overlay
                 continue;
             }
             spellTracker.registerWidget(matchedSpell, child.getId(), child.getSpriteId());
-            if (!ImmersiveCombatOverlaysConfig.isSpellEnabled(config, matchedSpell) && !ImmersiveCombatOverlaysConfig.isDebugSpellActive(config, matchedSpell))
+            SettingsSnapshot snap = settings.get();
+            int si = matchedSpell.ordinal();
+            if (!snap.spellEnabled[si] && !snap.spellDebug[si])
             {
                 continue;
             }
@@ -213,11 +220,10 @@ public class SpellCooldownOverlay extends Overlay
             {
                 drawSpellCooldown(g, bounds, child.getId(), child.getSpriteId(), cd);
             }
-            else if (ImmersiveCombatOverlaysConfig.isSpellbookGlowEnabled(config, matchedSpell)
-                && spellTracker.isSpellReadyReminder(matchedSpell, combatState, config))
+            // Ready, or within its "warn early" lead: glow (on top of the remaining cooldown fill)
+            if (snap.spellbookGlow[si] && spellTracker.isSpellReadyReminder(matchedSpell, combatState, snap))
             {
-                Color spellColor = ImmersiveCombatOverlaysConfig.getSpellColor(config, matchedSpell);
-                drawIconAuraAndOutline(g, bounds, child.getId(), child.getSpriteId(), spellColor, pulse);
+                drawIconAuraAndOutline(g, bounds, child.getId(), child.getSpriteId(), snap.spellAwtColor[si], pulse);
             }
         }
     }
@@ -277,7 +283,7 @@ public class SpellCooldownOverlay extends Overlay
     {
         int spellbook = this.currentSpellbook;
         int count = spellTracker.collectReadySpells(
-            combatState, config, spellbook, true, readySpellOrdinals, readySpellColors
+            combatState, settings.get(), spellbook, true, readySpellOrdinals, readySpellColors
         );
         if (count <= 0)
         {
@@ -364,7 +370,7 @@ public class SpellCooldownOverlay extends Overlay
             }
             else
             {
-                drawIconAuraAndOutline(g, r, wId, sId, ImmersiveCombatOverlaysConfig.getSpellColor(config, spell), pulse);
+                drawIconAuraAndOutline(g, r, wId, sId, settings.get().spellAwtColor[spell.ordinal()], pulse);
             }
         }
     }

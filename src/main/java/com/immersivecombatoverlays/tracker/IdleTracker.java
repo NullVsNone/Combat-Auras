@@ -13,6 +13,7 @@ import net.runelite.client.Notifier;
  *   action animation, actor interaction, mouse click, mouse movement, or keyboard/camera input.
  * - Counts inactivity once all activity stops, ramping from idleStartSeconds to idleCriticalSeconds.
  */
+@javax.inject.Singleton
 public class IdleTracker
 {
     private static final int CLIENT_TICKS_PER_GAME_TICK = 30; // 30 * 20ms = 600ms

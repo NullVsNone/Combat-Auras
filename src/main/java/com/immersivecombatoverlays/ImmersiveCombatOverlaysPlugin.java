@@ -1,124 +1,114 @@
 package com.immersivecombatoverlays;
 
+import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
+import com.immersivecombatoverlays.model.Preset;
 import com.immersivecombatoverlays.overlay.ImmersiveStatusOverlay;
 import com.immersivecombatoverlays.overlay.InventoryCooldownOverlay;
 import com.immersivecombatoverlays.overlay.SpellCooldownOverlay;
 import com.immersivecombatoverlays.render.CooldownRenderer;
 import com.immersivecombatoverlays.render.ProceduralRenderer;
+import com.immersivecombatoverlays.settings.Settings;
 import com.immersivecombatoverlays.tracker.BoostPotionTimers;
 import com.immersivecombatoverlays.tracker.CombatSpellTracker;
 import com.immersivecombatoverlays.tracker.CombatStateTracker;
+import com.immersivecombatoverlays.tracker.ConsumableCatalog;
+import com.immersivecombatoverlays.tracker.FoodCooldownTracker;
 import com.immersivecombatoverlays.tracker.FreezeTracker;
 import com.immersivecombatoverlays.tracker.HeartCooldownTracker;
-import com.immersivecombatoverlays.tracker.FoodCooldownTracker;
 import com.immersivecombatoverlays.tracker.IdleTracker;
-import com.immersivecombatoverlays.tracker.UnpottedTracker;
-import com.immersivecombatoverlays.tracker.ImpactTracker;
+import com.immersivecombatoverlays.tracker.ImpactTrackers;
+import com.immersivecombatoverlays.tracker.ItemCooldowns;
 import com.immersivecombatoverlays.tracker.ParasiteTracker;
-import com.immersivecombatoverlays.tracker.ExpiryReminders;
-import com.immersivecombatoverlays.model.PotionEffect;
-import com.immersivecombatoverlays.model.BoostPotion;
-import com.immersivecombatoverlays.model.Cooldown;
-import com.immersivecombatoverlays.tracker.SpellRecastProtection;
-import com.immersivecombatoverlays.tracker.WarningNotifier;
-import com.immersivecombatoverlays.model.CombatSpell;
-import net.runelite.client.Notifier;
 import com.immersivecombatoverlays.tracker.PotionTimers;
+import com.immersivecombatoverlays.tracker.ReminderPipeline;
 import com.immersivecombatoverlays.tracker.RepotProtection;
+import com.immersivecombatoverlays.tracker.SpellRecastProtection;
+import com.immersivecombatoverlays.tracker.UnpottedTracker;
+import com.immersivecombatoverlays.tracker.WarningNotifier;
+import java.util.Locale;
+import java.util.Map;
 import javax.inject.Inject;
-import javax.inject.Named;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
-import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.MenuEntry;
-import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.Client;
+import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
 import net.runelite.api.HitsplatID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.MenuEntry;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
-import com.immersivecombatoverlays.model.Preset;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.AnimationChanged;
-import net.runelite.api.events.InteractingChanged;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GraphicChanged;
 import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.InteractingChanged;
+import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.StatChanged;
-import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.PluginChanged;
-import net.runelite.client.util.Text;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.Text;
 
+/**
+ * Event router. Every feature is an injected {@code @Singleton} module; this class only subscribes to client events,
+ * forwards them, and runs the per-tick modules in one explicit order (trackers, then reminders, then notifications).
+ * A new feature is a new module plus one line in the matching handler.
+ */
 @PluginDescriptor(
     name = "Immersive Combat Overlays",
-    description = "Combines inventory cooldowns, procedural health/status screen glows, and combat spell recast/expiry glows & showering icon reminders.",
+    description = "Screen glows, icon showers and inventory cooldowns for low HP and prayer, potions, spells and other combat warnings.",
     tags = {"combat", "cooldown", "overlay", "thrall", "spell", "health", "prayer", "status", "potions"}
 )
 public class ImmersiveCombatOverlaysPlugin extends Plugin
 {
     static final String CONFIG_GROUP = "immersivecombatoverlays";
 
-    @Inject
-    private Client client;
+    @Inject private Client client;
+    @Inject private ImmersiveCombatOverlaysConfig config;
+    @Inject private ConfigManager configManager;
+    @Inject private OverlayManager overlayManager;
+    @Inject private Notifier notifier;
+    @Inject private Settings settings;
 
-    @Inject
-    private ImmersiveCombatOverlaysConfig config;
+    @Inject private CombatStateTracker combatState;
+    @Inject private CombatSpellTracker spellTracker;
+    @Inject private HeartCooldownTracker heartTracker;
+    @Inject private PotionTimers potionTimers;
+    @Inject private BoostPotionTimers boostTimers;
+    @Inject private ImpactTrackers impacts;
+    @Inject private FreezeTracker freezeTracker;
+    @Inject private IdleTracker idleTracker;
+    @Inject private FoodCooldownTracker foodTracker;
+    @Inject private UnpottedTracker unpottedTracker;
+    @Inject private ParasiteTracker parasiteTracker;
+    @Inject private ConsumableCatalog catalog;
+    @Inject private ReminderPipeline reminders;
+    @Inject private NotificationDispatcher notifications;
+    @Inject private RepotProtection repotProtection;
+    @Inject private SpellRecastProtection spellRecastProtection;
 
-    @Inject
-    private OverlayManager overlayManager;
-
-    @Inject
-    private Notifier notifier;
-
-    @Inject
-    private ConfigManager configManager;
-
-    private final CombatStateTracker combatState = new CombatStateTracker();
-    private final CombatSpellTracker spellTracker = new CombatSpellTracker();
-    private final HeartCooldownTracker heartTracker = new HeartCooldownTracker();
-    private final PotionTimers potionTimers = new PotionTimers();
-    private final BoostPotionTimers boostTimers = new BoostPotionTimers();
-    private final RepotProtection repotProtection = new RepotProtection();
-    private final ImpactTracker damageTracker = new ImpactTracker();
-    private final ImpactTracker poisonTickTracker = new ImpactTracker();
-    private final ImpactTracker venomTickTracker = new ImpactTracker();
-    private final FreezeTracker freezeTracker = new FreezeTracker();
-    private final IdleTracker idleTracker = new IdleTracker();
-    private final FoodCooldownTracker foodTracker = new FoodCooldownTracker();
-    private final UnpottedTracker unpottedTracker = new UnpottedTracker();
-    private final ParasiteTracker parasiteTracker = new ParasiteTracker();
-    private final ExpiryReminders expiryReminders = new ExpiryReminders();
-    private final SpellRecastProtection spellRecastProtection = new SpellRecastProtection();
-    private final WarningNotifier warningNotifier = new WarningNotifier();
-    private final boolean[] spellReadyLastTick = new boolean[CombatSpell.values().length];
-
-    private final CooldownRenderer cooldownRenderer = new CooldownRenderer();
-    private final ProceduralRenderer proceduralRenderer = new ProceduralRenderer();
-
-    @Inject
-    private InventoryCooldownOverlay inventoryOverlay;
-
-    @Inject
-    private SpellCooldownOverlay spellOverlay;
-
-    @Inject
-    private ImmersiveStatusOverlay statusOverlay;
+    @Inject private CooldownRenderer cooldownRenderer;
+    @Inject private ProceduralRenderer proceduralRenderer;
+    @Inject private InventoryCooldownOverlay inventoryOverlay;
+    @Inject private SpellCooldownOverlay spellOverlay;
+    @Inject private ImmersiveStatusOverlay statusOverlay;
 
     @Provides
     ImmersiveCombatOverlaysConfig provideConfig(ConfigManager configManager)
@@ -126,109 +116,45 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         return configManager.getConfig(ImmersiveCombatOverlaysConfig.class);
     }
 
-    @Provides
-    CombatStateTracker provideCombatState()
+    /**
+     * Binds every module in this plugin's own (child) injector. Without this, Guice would create just-in-time
+     * bindings for dependency-free singletons in the client's root injector, keeping them (and this plugin's
+     * classes) alive after the plugin is turned off or uninstalled.
+     */
+    @Override
+    public void configure(Binder binder)
     {
-        return combatState;
-    }
-
-    @Provides
-    CombatSpellTracker provideSpellTracker()
-    {
-        return spellTracker;
-    }
-
-    @Provides
-    HeartCooldownTracker provideHeartTracker()
-    {
-        return heartTracker;
-    }
-
-    @Provides
-    PotionTimers providePotionTimers()
-    {
-        return potionTimers;
-    }
-
-    @Provides
-    BoostPotionTimers provideBoostTimers()
-    {
-        return boostTimers;
-    }
-
-    @Provides
-    CooldownRenderer provideCooldownRenderer()
-    {
-        return cooldownRenderer;
-    }
-
-    @Provides
-    ProceduralRenderer provideProceduralRenderer()
-    {
-        return proceduralRenderer;
-    }
-
-    @Provides
-    @Named("damage")
-    ImpactTracker provideDamageTracker()
-    {
-        return damageTracker;
-    }
-
-    @Provides
-    @Named("poisonTick")
-    ImpactTracker providePoisonTickTracker()
-    {
-        return poisonTickTracker;
-    }
-
-    @Provides
-    @Named("venomTick")
-    ImpactTracker provideVenomTickTracker()
-    {
-        return venomTickTracker;
-    }
-
-    @Provides
-    FreezeTracker provideFreezeTracker()
-    {
-        return freezeTracker;
-    }
-
-    @Provides
-    IdleTracker provideIdleTracker()
-    {
-        return idleTracker;
-    }
-
-    @Provides
-    FoodCooldownTracker provideFoodTracker()
-    {
-        return foodTracker;
-    }
-
-    @Provides
-    ExpiryReminders provideExpiryReminders()
-    {
-        return expiryReminders;
-    }
-
-    @Provides
-    ParasiteTracker provideParasiteTracker()
-    {
-        return parasiteTracker;
-    }
-
-    @Provides
-    UnpottedTracker provideUnpottedTracker()
-    {
-        return unpottedTracker;
+        binder.bind(Settings.class);
+        binder.bind(CombatStateTracker.class);
+        binder.bind(CombatSpellTracker.class);
+        binder.bind(HeartCooldownTracker.class);
+        binder.bind(PotionTimers.class);
+        binder.bind(BoostPotionTimers.class);
+        binder.bind(ImpactTrackers.class);
+        binder.bind(FreezeTracker.class);
+        binder.bind(IdleTracker.class);
+        binder.bind(FoodCooldownTracker.class);
+        binder.bind(UnpottedTracker.class);
+        binder.bind(ParasiteTracker.class);
+        binder.bind(ConsumableCatalog.class);
+        binder.bind(ItemCooldowns.class);
+        binder.bind(ReminderPipeline.class);
+        binder.bind(WarningNotifier.class);
+        binder.bind(NotificationDispatcher.class);
+        binder.bind(RepotProtection.class);
+        binder.bind(SpellRecastProtection.class);
+        binder.bind(CooldownRenderer.class);
+        binder.bind(ProceduralRenderer.class);
+        binder.bind(ImmersiveStatusOverlay.class);
+        binder.bind(InventoryCooldownOverlay.class);
+        binder.bind(SpellCooldownOverlay.class);
     }
 
     @Override
     protected void startUp()
     {
         resetDebugToggles();
+        settings.refresh();
         resetAll();
         combatState.setSimulatedCombat(config.debugSimulateCombat());
         overlayManager.add(statusOverlay);
@@ -243,10 +169,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         overlayManager.remove(inventoryOverlay);
         overlayManager.remove(spellOverlay);
         resetAll();
-        cooldownRenderer.clearCache();
-        proceduralRenderer.clearCaches();
-        spellOverlay.clearCache();
-        inventoryOverlay.clearCache();
+        clearRenderCaches();
     }
 
     /**
@@ -268,17 +191,23 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         heartTracker.reset();
         potionTimers.reset();
         boostTimers.reset();
-        damageTracker.reset();
-        poisonTickTracker.reset();
-        venomTickTracker.reset();
+        impacts.reset();
         freezeTracker.reset();
         idleTracker.reset();
         foodTracker.reset();
         unpottedTracker.reset();
         parasiteTracker.reset();
-        expiryReminders.reset();
-        warningNotifier.reset();
-        java.util.Arrays.fill(spellReadyLastTick, false);
+        reminders.reset();
+        notifications.reset();
+    }
+
+    private void clearRenderCaches()
+    {
+        proceduralRenderer.clearCaches();
+        cooldownRenderer.clearCache();
+        spellOverlay.clearCache();
+        inventoryOverlay.clearCache();
+        catalog.clear();
     }
 
     @Subscribe
@@ -301,93 +230,29 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             return;
         }
-
         long nowNanos = System.nanoTime();
-        combatState.onGameTick(client, nowNanos, config.combatBreakReRemindSeconds());
+        int breakSeconds = config.combatBreakReRemindSeconds();
+
+        // 1. Trackers
+        combatState.onGameTick(client, nowNanos, breakSeconds);
         spellTracker.onGameTick(client);
-        heartTracker.onGameTick(client);
         spellTracker.setGodCapeWorn(isGodCapeWorn());
+        heartTracker.onGameTick(client);
         potionTimers.onGameTick(client);
         boostTimers.onGameTick(client);
         freezeTracker.onGameTick(client);
         idleTracker.onGameTick(client, config, combatState, notifier, nowNanos);
         foodTracker.onGameTick();
         unpottedTracker.onGameTick(client, config, combatState, nowNanos);
-        updateExpiryReminders(nowNanos);
-        statusOverlay.updateClientState();
-        inventoryOverlay.cacheInventoryItemNames();
-        spellOverlay.updateSpellbook(combatState.isInCombat());
         parasiteTracker.onGameTick();
-        updateNotifications(nowNanos);
-    }
 
-    /**
-     * Sends the per-warning RuneLite notifications (each one OFF by default) on the tick a warning starts.
-     */
-    private void updateNotifications(long nowNanos)
-    {
-        warningNotifier.update(WarningNotifier.Warning.LOW_HEALTH, statusOverlay.isLowHealthLive(), config.lowHealthNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.LOW_PRAYER, statusOverlay.isLowPrayerLive(), config.lowPrayerNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.SPEC_READY, statusOverlay.isSpecReadyLive(), config.specNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.BUFF_EXPIRED, statusOverlay.isBuffExpiredLive(), config.buffNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.FREEZE,
-            config.freezeEnabled() && freezeTracker.getSeverity(nowNanos) > 0f, config.freezeNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.UNPOTTED,
-            unpottedTracker.getSeverity(config, nowNanos) > 0f, config.unpottedNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.HEART_READY, statusOverlay.isHeartReadyLive(), config.heartNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.BOOST_READY, statusOverlay.isBoostReadyLive(), config.boostNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.POISON, statusOverlay.isPoisonLive(), config.poisonNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.VENOM, statusOverlay.isVenomLive(), config.venomNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.DISEASE, statusOverlay.isDiseaseLive(), config.diseaseNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.LOW_RUN, statusOverlay.isLowRunLive(), config.lowRunNotification(), notifier, nowNanos);
-        warningNotifier.update(WarningNotifier.Warning.PARASITE,
-            config.parasiteEnabled() && parasiteTracker.isActive(), config.parasiteNotification(), notifier, nowNanos);
+        // 2. Derived state for the overlays
+        reminders.update(nowNanos);
+        statusOverlay.updateClientState();
+        spellOverlay.updateSpellbook(combatState.isInCombat());
 
-        int book = client.getVarbitValue(net.runelite.api.gameval.VarbitID.SPELLBOOK);
-        for (CombatSpell spell : CombatSpell.values())
-        {
-            boolean ready = spell.getSpellbook().getVarbitValue() == book
-                && spellTracker.wasCastSinceLogin(spell) && spellTracker.isSpellReadyReminder(spell, combatState, config);
-            if (ready && !spellReadyLastTick[spell.ordinal()])
-            {
-                warningNotifier.fireSpell(spell, ImmersiveCombatOverlaysConfig.getSpellNotification(config, spell), notifier, nowNanos);
-            }
-            spellReadyLastTick[spell.ordinal()] = ready;
-        }
-    }
-
-    /**
-     * Feeds the expiry latch: each effect counts as "active" while it has more than its pre-remind lead left,
-     * so the reminder starts exactly at expiry (or at the lead, for boosts with pre-remind enabled).
-     */
-    private void updateExpiryReminders(long nowNanos)
-    {
-        Cooldown heart = heartTracker.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID);
-        expiryReminders.observe(ExpiryReminders.HEART,
-            isActiveBeyondLead(heart, config.heartPreRemindSeconds()), nowNanos);
-
-        for (PotionEffect effect : PotionEffect.values())
-        {
-            expiryReminders.observe(ExpiryReminders.key(effect),
-                isActiveBeyondLead(potionTimers.getCooldown(effect), ImmersiveCombatOverlaysConfig.getPotionPreRemindSeconds(config, effect)),
-                nowNanos);
-        }
-
-        for (BoostPotion boost : BoostPotion.values())
-        {
-            expiryReminders.observe(ExpiryReminders.key(boost),
-                isActiveBeyondLead(boostTimers.getCooldown(client, boost, config), config.boostPreRemindSeconds()), nowNanos);
-        }
-    }
-
-    static boolean isActiveBeyondLead(Cooldown cd, int leadSeconds)
-    {
-        if (cd == null || cd.isReady())
-        {
-            return false;
-        }
-        int leadTicks = Math.round(Math.max(0, leadSeconds) / 0.6f);
-        return cd.getRemainingTicks() > leadTicks;
+        // 3. Notifications
+        notifications.update(nowNanos);
     }
 
     @Subscribe
@@ -398,13 +263,11 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             return;
         }
-
         String msg = event.getMessage();
-        long nowNanos = System.nanoTime();
         spellTracker.onChatMessage(client, msg, config);
         potionTimers.onChatMessage(msg);
         parasiteTracker.onChatMessage(msg);
-        freezeTracker.onChatMessage(client.getLocalPlayer(), msg, nowNanos);
+        freezeTracker.onChatMessage(client.getLocalPlayer(), msg, System.nanoTime());
     }
 
     @Subscribe
@@ -449,40 +312,32 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     public void onHitsplatApplied(HitsplatApplied event)
     {
         Player local = client.getLocalPlayer();
-        if (local == null)
+        Hitsplat hit = event.getHitsplat();
+        if (local == null || hit == null)
         {
             return;
         }
-
         long nowNanos = System.nanoTime();
-        Hitsplat hit = event.getHitsplat();
-        if (hit != null)
+        combatState.onHitsplat(event.getActor(), hit.getHitsplatType(), hit.isMine(), local, nowNanos,
+            config.combatBreakReRemindSeconds());
+        if (event.getActor() != local)
         {
-            combatState.onHitsplat(event.getActor(), hit.getHitsplatType(), hit.isMine(), local, nowNanos,
-                config.combatBreakReRemindSeconds());
+            return;
         }
-        if (event.getActor() == local)
+        int type = hit.getHitsplatType();
+        int amount = hit.getAmount();
+        if (type == HitsplatID.POISON)
         {
-            Hitsplat splat = event.getHitsplat();
-            if (splat == null)
-            {
-                return;
-            }
-            int type = splat.getHitsplatType();
-            int amount = splat.getAmount();
-            if (type == HitsplatID.POISON)
-            {
-                poisonTickTracker.trigger(nowNanos, 0.85f);
-            }
-            else if (type == HitsplatID.VENOM)
-            {
-                venomTickTracker.trigger(nowNanos, 0.95f);
-            }
-            else if (amount > 0 && amount >= config.damageMinAmount() && isDamageHitsplat(type))
-            {
-                float strength = damageFlashStrength(amount, client.getRealSkillLevel(Skill.HITPOINTS), config.damageScaleWithHp());
-                damageTracker.trigger(nowNanos, strength);
-            }
+            impacts.poisonTick.trigger(nowNanos, 0.85f);
+        }
+        else if (type == HitsplatID.VENOM)
+        {
+            impacts.venomTick.trigger(nowNanos, 0.95f);
+        }
+        else if (amount > 0 && amount >= config.damageMinAmount() && isDamageHitsplat(type))
+        {
+            impacts.damage.trigger(nowNanos,
+                damageFlashStrength(amount, client.getRealSkillLevel(Skill.HITPOINTS), config.damageScaleWithHp()));
         }
     }
 
@@ -511,7 +366,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         if (config.foodCooldownsEnabled() && ("Eat".equals(opt) || "Drink".equals(opt)))
         {
             // For inventory item ops param0 is the slot; the lock starts once that slot changes
-            foodTracker.onConsumeClick(event.getParam0(), itemId, foodTracker.classify(itemId, client::getItemDefinition));
+            foodTracker.onConsumeClick(event.getParam0(), itemId, catalog.get(itemId).food);
         }
     }
 
@@ -531,16 +386,8 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             return;
         }
-        unpottedTracker.onStatChanged(
-            config,
-            combatState,
-            potionTimers,
-            event.getSkill(),
-            event.getXp(),
-            event.getBoostedLevel(),
-            event.getLevel(),
-            System.nanoTime()
-        );
+        unpottedTracker.onStatChanged(config, combatState, potionTimers, event.getSkill(), event.getXp(),
+            event.getBoostedLevel(), event.getLevel(), System.nanoTime());
     }
 
     @Subscribe
@@ -559,7 +406,6 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     /**
      * Deprioritized entries only move when the client sorts the menu, so the flag must be set on ClientTick
      * (before sorting) and only while the menu is closed - the same approach as core Menu Entry Swapper.
-     * Setting it in PostMenuSort (as before) left the menu order unchanged in game.
      */
     @Subscribe
     public void onClientTick(ClientTick event)
@@ -568,17 +414,14 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             return;
         }
-        repotProtection.apply(client, config, heartTracker, potionTimers, boostTimers);
-        spellRecastProtection.apply(client, config, spellTracker);
+        repotProtection.apply();
+        spellRecastProtection.apply();
     }
 
     @Subscribe
     public void onPluginChanged(PluginChanged event)
     {
-        proceduralRenderer.clearCaches();
-        cooldownRenderer.clearCache();
-        spellOverlay.clearCache();
-        inventoryOverlay.clearCache();
+        clearRenderCaches();
     }
 
     @Subscribe
@@ -586,26 +429,23 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     {
         if ("resourcepacks".equals(event.getGroup()))
         {
-            proceduralRenderer.clearCaches();
-            cooldownRenderer.clearCache();
-            spellOverlay.clearCache();
-            inventoryOverlay.clearCache();
+            clearRenderCaches();
             return;
         }
         if (!CONFIG_GROUP.equals(event.getGroup()))
         {
             return;
         }
+        settings.refresh();
         proceduralRenderer.clearCaches();
         combatState.setSimulatedCombat(config.debugSimulateCombat());
 
-        if ("preset".equals(event.getKey()))
+        String key = event.getKey();
+        if ("preset".equals(key))
         {
             applyPreset(config.preset());
-            return;
         }
-
-        if ("debugTriggerSpellCooldowns".equals(event.getKey()))
+        else if ("debugTriggerSpellCooldowns".equals(key))
         {
             if (config.debugTriggerSpellCooldowns())
             {
@@ -613,11 +453,10 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             }
             else
             {
-                // Only remove the test timers; real cooldowns keep running
-                spellTracker.clearDebugCooldowns();
+                spellTracker.clearDebugCooldowns(); // only the test timers; real cooldowns keep running
             }
         }
-        if ("debugTriggerPotionCooldowns".equals(event.getKey()))
+        else if ("debugTriggerPotionCooldowns".equals(key))
         {
             if (config.debugTriggerPotionCooldowns())
             {
@@ -633,7 +472,8 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     }
 
     /**
-     * Writes a preset into this plugin's own config group, then flips the dropdown back to CUSTOM.
+     * Resets every key a preset manages, writes the preset's values, then flips the dropdown back to CUSTOM, so the
+     * result never depends on which preset was applied before.
      */
     private void applyPreset(Preset preset)
     {
@@ -645,13 +485,9 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             configManager.unsetConfiguration(CONFIG_GROUP, key);
         }
-        for (java.util.Map.Entry<String, Object> e : preset.settings().entrySet())
+        for (Map.Entry<String, Object> e : preset.settings().entrySet())
         {
-            if (e.getValue() == null)
-            {
-                configManager.unsetConfiguration(CONFIG_GROUP, e.getKey());
-            }
-            else
+            if (e.getValue() != null)
             {
                 configManager.setConfiguration(CONFIG_GROUP, e.getKey(), e.getValue());
             }
@@ -732,7 +568,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             return false;
         }
-        String lower = name.toLowerCase(java.util.Locale.ROOT);
+        String lower = name.toLowerCase(Locale.ROOT);
         return lower.contains("cape") && (lower.contains("saradomin") || lower.contains("guthix") || lower.contains("zamorak"));
     }
 }

@@ -9,6 +9,7 @@ import net.runelite.api.Client;
  * Tracks active potion and raid consumable timers independently of display settings.
  * Varbit-driven effects are re-read every tick, so the game is always the source of truth.
  */
+@javax.inject.Singleton
 public class PotionTimers
 {
     static final String MSG_SILK_DRESSING = "You quickly apply the dressing to your wounds.";

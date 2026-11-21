@@ -5,6 +5,7 @@ package com.immersivecombatoverlays.tracker;
  * Starts on the impregnation message and ends when the parasite is weakened (Sanfew / Relicym's) or bursts.
  * A tick-based fallback timeout guarantees the warning never sticks if an end message is missed.
  */
+@javax.inject.Singleton
 public class ParasiteTracker
 {
     static final String MSG_IMPREGNATED = "impregnated you with a deadly parasite";

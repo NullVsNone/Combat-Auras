@@ -10,6 +10,7 @@ import net.runelite.client.config.Notification;
  * becomes active. A per-warning cooldown stops flapping values (e.g. HP hovering at the threshold)
  * from spamming sounds.
  */
+@javax.inject.Singleton
 public class WarningNotifier
 {
     public enum Warning

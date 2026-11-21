@@ -2,66 +2,27 @@ package com.immersivecombatoverlays.tracker;
 
 import com.immersivecombatoverlays.model.BoostPotion;
 import com.immersivecombatoverlays.model.PotionEffect;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Locale;
 
 /**
- * Maps OSRS inventory items (by item name) to PotionEffect and BoostPotion families.
- * Name matching supports every dose count (1)-(4), mixes, and raid variants without a large ID table.
- *
- * Results are memoised per name: these lookups run for every inventory item on every frame and on
- * every menu sort, so the string scanning must only happen once per distinct item.
- * All callers run on the client thread.
+ * Name rules that map OSRS item names to PotionEffect and BoostPotion families. Every dose count, mixes and raid
+ * variants match without a large ID table. Callers go through {@link ConsumableCatalog}, which caches the result
+ * per item id, so these string scans run once per distinct item.
  */
 public final class PotionItems
 {
-    private static final int CACHE_LIMIT = 512;
-    private static final Object NONE = new Object();
-    private static final Map<String, Object> EFFECT_CACHE = new HashMap<>();
-    private static final Map<String, Object> BOOST_CACHE = new HashMap<>();
-
     private PotionItems()
     {
     }
 
-    public static PotionEffect getEffect(int itemId, String itemName)
+    public static PotionEffect getEffect(String itemName)
     {
-        if (itemName == null || itemName.isEmpty())
-        {
-            return null;
-        }
-        Object cached = EFFECT_CACHE.get(itemName);
-        if (cached == null)
-        {
-            PotionEffect effect = classifyEffect(itemName.toLowerCase(java.util.Locale.ROOT));
-            cached = effect != null ? effect : NONE;
-            if (EFFECT_CACHE.size() >= CACHE_LIMIT)
-            {
-                EFFECT_CACHE.clear();
-            }
-            EFFECT_CACHE.put(itemName, cached);
-        }
-        return cached == NONE ? null : (PotionEffect) cached;
+        return itemName == null || itemName.isEmpty() ? null : classifyEffect(itemName.toLowerCase(Locale.ROOT));
     }
 
-    public static BoostPotion getBoost(int itemId, String itemName)
+    public static BoostPotion getBoost(String itemName)
     {
-        if (itemName == null || itemName.isEmpty())
-        {
-            return null;
-        }
-        Object cached = BOOST_CACHE.get(itemName);
-        if (cached == null)
-        {
-            BoostPotion boost = classifyBoost(itemName.toLowerCase(java.util.Locale.ROOT));
-            cached = boost != null ? boost : NONE;
-            if (BOOST_CACHE.size() >= CACHE_LIMIT)
-            {
-                BOOST_CACHE.clear();
-            }
-            BOOST_CACHE.put(itemName, cached);
-        }
-        return cached == NONE ? null : (BoostPotion) cached;
+        return itemName == null || itemName.isEmpty() ? null : classifyBoost(itemName.toLowerCase(Locale.ROOT));
     }
 
     static PotionEffect classifyEffect(String lower)

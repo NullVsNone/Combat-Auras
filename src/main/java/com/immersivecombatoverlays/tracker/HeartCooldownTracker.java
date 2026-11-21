@@ -9,6 +9,7 @@ import net.runelite.api.gameval.VarbitID;
  * Tracks the shared Imbued Heart (700 ticks) / Saturated Heart (500 ticks) cooldown.
  * The game exposes it as IMBUED_HEART_TIMER in 10-tick buckets; we interpolate between buckets.
  */
+@javax.inject.Singleton
 public class HeartCooldownTracker
 {
     public static final int IMBUED_HEART_ID = ItemID.IMBUED_HEART;
@@ -93,7 +94,13 @@ public class HeartCooldownTracker
         }
     }
 
+    /** The shared heart cooldown (both hearts use the same game timer). */
     public Cooldown getCooldown(int itemId)
+    {
+        return getCooldown();
+    }
+
+    public Cooldown getCooldown()
     {
         if (remainingTicks <= 0)
         {
