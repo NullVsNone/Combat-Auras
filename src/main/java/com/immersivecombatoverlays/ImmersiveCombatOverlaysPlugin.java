@@ -455,7 +455,12 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         }
 
         long nowNanos = System.nanoTime();
-        combatState.onHitsplat(event.getActor(), event.getHitsplat(), local, nowNanos, config.combatBreakReRemindSeconds());
+        Hitsplat hit = event.getHitsplat();
+        if (hit != null)
+        {
+            combatState.onHitsplat(event.getActor(), hit.getHitsplatType(), hit.isMine(), local, nowNanos,
+                config.combatBreakReRemindSeconds());
+        }
         if (event.getActor() == local)
         {
             Hitsplat splat = event.getHitsplat();

@@ -582,7 +582,7 @@ public class TrackersTest
 
     private static void myHit(CombatStateTracker combat)
     {
-        combat.onHitsplat(npc(), new net.runelite.api.Hitsplat(net.runelite.api.HitsplatID.DAMAGE_ME, 10, 0), player(), 0L, 120);
+        combat.onHitsplat(npc(), net.runelite.api.HitsplatID.DAMAGE_ME, true, player(), 0L, 120);
     }
 
     private static net.runelite.api.NPC npc()

@@ -3,7 +3,6 @@ package com.immersivecombatoverlays;
 import com.immersivecombatoverlays.tracker.CombatStateTracker;
 import java.lang.reflect.Proxy;
 import net.runelite.api.Actor;
-import net.runelite.api.Hitsplat;
 import net.runelite.api.HitsplatID;
 import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
@@ -61,7 +60,8 @@ public class CombatStateTrackerTest
 
     private void hit(Actor on, int type)
     {
-        state.onHitsplat(on, new Hitsplat(type, 5, 0), local, NOW, 120);
+        boolean mine = type == HitsplatID.DAMAGE_ME || type == HitsplatID.BLOCK_ME;
+        state.onHitsplat(on, type, mine, local, NOW, 120);
     }
 
     @Test

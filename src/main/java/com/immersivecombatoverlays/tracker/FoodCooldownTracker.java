@@ -125,7 +125,7 @@ public class FoodCooldownTracker
         }
     }
 
-    void start(ConsumableType type)
+    public void start(ConsumableType type)
     {
         switch (type)
         {
@@ -195,7 +195,7 @@ public class FoodCooldownTracker
         return cached == NONE ? null : (ConsumableType) cached;
     }
 
-    static ConsumableType classify(String name, String[] actions, boolean noted)
+    public static ConsumableType classify(String name, String[] actions, boolean noted)
     {
         if (name == null || noted)
         {

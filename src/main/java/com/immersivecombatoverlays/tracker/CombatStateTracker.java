@@ -198,15 +198,19 @@ public class CombatStateTracker
         onCombatActivity(nowNanos, breakReRemindSeconds);
     }
 
-    public void onHitsplat(Actor actor, Hitsplat hitsplat, Player local, long nowNanos, int breakReRemindSeconds)
+    /**
+     * @param hitsplatType {@link Hitsplat#getHitsplatType()}
+     * @param mine         {@link Hitsplat#isMine()}: damage dealt by the local player
+     */
+    public void onHitsplat(Actor actor, int hitsplatType, boolean mine, Player local, long nowNanos, int breakReRemindSeconds)
     {
-        if (actor == null || hitsplat == null || local == null)
+        if (actor == null || local == null)
         {
             return;
         }
         if (actor == local)
         {
-            if (!isCombatRelevant(hitsplat.getHitsplatType()))
+            if (!isCombatRelevant(hitsplatType))
             {
                 return;
             }
@@ -221,7 +225,7 @@ public class CombatStateTracker
             }
             onCombatActivity(nowNanos, breakReRemindSeconds);
         }
-        else if (hitsplat.isMine())
+        else if (mine)
         {
             // Hits from other players, thralls or pets on the same target do not count
             lastMyHitTick = tick;
