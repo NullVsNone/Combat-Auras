@@ -61,7 +61,7 @@ public class FreezeTracker
         {
             return;
         }
-        String lower = message.toLowerCase();
+        String lower = message.toLowerCase(java.util.Locale.ROOT);
         if (lower.contains("unfrozen") || lower.contains("no longer frozen") || lower.contains("freeze has worn off") || lower.contains("break free"))
         {
             reset();

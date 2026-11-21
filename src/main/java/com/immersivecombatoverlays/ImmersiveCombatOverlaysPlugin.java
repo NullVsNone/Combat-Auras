@@ -29,7 +29,11 @@ import com.immersivecombatoverlays.tracker.PotionTimers;
 import com.immersivecombatoverlays.tracker.RepotProtection;
 import javax.inject.Inject;
 import javax.inject.Named;
+import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.EquipmentInventorySlot;
+import net.runelite.api.MenuEntry;
+import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
@@ -224,6 +228,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     @Override
     protected void startUp()
     {
+        resetDebugToggles();
         resetAll();
         combatState.setSimulatedCombat(config.debugSimulateCombat());
         overlayManager.add(statusOverlay);
@@ -242,6 +247,18 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         proceduralRenderer.clearCaches();
         spellOverlay.clearCache();
         inventoryOverlay.clearCache();
+    }
+
+    /**
+     * Debug previews and "Simulate in-combat" are for trying settings out; a forgotten toggle must not leave the
+     * player permanently "in combat" (bypassing every combat-only filter) after a restart.
+     */
+    private void resetDebugToggles()
+    {
+        for (String key : ImmersiveCombatOverlaysConfig.DEBUG_KEYS)
+        {
+            configManager.unsetConfiguration(CONFIG_GROUP, key);
+        }
     }
 
     private void resetAll()
@@ -288,13 +305,14 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         long nowNanos = System.nanoTime();
         combatState.onGameTick(client, nowNanos, config.combatBreakReRemindSeconds());
         spellTracker.onGameTick(client);
-        heartTracker.onGameTick(client, hasSaturatedHeart());
+        heartTracker.onGameTick(client);
+        spellTracker.setGodCapeWorn(isGodCapeWorn());
         potionTimers.onGameTick(client);
         boostTimers.onGameTick(client);
         freezeTracker.onGameTick(client);
         idleTracker.onGameTick(client, config, combatState, notifier, nowNanos);
         foodTracker.onGameTick();
-        unpottedTracker.onGameTick(client, config, spellTracker.getLastCastNanos(), nowNanos);
+        unpottedTracker.onGameTick(client, config, combatState, nowNanos);
         updateExpiryReminders(nowNanos);
         statusOverlay.updateClientState();
         inventoryOverlay.cacheInventoryItemNames();
@@ -437,9 +455,9 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         }
 
         long nowNanos = System.nanoTime();
+        combatState.onHitsplat(event.getActor(), event.getHitsplat(), local, nowNanos, config.combatBreakReRemindSeconds());
         if (event.getActor() == local)
         {
-            combatState.onCombatActivity(nowNanos, config.combatBreakReRemindSeconds());
             Hitsplat splat = event.getHitsplat();
             if (splat == null)
             {
@@ -461,24 +479,43 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
                 damageTracker.trigger(nowNanos, strength);
             }
         }
-        else if (local.getInteracting() == event.getActor())
-        {
-            combatState.onCombatActivity(nowNanos, config.combatBreakReRemindSeconds());
-        }
     }
 
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event)
     {
-        if (!config.foodCooldownsEnabled() || event.getItemId() <= 0)
+        String opt = Text.removeTags(event.getMenuOption());
+        MenuEntry entry = event.getMenuEntry();
+        Actor actor = null;
+        if (entry != null)
+        {
+            actor = entry.getNpc() != null ? entry.getNpc() : entry.getPlayer();
+        }
+        combatState.onMenuOptionClicked(event.getMenuAction(), opt, event.getMenuTarget(), actor,
+            System.nanoTime(), config.combatBreakReRemindSeconds());
+
+        int itemId = event.getItemId();
+        if (itemId <= 0)
         {
             return;
         }
-        String opt = event.getMenuOption();
-        if ("Eat".equalsIgnoreCase(opt) || "Drink".equalsIgnoreCase(opt))
+        if ("Invigorate".equals(opt))
         {
-            String target = Text.removeTags(event.getMenuTarget());
-            foodTracker.onConsume(opt, target);
+            heartTracker.onInvigorate(itemId);
+        }
+        if (config.foodCooldownsEnabled() && ("Eat".equals(opt) || "Drink".equals(opt)))
+        {
+            // For inventory item ops param0 is the slot; the lock starts once that slot changes
+            foodTracker.onConsumeClick(event.getParam0(), itemId, foodTracker.classify(itemId, client::getItemDefinition));
+        }
+    }
+
+    @Subscribe
+    public void onItemContainerChanged(ItemContainerChanged event)
+    {
+        if (event.getContainerId() == InventoryID.INV)
+        {
+            foodTracker.onInventoryChanged(event.getItemContainer());
         }
     }
 
@@ -490,7 +527,6 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             return;
         }
         unpottedTracker.onStatChanged(
-            client,
             config,
             combatState,
             potionTimers,
@@ -511,6 +547,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             freezeTracker.reset();
             spellTracker.onPlayerDeath();
             combatState.reset();
+            parasiteTracker.reset();
         }
     }
 
@@ -599,6 +636,10 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         {
             return;
         }
+        for (String key : Preset.MANAGED_KEYS)
+        {
+            configManager.unsetConfiguration(CONFIG_GROUP, key);
+        }
         for (java.util.Map.Entry<String, Object> e : preset.settings().entrySet())
         {
             if (e.getValue() == null)
@@ -664,20 +705,29 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         }
     }
 
-    private boolean hasSaturatedHeart()
+    private boolean isGodCapeWorn()
     {
-        ItemContainer inv = client.getItemContainer(InventoryID.INV);
-        if (inv == null)
+        ItemContainer worn = client.getItemContainer(InventoryID.WORN);
+        if (worn == null)
         {
             return false;
         }
-        for (Item item : inv.getItems())
+        Item cape = worn.getItem(EquipmentInventorySlot.CAPE.getSlotIdx());
+        if (cape == null || cape.getId() <= 0)
         {
-            if (item != null && item.getId() == HeartCooldownTracker.SATURATED_HEART_ID)
-            {
-                return true;
-            }
+            return false;
         }
-        return false;
+        return isGodCape(client.getItemDefinition(cape.getId()).getName());
+    }
+
+    /** Saradomin / Guthix / Zamorak capes, their imbued versions and the god max capes. */
+    static boolean isGodCape(String name)
+    {
+        if (name == null)
+        {
+            return false;
+        }
+        String lower = name.toLowerCase(java.util.Locale.ROOT);
+        return lower.contains("cape") && (lower.contains("saradomin") || lower.contains("guthix") || lower.contains("zamorak"));
     }
 }

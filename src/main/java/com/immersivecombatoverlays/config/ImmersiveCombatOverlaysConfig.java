@@ -9,6 +9,7 @@ import com.immersivecombatoverlays.model.PotionEffect;
 import net.runelite.api.Skill;
 import com.immersivecombatoverlays.model.Preset;
 import com.immersivecombatoverlays.model.ReadyStyle;
+import com.immersivecombatoverlays.model.ReminderContext;
 import com.immersivecombatoverlays.model.ShowerStartLocation;
 import com.immersivecombatoverlays.model.SpellCooldownDisplayMode;
 import com.immersivecombatoverlays.model.ThrallDurationTier;
@@ -1017,6 +1018,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellShadowVeilEnabled", name = "Enable", description = "Track Shadow Veil.", section = spellShadowVeilSection, position = 0)
     default boolean spellShadowVeilEnabled() { return false; }
 
+    @ConfigItem(keyName = "spellShadowVeilContext", name = "Remind when", description = "Shadow Veil reduces failed-pickpocket stuns, so by default it is only reminded while pickpocketing (within ~60 s of a Pickpocket click).", section = spellShadowVeilSection, position = 2)
+    default ReminderContext spellShadowVeilContext() { return ReminderContext.THIEVING; }
+
     @ConfigItem(keyName = "spellShadowVeilRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Shadow Veil while it is active or on cooldown (right-click still casts).", section = spellShadowVeilSection, position = 1)
     default boolean spellShadowVeilRecastProtection() { return true; }
 
@@ -1153,6 +1157,9 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     @ConfigItem(keyName = "spellChargeEnabled", name = "Enable", description = "Track Charge (God Spells) expiry.", section = spellChargeSection, position = 0)
     default boolean spellChargeEnabled() { return false; }
 
+    @ConfigItem(keyName = "spellChargeNeedsGodCape", name = "Only with a god cape", description = "Charge only boosts god spells cast while wearing a god cape, so only remind while one is worn.", section = spellChargeSection, position = 1)
+    default boolean spellChargeNeedsGodCape() { return true; }
+
     @Alpha
     @ConfigItem(keyName = "spellChargeColor", name = "Color", description = "Glow color for Charge.", section = spellChargeSection, position = 10)
     default Color spellChargeColor() { return new Color(250, 204, 21, 200); }
@@ -1180,6 +1187,38 @@ public interface ImmersiveCombatOverlaysConfig extends Config
     // =========================================================================
     // Static Helpers (Safe with RuneLite ConfigInvocationHandler)
     // =========================================================================
+
+    /** Every debug/preview key; reset on startup so none survives a restart. */
+    String[] DEBUG_KEYS = {
+        "debugSimulateCombat",
+        "debugTriggerSpellCooldowns",
+        "debugTriggerPotionCooldowns",
+        "debugPreviewInventory",
+        "debugPreviewSpellGrid",
+        "debugLowHealth",
+        "debugDamageFlash",
+        "debugLowPrayer",
+        "debugPoison",
+        "debugVenom",
+        "debugDisease",
+        "debugFreeze",
+        "debugIdle",
+        "debugSpecReady",
+        "debugLowRun",
+        "debugUnpotted",
+        "debugParasite",
+        "debugHeartReady",
+        "debugBuffExpired",
+        "debugSpellThrall",
+        "debugSpellDeathCharge",
+        "debugSpellMarkOfDarkness",
+        "debugSpellWardOfArceuus",
+        "debugSpellShadowVeil",
+        "debugSpellCorruption",
+        "debugSpellVengeance",
+        "debugSpellVengeanceOther",
+        "debugSpellCharge",
+    };
 
     /**
      * Whether left-click Cast should be deprioritized for this spell while it cannot be recast yet.

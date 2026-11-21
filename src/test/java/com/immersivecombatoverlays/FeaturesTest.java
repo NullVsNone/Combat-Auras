@@ -183,6 +183,42 @@ public class FeaturesTest
         }
     }
 
+    @Test
+    public void shadowVeilRemindsWhilePickpocketingAndChargeNeedsAGodCape()
+    {
+        CombatSpellTracker spells = new CombatSpellTracker();
+        com.immersivecombatoverlays.tracker.CombatStateTracker combat = new com.immersivecombatoverlays.tracker.CombatStateTracker();
+        combat.onCombatActivity(1L, 120);
+        Assert.assertFalse("in combat but not thieving", spells.contextAllows(CombatSpell.SHADOW_VEIL, combat, DEFAULTS));
+        combat.onMenuOptionClicked(net.runelite.api.MenuAction.NPC_THIRD_OPTION, "Pickpocket", "Knight of Ardougne", null, 1L, 120);
+        Assert.assertTrue(spells.contextAllows(CombatSpell.SHADOW_VEIL, combat, DEFAULTS));
+
+        Assert.assertFalse("no god cape", spells.contextAllows(CombatSpell.CHARGE, combat, DEFAULTS));
+        spells.setGodCapeWorn(true);
+        Assert.assertTrue(spells.contextAllows(CombatSpell.CHARGE, combat, DEFAULTS));
+        Assert.assertTrue(spells.contextAllows(CombatSpell.VENGEANCE, combat, DEFAULTS));
+
+        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isGodCape("Imbued saradomin cape"));
+        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isGodCape("Zamorak max cape"));
+        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isGodCape("Fire cape"));
+        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isGodCape("Saradomin d'hide body"));
+    }
+
+    @Test
+    public void everyDebugKeyIsResetOnStartup()
+    {
+        Set<String> declared = new HashSet<>();
+        for (Method m : ImmersiveCombatOverlaysConfig.class.getDeclaredMethods())
+        {
+            net.runelite.client.config.ConfigItem item = m.getAnnotation(net.runelite.client.config.ConfigItem.class);
+            if (item != null && item.keyName().startsWith("debug"))
+            {
+                declared.add(item.keyName());
+            }
+        }
+        Assert.assertEquals(declared, new HashSet<>(Arrays.asList(ImmersiveCombatOverlaysConfig.DEBUG_KEYS)));
+    }
+
     // ---------------------------------------------------------------- notifications
 
     @Test

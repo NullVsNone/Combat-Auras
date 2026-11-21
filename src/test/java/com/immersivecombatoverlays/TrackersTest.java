@@ -138,7 +138,7 @@ public class TrackersTest
         PotionTimers potions = new PotionTimers();
         HeartCooldownTracker heart = new HeartCooldownTracker();
         potions.onGameTick(fc.client);
-        heart.onGameTick(fc.client, true);
+        heart.onGameTick(fc.client);
         Assert.assertFalse(com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
 
         fc.varbit(VarbitID.DIVINECOMBAT_POTION_TIME, 300);
@@ -147,10 +147,11 @@ public class TrackersTest
 
         fc.varbit(VarbitID.DIVINECOMBAT_POTION_TIME, 0);
         potions.onGameTick(fc.client);
+        heart.onInvigorate(HeartCooldownTracker.SATURATED_HEART_ID);
         fc.varbit(VarbitID.IMBUED_HEART_TIMER, 50);
-        heart.onGameTick(fc.client, true);
+        heart.onGameTick(fc.client);
         Assert.assertTrue("saturated heart boost running", com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
-        heart.onGameTick(fc.client, false);
+        heart.onInvigorate(HeartCooldownTracker.IMBUED_HEART_ID);
         Assert.assertFalse("imbued heart is not divine", com.immersivecombatoverlays.tracker.RepotProtection.isDivineBoostActive(heart, potions));
     }
 
@@ -222,20 +223,21 @@ public class TrackersTest
         HeartCooldownTracker heart = new HeartCooldownTracker();
         Assert.assertTrue(heart.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID).isReady());
 
-        heart.onGameTick(fc.client, false);
+        heart.onGameTick(fc.client);
         Assert.assertEquals(700, heart.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID).getRemainingTicks());
         Assert.assertEquals(700, heart.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID).getTotalTicks());
-        heart.onGameTick(fc.client, false);
+        heart.onGameTick(fc.client);
         Assert.assertEquals(699, heart.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID).getRemainingTicks());
         Assert.assertTrue(heart.wasUsedThisSession());
 
         // Death clears the game varbit -> heart ready immediately (Imbued Heart Notifier issue #5)
         fc.varbit(VarbitID.IMBUED_HEART_TIMER, 0);
-        heart.onGameTick(fc.client, false);
+        heart.onGameTick(fc.client);
         Assert.assertTrue(heart.getCooldown(HeartCooldownTracker.IMBUED_HEART_ID).isReady());
 
         heart.triggerDebugCooldown();
-        heart.onGameTick(fc.client, true);
+        heart.onInvigorate(HeartCooldownTracker.SATURATED_HEART_ID); // the clicked heart decides the length
+        heart.onGameTick(fc.client);
         Assert.assertEquals(24, heart.getCooldown(HeartCooldownTracker.SATURATED_HEART_ID).getRemainingTicks());
         Assert.assertEquals(500, heart.getCooldown(HeartCooldownTracker.SATURATED_HEART_ID).getTotalTicks());
         heart.clearDebugCooldown();
@@ -354,29 +356,77 @@ public class TrackersTest
 
     // ---------------------------------------------------------------- food
 
+    private static final String[] EAT = {"Eat", null, null, null, "Drop"};
+    private static final String[] DRINK = {"Drink", null, null, null, "Drop"};
+    private static final String[] NONE = {null, null, null, null, "Drop"};
+
     @Test
-    public void comboEatFoodCooldownsAndHunterMeatDelayedHeal()
+    public void foodIsClassifiedFromItemActionsNotNames()
+    {
+        Assert.assertEquals(FoodCooldownTracker.ConsumableType.REGULAR_FOOD, FoodCooldownTracker.classify("Rocktail", EAT, false));
+        Assert.assertEquals(FoodCooldownTracker.ConsumableType.REGULAR_FOOD, FoodCooldownTracker.classify("Jug of wine", DRINK, false));
+        Assert.assertEquals(FoodCooldownTracker.ConsumableType.COMBO_FOOD, FoodCooldownTracker.classify("Cooked karambwan", EAT, false));
+        Assert.assertEquals(FoodCooldownTracker.ConsumableType.COMBO_FOOD, FoodCooldownTracker.classify("Chocolate bomb", EAT, false));
+        Assert.assertEquals(FoodCooldownTracker.ConsumableType.COMBO_FOOD, FoodCooldownTracker.classify("Premade choc bomb", EAT, false));
+        Assert.assertEquals(FoodCooldownTracker.ConsumableType.HUNTER_MEAT, FoodCooldownTracker.classify("Cooked sunlight antelope", EAT, false));
+        Assert.assertEquals(FoodCooldownTracker.ConsumableType.POTION, FoodCooldownTracker.classify("Super combat potion(4)", DRINK, false));
+        Assert.assertEquals(FoodCooldownTracker.ConsumableType.MIX, FoodCooldownTracker.classify("Attack mix(2)", DRINK, false));
+        Assert.assertNull("raw food cannot be eaten", FoodCooldownTracker.classify("Raw shark", NONE, false));
+        Assert.assertNull("uncooked pizza cannot be eaten", FoodCooldownTracker.classify("Uncooked pizza", NONE, false));
+        Assert.assertNull("hunter furs are not food", FoodCooldownTracker.classify("Graahk fur", NONE, false));
+        Assert.assertNull("noted stacks are not consumable", FoodCooldownTracker.classify("Shark", EAT, true));
+    }
+
+    private static net.runelite.api.ItemContainer inventory(int[] ids)
+    {
+        return (net.runelite.api.ItemContainer) java.lang.reflect.Proxy.newProxyInstance(
+            net.runelite.api.ItemContainer.class.getClassLoader(), new Class<?>[]{net.runelite.api.ItemContainer.class},
+            (p, m, a) -> "getItem".equals(m.getName())
+                ? (ids[(Integer) a[0]] < 0 ? null : new net.runelite.api.Item(ids[(Integer) a[0]], 1))
+                : FakeClient.defaultValue(m.getReturnType()));
+    }
+
+    @Test
+    public void foodTimersFollowComboEatRulesAndOnlyStartOnConsumption()
     {
         FoodCooldownTracker food = new FoodCooldownTracker();
-        food.onConsume("Eat", "Shark");
-        Assert.assertNotNull(food.getCooldown("Shark"));
-        Assert.assertNull(food.getCooldown("Saradomin brew(4)"));
-        Assert.assertNull("Karambwan can still be combo-eaten after normal food", food.getCooldown("Cooked karambwan"));
+        int[] inv = {385, 3144, 6685, -1};
+        FoodCooldownTracker.ConsumableType shark = FoodCooldownTracker.ConsumableType.REGULAR_FOOD;
+        FoodCooldownTracker.ConsumableType karambwan = FoodCooldownTracker.ConsumableType.COMBO_FOOD;
+        FoodCooldownTracker.ConsumableType brew = FoodCooldownTracker.ConsumableType.POTION;
 
-        food.onConsume("Drink", "Saradomin brew(4)");
-        Assert.assertNotNull(food.getCooldown("Saradomin brew(4)"));
-        food.onConsume("Eat", "Cooked karambwan");
-        Assert.assertNotNull(food.getCooldown("Cooked karambwan"));
-        food.onConsume("Wield", "Shark");
+        // Click without the item leaving the slot (rejected by the game): no lock
+        food.onConsumeClick(0, 385, shark);
+        food.onInventoryChanged(inventory(inv));
+        Assert.assertNull(food.getCooldown(shark));
+
+        // Shark eaten: food locked, brew and karambwan still free (combo eat)
+        inv[0] = -1;
+        food.onInventoryChanged(inventory(inv));
+        Assert.assertEquals(3, food.getCooldown(shark).getRemainingTicks());
+        Assert.assertNull("a potion is a separate timer", food.getCooldown(brew));
+        Assert.assertNull("karambwan ignores the food timer", food.getCooldown(karambwan));
+
+        // Spam-clicking more food while locked never extends the lock
+        food.onGameTick();
+        food.onConsumeClick(1, 3144, shark);
+        Assert.assertEquals(2, food.getCooldown(shark).getRemainingTicks());
 
         food.reset();
-        food.onConsume("Eat", "Cooked sunlight antelope");
-        Assert.assertEquals(3, food.getCooldown("Cooked sunlight antelope").getRemainingTicks());
+        // Karambwan first: regular food is then blocked, and so is a second karambwan
+        food.onConsumeClick(1, 3144, karambwan);
+        inv[1] = -1;
+        food.onInventoryChanged(inventory(inv));
+        Assert.assertNotNull(food.getCooldown(shark));
+        Assert.assertNotNull(food.getCooldown(karambwan));
+        Assert.assertNull("karambwan does not lock potions", food.getCooldown(brew));
+
+        food.reset();
+        food.start(FoodCooldownTracker.ConsumableType.HUNTER_MEAT);
         food.onGameTick();
         food.onGameTick();
         food.onGameTick();
-        Assert.assertEquals("Second heal pending", 4, food.getCooldown("Cooked sunlight antelope").getRemainingTicks());
-        Assert.assertNull(FoodCooldownTracker.classify("Rune platebody"));
+        Assert.assertEquals("second heal pending", 4, food.getCooldown(FoodCooldownTracker.ConsumableType.HUNTER_MEAT).getRemainingTicks());
     }
 
     // ---------------------------------------------------------------- freeze & impact
@@ -530,67 +580,127 @@ public class TrackersTest
 
     // ---------------------------------------------------------------- unpotted
 
-    @Test
-    public void unpottedIgnoresAlchAndLongrangeButSupportsCannon()
+    private static void myHit(CombatStateTracker combat)
     {
-        CombatStateTracker combat = new CombatStateTracker();
-        UnpottedTracker unpotted = new UnpottedTracker();
-        long now = 50_000_000_000L;
+        combat.onHitsplat(npc(), new net.runelite.api.Hitsplat(net.runelite.api.HitsplatID.DAMAGE_ME, 10, 0), player(), 0L, 120);
+    }
 
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.MAGIC, 1000, 99, 99, now);
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.RANGED, 1000, 99, 99, now);
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.DEFENCE, 1000, 99, 99, now);
+    private static net.runelite.api.NPC npc()
+    {
+        return (net.runelite.api.NPC) java.lang.reflect.Proxy.newProxyInstance(net.runelite.api.NPC.class.getClassLoader(),
+            new Class<?>[]{net.runelite.api.NPC.class}, (p, m, a) -> FakeClient.defaultValue(m.getReturnType()));
+    }
 
-        // Magic XP out of combat (alching) is ignored
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.MAGIC, 1065, 99, 99, now + 1_000_000L);
-        unpotted.onGameTick(null, DEFAULTS, 0L, now + 2_000_000L);
-        Assert.assertEquals(0f, unpotted.getSeverity(DEFAULTS, now + 2_000_000L), 0.001f);
+    private static final net.runelite.api.Player LOCAL = (net.runelite.api.Player) java.lang.reflect.Proxy.newProxyInstance(
+        net.runelite.api.Player.class.getClassLoader(), new Class<?>[]{net.runelite.api.Player.class},
+        (p, m, a) -> FakeClient.defaultValue(m.getReturnType()));
 
-        // Defence XP never triggers
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.DEFENCE, 1100, 99, 99, now + 1_000_000L);
-        Assert.assertEquals(0f, unpotted.getSeverity(DEFAULTS, now + 2_000_000L), 0.001f);
+    private static net.runelite.api.Player player()
+    {
+        return LOCAL;
+    }
 
-        // Ranged XP without combat interaction (cannon) does trigger
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.RANGED, 1120, 99, 99, now + 2_000_000L);
-        Assert.assertTrue(unpotted.getSeverity(DEFAULTS, now + 3_000_000L) > 0.5f);
-
-        // Potting up clears it
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.RANGED, 1150, 112, 99, now + 4_000_000L);
-        Assert.assertEquals(0f, unpotted.getSeverity(DEFAULTS, now + 4_000_000L), 0.001f);
+    private static void tick(FakeClient fc, CombatStateTracker combat, UnpottedTracker unpotted, long now)
+    {
+        combat.onGameTick(fc.client, now, 120);
+        unpotted.onGameTick(fc.client, DEFAULTS, combat, now);
     }
 
     @Test
-    public void unpottedIgnoresMagicXpFromUtilitySpellCasts()
+    public void unpottedNeedsAHitIDealtAroundTheXp()
     {
+        FakeClient fc = new FakeClient();
+        fc.localPlayer = LOCAL;
         CombatStateTracker combat = new CombatStateTracker();
-        combat.setSimulatedCombat(true);
         UnpottedTracker unpotted = new UnpottedTracker();
         long now = 50_000_000_000L;
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.MAGIC, 1000, 99, 99, now);
+        for (Skill s : new Skill[]{Skill.MAGIC, Skill.RANGED, Skill.DEFENCE, Skill.ATTACK})
+        {
+            unpotted.onStatChanged(DEFAULTS, combat, null, s, 1000, 99, 99, now);
+        }
 
-        // Thrall cast: XP drop, then the spell tracker records a cast on the same tick
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.MAGIC, 1050, 99, 99, now + 100_000_000L);
-        unpotted.onGameTick(null, DEFAULTS, now + 150_000_000L, now + 600_000_000L);
-        Assert.assertEquals("Thrall/Death Charge XP must not trigger (Unpotted Reminder #23)", 0f, unpotted.getSeverity(DEFAULTS, now + 700_000_000L), 0.001f);
+        // XP lamp / Ranging Guild: XP with no hit following it
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.RANGED, 1100, 99, 99, now);
+        for (int i = 0; i < 8; i++)
+        {
+            tick(fc, combat, unpotted, now);
+        }
+        Assert.assertEquals(0f, unpotted.getSeverity(DEFAULTS, now), 0.001f);
 
-        // Real combat magic XP with no utility cast nearby does trigger
-        unpotted.onStatChanged(null, DEFAULTS, combat, null, Skill.MAGIC, 1100, 99, 99, now + 10_000_000_000L);
-        unpotted.onGameTick(null, DEFAULTS, now + 150_000_000L, now + 10_600_000_000L);
-        Assert.assertTrue(unpotted.getSeverity(DEFAULTS, now + 10_700_000_000L) > 0.5f);
+        // Defence XP never triggers
+        myHit(combat);
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.DEFENCE, 1100, 99, 99, now);
+        Assert.assertEquals(0f, unpotted.getSeverity(DEFAULTS, now), 0.001f);
+
+        // Melee: the hit lands with the XP
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.ATTACK, 1100, 99, 99, now);
+        Assert.assertTrue(unpotted.getSeverity(DEFAULTS, now) > 0.5f);
+
+        // Potting up clears it
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.ATTACK, 1200, 118, 99, now);
+        Assert.assertEquals(0f, unpotted.getSeverity(DEFAULTS, now), 0.001f);
+
+        // Ranged: XP first, the projectile lands 3 ticks later
+        for (int i = 0; i < 8; i++)
+        {
+            tick(fc, combat, unpotted, now);
+        }
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.RANGED, 1200, 99, 99, now);
+        tick(fc, combat, unpotted, now);
+        tick(fc, combat, unpotted, now);
+        Assert.assertEquals(0f, unpotted.getSeverity(DEFAULTS, now), 0.001f);
+        myHit(combat);
+        tick(fc, combat, unpotted, now);
+        Assert.assertTrue(unpotted.getSeverity(DEFAULTS, now) > 0.5f);
+    }
+
+    @Test
+    public void unpottedIgnoresMagicXpFromNonAttackCasts()
+    {
+        FakeClient fc = new FakeClient();
+        fc.localPlayer = LOCAL;
+        CombatStateTracker combat = new CombatStateTracker();
+        UnpottedTracker unpotted = new UnpottedTracker();
+        long now = 50_000_000_000L;
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.MAGIC, 1000, 99, 99, now);
+
+        // Teleport right after the last hit of a fight
+        myHit(combat);
+        combat.onMenuOptionClicked(net.runelite.api.MenuAction.CC_OP, "Cast", "Varrock Teleport", null, now, 120);
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.MAGIC, 1035, 99, 99, now);
+        tick(fc, combat, unpotted, now);
+        Assert.assertEquals("teleport XP is not combat XP", 0f, unpotted.getSeverity(DEFAULTS, now), 0.001f);
+
+        // Alching while a slow weapon hits
+        combat.onMenuOptionClicked(net.runelite.api.MenuAction.WIDGET_TARGET_ON_WIDGET, "Cast", "High Level Alchemy -> Rune platebody", null, now, 120);
+        myHit(combat);
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.MAGIC, 1100, 99, 99, now);
+        Assert.assertEquals("alch XP is vetoed", 0f, unpotted.getSeverity(DEFAULTS, now), 0.001f);
+
+        // A real attack spell later: XP, then the spell lands
+        for (int i = 0; i < 6; i++)
+        {
+            tick(fc, combat, unpotted, now);
+        }
+        unpotted.onStatChanged(DEFAULTS, combat, null, Skill.MAGIC, 1200, 99, 99, now);
+        tick(fc, combat, unpotted, now);
+        myHit(combat);
+        tick(fc, combat, unpotted, now);
+        Assert.assertTrue(unpotted.getSeverity(DEFAULTS, now) > 0.5f);
     }
 
     @Test
     public void unpottedSuppressedWhileOverloadOrSaltsActive()
     {
         CombatStateTracker combat = new CombatStateTracker();
-        combat.onCombatActivity(1_000_000_000L, 120);
+        myHit(combat);
         PotionTimers potions = new PotionTimers();
         UnpottedTracker unpotted = new UnpottedTracker();
         long now = 2_000_000_000L;
 
         potions.onGameTick(new FakeClient().varbit(VarbitID.TOA_MIDRAIDLOOT_STATS_TIMER, 10).client);
-        unpotted.onStatChanged(null, DEFAULTS, combat, potions, Skill.ATTACK, 1000, 99, 99, now);
-        unpotted.onStatChanged(null, DEFAULTS, combat, potions, Skill.ATTACK, 1100, 95, 99, now + 1_000_000L);
+        unpotted.onStatChanged(DEFAULTS, combat, potions, Skill.ATTACK, 1000, 99, 99, now);
+        unpotted.onStatChanged(DEFAULTS, combat, potions, Skill.ATTACK, 1100, 95, 99, now + 1_000_000L);
         Assert.assertEquals(0f, unpotted.getSeverity(DEFAULTS, now + 1_000_000L), 0.001f);
     }
 

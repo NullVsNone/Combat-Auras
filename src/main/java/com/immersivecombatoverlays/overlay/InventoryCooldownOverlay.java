@@ -158,9 +158,19 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
 
         long nowNanos = System.nanoTime();
         String name = itemNameCache.get(itemId);
+        if (name == null)
+        {
+            // Cache cleared (plugin/resource-pack change): look it up now instead of skipping this frame
+            ItemComposition comp = itemManager.getItemComposition(itemId);
+            name = comp != null ? comp.getName() : null;
+            if (name != null)
+            {
+                itemNameCache.put(itemId, name);
+            }
+        }
 
         // Glow prayer-restore potions in inventory when Low Prayer is active
-        if (config.allowItemGlows() && config.lowPrayerInventoryGlow() && statusOverlay != null && statusOverlay.isPrayerLow() && isPrayerRestoreItem(name))
+        if (config.allowItemGlows() && config.lowPrayerInventoryGlow() && statusOverlay != null && statusOverlay.isPrayerLow() && isPrayerRestoreItem(itemId, name))
         {
             BufferedImage outline = prayerOutlineCache.getOutline(itemManager, itemId, config.lowPrayerColor());
             if (outline != null)
@@ -176,9 +186,9 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         Cooldown cooldown = RepotProtection.resolveItemCooldown(
             client, config, heartTracker, potionTimers, boostTimers, itemId, name
         );
-        if (cooldown == null && config.foodCooldownsEnabled() && name != null)
+        if (cooldown == null && config.foodCooldownsEnabled())
         {
-            cooldown = foodTracker.getCooldown(name);
+            cooldown = foodTracker.getCooldown(foodTracker.classify(itemId, itemManager::getItemComposition));
         }
         int slot = widgetItem.getWidget() != null ? widgetItem.getWidget().getIndex() : -1;
         boolean debugSlot = false;
@@ -220,13 +230,31 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
             readyStrength
         );
     }
+    /** Per item id, so the per-frame check does no string work (client thread only). */
+    private final Map<Integer, Boolean> prayerRestoreCache = new java.util.HashMap<>();
+
+    private boolean isPrayerRestoreItem(int itemId, String name)
+    {
+        Boolean cached = prayerRestoreCache.get(itemId);
+        if (cached == null)
+        {
+            if (name == null)
+            {
+                return false;
+            }
+            cached = isPrayerRestoreItem(name);
+            prayerRestoreCache.put(itemId, cached);
+        }
+        return cached;
+    }
+
     public static boolean isPrayerRestoreItem(String name)
     {
         if (name == null || name.isEmpty())
         {
             return false;
         }
-        String lower = name.toLowerCase();
+        String lower = name.toLowerCase(java.util.Locale.ROOT);
         return lower.contains("prayer potion")
             || lower.contains("super restore")
             || lower.contains("sanfew serum")

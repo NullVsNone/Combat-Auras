@@ -32,9 +32,19 @@ public class HeartCooldownTracker
         debug = false;
     }
 
-    public void onGameTick(Client client, boolean hasSaturatedHeart)
+    /**
+     * Invigorate click: remember which heart started the shared cooldown (carrying both used to guess wrong).
+     */
+    public void onInvigorate(int itemId)
     {
-        saturated = hasSaturatedHeart;
+        if (isHeart(itemId))
+        {
+            saturated = itemId == SATURATED_HEART_ID;
+        }
+    }
+
+    public void onGameTick(Client client)
+    {
         if (debug)
         {
             if (remainingTicks > 0)
@@ -89,9 +99,7 @@ public class HeartCooldownTracker
         {
             return Cooldown.READY;
         }
-        int total = (itemId == SATURATED_HEART_ID || saturated)
-            ? SATURATED_TOTAL_TICKS
-            : IMBUED_TOTAL_TICKS;
+        int total = saturated ? SATURATED_TOTAL_TICKS : IMBUED_TOTAL_TICKS;
         return Cooldown.active(remainingTicks, Math.max(total, remainingTicks));
     }
 
@@ -102,7 +110,7 @@ public class HeartCooldownTracker
 
     /**
      * Whether a saturated heart's boost (which counts as a divine effect) is still running,
-     * approximated by its cooldown while a saturated heart is carried (the game exposes no separate flag).
+     * approximated by its cooldown after a saturated heart was used (the game exposes no separate flag).
      */
     public boolean isSaturatedBoostActive()
     {

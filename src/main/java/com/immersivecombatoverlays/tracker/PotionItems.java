@@ -33,7 +33,7 @@ public final class PotionItems
         Object cached = EFFECT_CACHE.get(itemName);
         if (cached == null)
         {
-            PotionEffect effect = classifyEffect(itemName.toLowerCase());
+            PotionEffect effect = classifyEffect(itemName.toLowerCase(java.util.Locale.ROOT));
             cached = effect != null ? effect : NONE;
             if (EFFECT_CACHE.size() >= CACHE_LIMIT)
             {
@@ -53,7 +53,7 @@ public final class PotionItems
         Object cached = BOOST_CACHE.get(itemName);
         if (cached == null)
         {
-            BoostPotion boost = classifyBoost(itemName.toLowerCase());
+            BoostPotion boost = classifyBoost(itemName.toLowerCase(java.util.Locale.ROOT));
             cached = boost != null ? boost : NONE;
             if (BOOST_CACHE.size() >= CACHE_LIMIT)
             {

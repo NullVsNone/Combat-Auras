@@ -27,6 +27,7 @@ public class CombatSpellTracker
 {
     private static final int SPELL_COUNT = CombatSpell.values().length;
     private static final CombatSpell[] SPELLS = CombatSpell.values();
+    private boolean godCapeWorn = false;
 
     // Messages as sent by the game (compared after colour tags are stripped)
     static final String MSG_THRALL_START = "You resurrect a ";
@@ -244,7 +245,7 @@ public class CombatSpellTracker
         }
         else
         {
-            String lower = message.toLowerCase();
+            String lower = message.toLowerCase(java.util.Locale.ROOT);
             if (lower.contains("mark of darkness") && lower.contains("faded"))
             {
                 activeTicks[CombatSpell.MARK_OF_DARKNESS.ordinal()] = 0;
@@ -394,7 +395,7 @@ public class CombatSpellTracker
         {
             return false;
         }
-        if (config.spellOnlyInCombat() && !combatState.isInCombat())
+        if (!contextAllows(spell, combatState, config))
         {
             return false;
         }
@@ -447,7 +448,7 @@ public class CombatSpellTracker
     )
     {
         int count = 0;
-        boolean liveAllowed = config.spellsEnabled() && (!config.spellOnlyInCombat() || combatState.isInCombat());
+        boolean liveAllowed = config.spellsEnabled();
         for (int i = 0; i < SPELL_COUNT; i++)
         {
             CombatSpell spell = SPELLS[i];
@@ -458,7 +459,8 @@ public class CombatSpellTracker
                 count++;
                 continue;
             }
-            if (!liveAllowed || !ImmersiveCombatOverlaysConfig.isSpellEnabled(config, spell))
+            if (!liveAllowed || !ImmersiveCombatOverlaysConfig.isSpellEnabled(config, spell)
+                || !contextAllows(spell, combatState, config))
             {
                 continue;
             }
@@ -479,6 +481,38 @@ public class CombatSpellTracker
             }
         }
         return count;
+    }
+
+    /** Set each tick from the worn equipment; Charge only matters with a god cape. */
+    public void setGodCapeWorn(boolean worn)
+    {
+        godCapeWorn = worn;
+    }
+
+    /**
+     * Where a reminder for this spell is useful: Shadow Veil while pickpocketing, Charge with a god cape,
+     * everything else in combat (or always, with "Only remind in combat" off).
+     */
+    public boolean contextAllows(CombatSpell spell, CombatStateTracker combatState, ImmersiveCombatOverlaysConfig config)
+    {
+        boolean combatOk = !config.spellOnlyInCombat() || combatState.isInCombat();
+        switch (spell)
+        {
+            case SHADOW_VEIL:
+                switch (config.spellShadowVeilContext())
+                {
+                    case THIEVING:
+                        return combatState.isThieving();
+                    case ALWAYS:
+                        return true;
+                    default:
+                        return combatOk;
+                }
+            case CHARGE:
+                return combatOk && (godCapeWorn || !config.spellChargeNeedsGodCape());
+            default:
+                return combatOk;
+        }
     }
 
     private boolean passesAfterCastFilter(CombatSpell spell, ImmersiveCombatOverlaysConfig config)

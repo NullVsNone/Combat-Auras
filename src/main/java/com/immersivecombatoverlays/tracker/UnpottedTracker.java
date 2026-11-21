@@ -2,41 +2,51 @@ package com.immersivecombatoverlays.tracker;
 
 import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
 import com.immersivecombatoverlays.model.PotionEffect;
+import java.util.Arrays;
 import net.runelite.api.Client;
-import net.runelite.api.Player;
 import net.runelite.api.Skill;
 
 /**
- * Tracks unpotted combat state based on actual combat style XP gains:
- * - Melee (Attack/Strength/Defence): requires active combat interaction.
- * - Ranged: triggers on Ranged XP even without HP XP (e.g., Dwarf Multicannon).
- * - Magic: ignores non-combat Magic XP (alching/teleports/enchanting) by requiring active combat
- *   and excluding High/Low Alchemy animations (712, 713).
+ * Raises the "unpotted" alert when combat-style XP arrives while the matching stat is not boosted.
+ * <p>
+ * XP only counts as combat XP when a hit dealt by the player lands around it, so teleports, alchemy,
+ * enchanting, thrall casts, XP lamps and Ranging Guild shots never trigger it, with no spell list to maintain.
+ * Ranged and Magic XP is granted when the attack starts while the hitsplat lands after the projectile flies,
+ * so the decision waits up to {@link #HIT_WAIT_TICKS} ticks for that hit. Magic XP is also vetoed when a
+ * non-attack spell was cast in the last few ticks (alching while a slow weapon hits).
  */
 public class UnpottedTracker
 {
-    private static final int ANIM_LOW_ALCH = 712;
-    private static final int ANIM_HIGH_ALCH = 713;
+    /** Longest projectile flight we wait for (long-range spells and bolts take up to ~5 ticks). */
+    static final int HIT_WAIT_TICKS = 6;
+    /** Magic XP within this many ticks of a non-attack cast is that cast's XP. */
+    static final int UTILITY_VETO_TICKS = 3;
+
+    private static final Skill[] TRACKED = {Skill.ATTACK, Skill.STRENGTH, Skill.RANGED, Skill.MAGIC};
 
     private final int[] lastXp = new int[Skill.values().length];
     private final boolean[] xpInitialized = new boolean[Skill.values().length];
-    private static final long UTILITY_CAST_WINDOW_NANOS = 1_300_000_000L; // ~2 game ticks
+    /** Ticks since unconfirmed unboosted XP in that skill, or -1 when nothing is pending. */
+    private final int[] pendingAge = new int[Skill.values().length];
 
     private long alertUntilNanos = 0L;
-    private long pendingMagicAlertNanos = 0L;
     private Skill lastTriggeredSkill = null;
+
+    public UnpottedTracker()
+    {
+        Arrays.fill(pendingAge, -1);
+    }
 
     public void reset()
     {
-        java.util.Arrays.fill(lastXp, 0);
-        java.util.Arrays.fill(xpInitialized, false);
+        Arrays.fill(lastXp, 0);
+        Arrays.fill(xpInitialized, false);
+        Arrays.fill(pendingAge, -1);
         alertUntilNanos = 0L;
-        pendingMagicAlertNanos = 0L;
         lastTriggeredSkill = null;
     }
 
     public void onStatChanged(
-        Client client,
         ImmersiveCombatOverlaysConfig config,
         CombatStateTracker combatState,
         PotionTimers potionTimers,
@@ -66,27 +76,8 @@ public class UnpottedTracker
         {
             return;
         }
-
-        // Ignore non-combat Magic XP (alching, teleporting, enchanting)
-        if (skill == Skill.MAGIC)
+        if (skill == Skill.MAGIC && combatState.castUtilityMagicWithin(UTILITY_VETO_TICKS))
         {
-            if (!combatState.isInCombat())
-            {
-                return;
-            }
-            Player local = client != null ? client.getLocalPlayer() : null;
-            if (local != null)
-            {
-                int anim = local.getAnimation();
-                if (anim == ANIM_LOW_ALCH || anim == ANIM_HIGH_ALCH)
-                {
-                    return;
-                }
-            }
-        }
-        else if (skill != Skill.RANGED && !combatState.isInCombat())
-        {
-            // Melee XP requires combat interaction; Ranged allows cannon XP without HP XP
             return;
         }
 
@@ -97,24 +88,27 @@ public class UnpottedTracker
             || !potionTimers.getCooldown(PotionEffect.SMELLING_SALTS).isReady()))
         {
             alertUntilNanos = 0L;
+            pendingAge[ord] = -1;
             return;
         }
 
-        int threshold = config.unpottedThreshold();
-        if (boostedLevel <= realLevel + threshold)
+        if (boostedLevel > realLevel + config.unpottedThreshold())
         {
-            if (skill == Skill.MAGIC)
+            pendingAge[ord] = -1;
+            if (skill == lastTriggeredSkill)
             {
-                // Utility spells (thralls, Death Charge, Vengeance...) also grant Magic XP. Their cast is only
-                // confirmed by a varbit/chat message that can arrive after this XP drop, so defer the decision.
-                pendingMagicAlertNanos = nowNanos;
-                return;
+                alertUntilNanos = 0L;
             }
-            raise(skill, config, nowNanos);
+            return;
         }
-        else if (skill == lastTriggeredSkill)
+
+        if (combatState.dealtHitWithin(1))
         {
-            alertUntilNanos = 0L;
+            raise(skill, config, nowNanos); // melee: the hit lands with the XP
+        }
+        else
+        {
+            pendingAge[ord] = 0;
         }
     }
 
@@ -125,19 +119,28 @@ public class UnpottedTracker
     }
 
     /**
-     * @param lastUtilityCastNanos System.nanoTime() of the latest tracked utility spell cast (0 if none)
+     * Call after {@link CombatStateTracker#onGameTick} so this tick's hits are already recorded.
      */
-    public void onGameTick(Client client, ImmersiveCombatOverlaysConfig config, long lastUtilityCastNanos, long nowNanos)
+    public void onGameTick(Client client, ImmersiveCombatOverlaysConfig config, CombatStateTracker combatState,
+        long nowNanos)
     {
-        if (pendingMagicAlertNanos != 0L)
+        for (Skill skill : TRACKED)
         {
-            boolean utilityCast = lastUtilityCastNanos != 0L
-                && Math.abs(lastUtilityCastNanos - pendingMagicAlertNanos) <= UTILITY_CAST_WINDOW_NANOS;
-            if (!utilityCast)
+            int ord = skill.ordinal();
+            if (pendingAge[ord] < 0)
             {
-                raise(Skill.MAGIC, config, pendingMagicAlertNanos);
+                continue;
             }
-            pendingMagicAlertNanos = 0L;
+            pendingAge[ord]++;
+            if (combatState.dealtHitWithin(pendingAge[ord]))
+            {
+                pendingAge[ord] = -1;
+                raise(skill, config, nowNanos);
+            }
+            else if (pendingAge[ord] >= HIT_WAIT_TICKS)
+            {
+                pendingAge[ord] = -1; // no hit followed: not combat XP
+            }
         }
         if (alertUntilNanos == 0L || lastTriggeredSkill == null || client == null)
         {

@@ -23,7 +23,7 @@ public class ParasiteTracker
         {
             return;
         }
-        String lower = CombatSpellTracker.stripTags(rawMessage).toLowerCase();
+        String lower = CombatSpellTracker.stripTags(rawMessage).toLowerCase(java.util.Locale.ROOT);
         if (lower.contains(MSG_IMPREGNATED))
         {
             remainingTicks = FALLBACK_TICKS;
