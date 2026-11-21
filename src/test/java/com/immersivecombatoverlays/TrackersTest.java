@@ -753,7 +753,7 @@ public class TrackersTest
             @Override
             public AnimationMode animationMode() { return AnimationMode.TIMED; }
         };
-        InventoryCooldownOverlay overlay = new InventoryCooldownOverlay(null, cfg, null, null, null, null, null, null, null);
+        InventoryCooldownOverlay overlay = new InventoryCooldownOverlay(null, cfg, null, null, null, null, null);
         long t = 10_000_000_000L;
 
         Assert.assertEquals("Unused potion never glows", 0f, overlay.trackReady(3, 2434, true, t), 0.001f);
