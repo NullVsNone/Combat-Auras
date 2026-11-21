@@ -72,9 +72,9 @@ import net.runelite.client.util.Text;
  * A new feature is a new module plus one line in the matching handler.
  */
 @PluginDescriptor(
-    name = "Immersive Combat Overlays",
+    name = "Combat Auras",
     description = "Screen glows, icon showers and inventory cooldowns for low HP and prayer, potions, spells and other combat warnings.",
-    tags = {"combat", "cooldown", "overlay", "thrall", "spell", "health", "prayer", "status", "potions"}
+    tags = {"combat", "aura", "cooldown", "overlay", "thrall", "spell", "health", "prayer", "status", "potions"}
 )
 public class ImmersiveCombatOverlaysPlugin extends Plugin
 {

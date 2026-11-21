@@ -1,6 +1,6 @@
-# Immersive Combat Overlays
+# Combat Auras
 
-A unified RuneLite plugin combining inventory/potion cooldown overlays, procedural health & status screen overlays, and combat spell recast/expiry reminders.
+A RuneLite plugin that turns combat timers into auras: screen glows, icon showers and inventory highlights. It combines inventory/potion cooldown overlays, procedural health & status screen overlays, and combat spell recast/expiry reminders.
 
 ## Features
 
@@ -24,6 +24,10 @@ Each tracked thing is defined once:
 - **Spell / warning / reminder family / potion family**: an enum entry (`CombatSpell`, `StatusEffect`, `ReminderFamily`, `PotionFamily`), its `@ConfigItem` block, and one row in `settings/Bindings`. Tests fail if any entry has no binding.
 - **Potion, boost or food**: a name rule in `PotionItems` (timed potions and boosts) or `FoodCooldownTracker.classify` (eat / drink timers). `ConsumableCatalog` caches the result per item id and logs unrecognised dosed potions at debug level.
 - **New behaviour**: a `@Singleton` module bound in the plugin's `configure()`, plus one line in the matching event handler.
+
+## Internal names
+
+The Java package (`com.immersivecombatoverlays`) and config group (`immersivecombatoverlays`) keep the plugin's original name, so existing settings carry over.
 
 ## Running in Developer Mode
 
