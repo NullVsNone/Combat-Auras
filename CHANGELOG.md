@@ -19,6 +19,8 @@ All notable changes to Combat Auras. Dates are UTC.
 - Applying a preset rebuilds settings once instead of once per key.
 
 ### Internal
+- Renamed the Java package to `com.combatauras`, the config group to `combatauras` and the main classes to
+  `CombatAurasPlugin` / `CombatAurasConfig`, before the first release so no saved settings are affected.
 - Settings snapshot arrays are private behind read-only accessors.
 - Swing-thread events (config and plugin changes) hand cache and tracker work to the client thread.
 - Hit feedback, equipment checks and presets moved out of the plugin class into their own modules.

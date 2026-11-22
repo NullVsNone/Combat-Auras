@@ -68,10 +68,6 @@ Each tracked thing is defined once:
 - **Potion, boost or food**: a name rule in `PotionItems` (timed potions and boosts) or `FoodCooldownTracker.classify` (eat / drink timers). `ConsumableCatalog` caches the result per item id and logs unrecognised dosed potions at debug level.
 - **New behaviour**: a `@Singleton` module bound in the plugin's `configure()`, plus one line in the matching event handler.
 
-## Internal names
-
-The Java package (`com.immersivecombatoverlays`) and config group (`immersivecombatoverlays`) keep the plugin's original name, so existing settings carry over.
-
 ## Running in Developer Mode
 
 ```bash
