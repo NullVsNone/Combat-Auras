@@ -76,6 +76,78 @@ public class RendererAndConfigTest
     }
 
     @Test
+    public void pulsingLowHealthDoesNotRebuildGradientsEveryFrame()
+    {
+        float[] sev = new float[StatusEffect.values().length];
+        sev[StatusEffect.LOW_HEALTH.ordinal()] = 0.9f;
+        sev[StatusEffect.POISON.ordinal()] = 0.6f;
+        int[] colors = new int[StatusEffect.values().length];
+        colors[StatusEffect.LOW_HEALTH.ordinal()] = 0xD2C3161A;
+        colors[StatusEffect.POISON.ordinal()] = 0xC336B23E;
+        ProceduralRenderer renderer = new ProceduralRenderer();
+        com.immersivecombatoverlays.settings.SettingsSnapshot s = com.immersivecombatoverlays.settings.SettingsSnapshot.of(new ImmersiveCombatOverlaysConfig() {});
+        long t = 1_000_000_000L;
+        for (int i = 0; i < 40; i++)
+        {
+            BufferedImage canvas = new BufferedImage(200, 150, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = canvas.createGraphics();
+            renderer.render(g, 200, 150, t, s, null, null, null, sev, colors,
+                0, new int[0], 0, new int[0], new int[0], 0, new int[0], new int[0]);
+            g.dispose();
+            t += 16_000_000L; // 60 fps across a full heartbeat
+        }
+        Assert.assertEquals("blended colour is stable while the pulse animates", 1, renderer.getPaintBuilds());
+    }
+
+    @Test
+    public void transparentColoursFadeTheGlowInsteadOfFreezingIt()
+    {
+        int[] colors = new int[StatusEffect.values().length];
+        colors[StatusEffect.LOW_HEALTH.ordinal()] = 0x00FF0000; // alpha 0
+        BufferedImage img = renderGlow(new ImmersiveCombatOverlaysConfig() {}, sev(StatusEffect.LOW_HEALTH, 1f), colors, 5);
+        Assert.assertEquals(0, (img.getRGB(0, 150) >>> 24) & 0xFF);
+    }
+
+    @Test
+    public void lruCacheEvictsOnlyTheOldestEntry()
+    {
+        com.immersivecombatoverlays.render.LruCache<Integer, String> cache = new com.immersivecombatoverlays.render.LruCache<>(3);
+        cache.put(1, "a");
+        cache.put(2, "b");
+        cache.put(3, "c");
+        cache.get(1); // touch: 2 is now the oldest
+        cache.put(4, "d");
+        Assert.assertEquals(3, cache.size());
+        Assert.assertFalse(cache.containsKey(2));
+        Assert.assertTrue(cache.containsKey(1) && cache.containsKey(3) && cache.containsKey(4));
+    }
+
+    @Test
+    public void snapshotInvariantsCoverEveryEnumEntry()
+    {
+        com.immersivecombatoverlays.settings.SettingsSnapshot s = com.immersivecombatoverlays.settings.SettingsSnapshot.of(new ImmersiveCombatOverlaysConfig() {});
+        for (StatusEffect e : StatusEffect.values())
+        {
+            Assert.assertNotNull(e.name(), s.statusNotification(e.ordinal()));
+        }
+        for (CombatSpell spell : CombatSpell.values())
+        {
+            Assert.assertNotNull(spell.name(), s.spellAwtColor(spell.ordinal()));
+            Assert.assertNotNull(spell.name(), s.spellNotification(spell.ordinal()));
+        }
+        for (com.immersivecombatoverlays.model.ReminderFamily f : com.immersivecombatoverlays.model.ReminderFamily.values())
+        {
+            Assert.assertNotNull(f.name(), s.familyNotification(f.ordinal()));
+        }
+        for (com.immersivecombatoverlays.model.PotionEffect e : com.immersivecombatoverlays.model.PotionEffect.values())
+        {
+            Assert.assertTrue(e.name(), s.potionLeadTicks(e.ordinal()) >= 0);
+        }
+        // The status overlay's item buffer holds every pipeline reminder plus the debug previews
+        Assert.assertTrue(com.immersivecombatoverlays.tracker.ReminderPipeline.MAX_ITEMS >= 2);
+    }
+
+    @Test
     public void glowEdgesCanBeAnyCombination()
     {
         int[] colors = new int[StatusEffect.values().length];
@@ -265,11 +337,11 @@ public class RendererAndConfigTest
         Assert.assertEquals(9, CombatSpell.values().length);
         for (CombatSpell spell : CombatSpell.values())
         {
-            Assert.assertNotNull(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellAwtColor[spell.ordinal()]);
-            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellDebug[spell.ordinal()]);
-            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellGlow[spell.ordinal()]);
-            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellShower[spell.ordinal()]);
-            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellbookGlow[spell.ordinal()]);
+            Assert.assertNotNull(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellAwtColor(spell.ordinal()));
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellDebug(spell.ordinal()));
+            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellGlow(spell.ordinal()));
+            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellShower(spell.ordinal()));
+            Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(cfg).spellbookGlow(spell.ordinal()));
         }
 
         Set<String> sections = new HashSet<>();
@@ -328,11 +400,11 @@ public class RendererAndConfigTest
         };
         for (CombatSpell spell : CombatSpell.values())
         {
-            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noGlow).spellGlow[spell.ordinal()]);
-            Assert.assertTrue("glow off must not disable icons", com.immersivecombatoverlays.settings.SettingsSnapshot.of(noGlow).spellShower[spell.ordinal()]);
-            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noIcons).spellShower[spell.ordinal()]);
-            Assert.assertTrue("icons off must not disable glow", com.immersivecombatoverlays.settings.SettingsSnapshot.of(noIcons).spellGlow[spell.ordinal()]);
-            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noItemGlow).spellbookGlow[spell.ordinal()]);
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noGlow).spellGlow(spell.ordinal()));
+            Assert.assertTrue("glow off must not disable icons", com.immersivecombatoverlays.settings.SettingsSnapshot.of(noGlow).spellShower(spell.ordinal()));
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noIcons).spellShower(spell.ordinal()));
+            Assert.assertTrue("icons off must not disable glow", com.immersivecombatoverlays.settings.SettingsSnapshot.of(noIcons).spellGlow(spell.ordinal()));
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noItemGlow).spellbookGlow(spell.ordinal()));
         }
 
         // Every spell has its own glow/shower/spellbook toggle (previously 4 spells were hard-wired on)
@@ -350,11 +422,11 @@ public class RendererAndConfigTest
             @Override
             public boolean spellVengeanceOtherGlow() { return false; }
         };
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellGlow[CombatSpell.SHADOW_VEIL.ordinal()]);
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellShower[CombatSpell.CORRUPTION.ordinal()]);
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellbookGlow[CombatSpell.CHARGE.ordinal()]);
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellGlow[CombatSpell.VENGEANCE_OTHER.ordinal()]);
-        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellShower[CombatSpell.SHADOW_VEIL.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellGlow(CombatSpell.SHADOW_VEIL.ordinal()));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellShower(CombatSpell.CORRUPTION.ordinal()));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellbookGlow(CombatSpell.CHARGE.ordinal()));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellGlow(CombatSpell.VENGEANCE_OTHER.ordinal()));
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(veilOff).spellShower(CombatSpell.SHADOW_VEIL.ordinal()));
 
         // With zero master intensity the renderer draws nothing at the screen edge
         int[] colors = new int[StatusEffect.values().length];

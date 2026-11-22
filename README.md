@@ -17,6 +17,49 @@ A RuneLite plugin that turns combat timers into auras: screen glows, icon shower
 - **Glow edges**: choose any combination of top, bottom, left and right screen edges; corners blend only where two enabled edges meet, and a single edge runs cleanly through the corners.
 - **Lightweight rendering**: cached vignette paints, nothing drawn while idle, settings read from an immutable snapshot (rebuilt only when settings change) instead of per frame, and one cached classification per item id.
 
+## Installing
+
+Open RuneLite, go to the **Plugin Hub** (the plug icon in the sidebar), search for **Combat Auras** and install it.
+Settings are under the wrench icon; every section starts collapsed, with shared options at the top.
+
+## Known limitations
+
+- **Combat detection is a heuristic.** Combat starts from clicks (Attack, attack spells) and hits you deal or take.
+  It can miss fights started in unusual ways and ends 17 ticks (~10 s) after the last activity.
+- **Some timers come from chat messages** (thrall length, Mark of Darkness, Ward of Arceuus, Shadow Veil, the
+  parasite). If you turn the plugin on mid-effect, those timers are unknown or estimated until the next cast.
+  Timers backed by game variables (potions, hearts, recast cooldowns) are exact.
+- **After logging in during a spell cooldown**, the game only says "on cooldown", so the full cooldown length is
+  shown until it clears, as in RuneLite's Timers & Buffs.
+- **Dwarf cannon XP** counts for the Unpotted alert only if the game attributes cannon hits to you.
+
+## Troubleshooting
+
+- **A reminder never shows:** check the section's *Enable*, *Only remind in combat* and, for spells, that you are on
+  that spellbook. Spell reminders also need one cast since login unless *Only remind after cast* is off.
+- **A reminder shows too long or too short:** each section has its own *Reminder duration* (0 = until re-applied)
+  and *Warn early* lead.
+- **Icons look wrong with a resource pack:** toggle Resource Packs or this plugin off and on to rebuild the icons.
+- **Reset everything:** use the *Reset* button at the bottom of the plugin's settings, or pick the *Standard* preset
+  to reset the main toggles only.
+- **Debug previews:** the *Shared Debug Tools* section and each section's *Debug preview* show an effect without
+  waiting for it in game. They switch themselves off on the next client start.
+
+## Notifications and privacy
+
+Each warning can send a RuneLite notification (all off by default); RuneLite's own notification settings and your
+OS decide how they appear. The plugin makes no network requests and stores nothing outside RuneLite's config.
+
+## Threading contract
+
+- **Client thread:** every RuneLite game event (game tick, varbits, hitsplats, menu clicks, chat), the menu
+  protection on client tick, and overlay rendering. All tracker state is owned by this thread.
+- **Swing thread:** `ConfigChanged` and `PluginChanged`. The handler only swaps the immutable settings snapshot
+  (behind a `volatile` reference) and hands everything else (cache clears, debug timers, simulated combat) to the
+  client thread with `ClientThread.invokeLater`.
+- **Per game tick:** trackers update first, then the reminder pipeline, then the status overlay's sampled values,
+  then notifications. Render code only reads what the tick produced plus time-based fades.
+
 ## Adding content
 
 Each tracked thing is defined once:

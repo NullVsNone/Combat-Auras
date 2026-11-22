@@ -167,7 +167,7 @@ public class ImmersiveStatusOverlay extends Overlay
 
     private static boolean enabled(SettingsSnapshot s, StatusEffect effect)
     {
-        return s.statusEnabled[effect.ordinal()];
+        return s.statusEnabled(effect.ordinal());
     }
 
     /**
@@ -222,7 +222,7 @@ public class ImmersiveStatusOverlay extends Overlay
         {
             for (StatusEffect e : STATUSES)
             {
-                if (s.statusDebug[e.ordinal()])
+                if (s.statusDebug(e.ordinal()))
                 {
                     rawStatusSeverities[e.ordinal()] = s.previewIntensity;
                 }
@@ -233,15 +233,15 @@ public class ImmersiveStatusOverlay extends Overlay
             for (StatusEffect e : STATUSES)
             {
                 int i = e.ordinal();
-                rawStatusSeverities[i] = s.statusEnabled[i] ? liveSeverity(e, nowNanos) : 0f;
-                applyDuration(i, s.statusDurationSeconds[i], nowNanos);
+                rawStatusSeverities[i] = s.statusEnabled(i) ? liveSeverity(e, nowNanos) : 0f;
+                applyDuration(i, s.statusDurationSeconds(i), nowNanos);
             }
         }
 
         for (int i = 0; i < STATUSES.length; i++)
         {
-            statusColors[i] = s.statusColor[i];
-            if (s.statusGlow[i])
+            statusColors[i] = s.statusColor(i);
+            if (s.statusGlow(i))
             {
                 statusSeverities[i] = rawStatusSeverities[i];
             }
@@ -300,10 +300,10 @@ public class ImmersiveStatusOverlay extends Overlay
         int count = 0;
         for (int i = 0; i < SPELLS.length; i++)
         {
-            if (s.spellDebug[i])
+            if (s.spellDebug(i))
             {
                 readySpellOrdinals[count] = i;
-                readySpellColors[count] = s.spellColor[i];
+                readySpellColors[count] = s.spellColor(i);
                 count++;
             }
         }
@@ -317,7 +317,7 @@ public class ImmersiveStatusOverlay extends Overlay
         for (int i = 0; i < rawCount; i++)
         {
             CombatSpell spell = SPELLS[readySpellOrdinals[i]];
-            if (s.spellDebug[spell.ordinal()] || spellTracker.isWithinShowerDuration(spell, session, s, nowNanos))
+            if (s.spellDebug(spell.ordinal()) || spellTracker.isWithinShowerDuration(spell, session, s, nowNanos))
             {
                 readySpellOrdinals[kept] = readySpellOrdinals[i];
                 readySpellColors[kept] = readySpellColors[i];
@@ -330,13 +330,13 @@ public class ImmersiveStatusOverlay extends Overlay
     private int collectReadyItems(SettingsSnapshot s)
     {
         int count = 0;
-        if (s.familyDebug[ReminderFamily.HEART.ordinal()])
+        if (s.familyDebug(ReminderFamily.HEART.ordinal()))
         {
-            count = addItem(count, HeartCooldownTracker.SATURATED_HEART_ID, s.familyColor[ReminderFamily.HEART.ordinal()], ReminderFamily.HEART.ordinal());
+            count = addItem(count, HeartCooldownTracker.SATURATED_HEART_ID, s.familyColor(ReminderFamily.HEART.ordinal()), ReminderFamily.HEART.ordinal());
         }
-        if (s.familyDebug[ReminderFamily.POTION.ordinal()])
+        if (s.familyDebug(ReminderFamily.POTION.ordinal()))
         {
-            count = addItem(count, ItemID._4DOSEDIVINECOMBAT, s.familyColor[ReminderFamily.POTION.ordinal()], ReminderFamily.POTION.ordinal());
+            count = addItem(count, ItemID._4DOSEDIVINECOMBAT, s.familyColor(ReminderFamily.POTION.ordinal()), ReminderFamily.POTION.ordinal());
         }
         if (s.anyDebugPreview)
         {
@@ -363,14 +363,14 @@ public class ImmersiveStatusOverlay extends Overlay
         int out = 0;
         for (int i = 0; i < spellCount; i++)
         {
-            if (s.spellGlow[readySpellOrdinals[i]])
+            if (s.spellGlow(readySpellOrdinals[i]))
             {
                 glowExtraColors[out++] = readySpellColors[i];
             }
         }
         for (int i = 0; i < itemCount; i++)
         {
-            if (s.familyGlow[readyItemFamilies[i]])
+            if (s.familyGlow(readyItemFamilies[i]))
             {
                 glowExtraColors[out++] = readyItemColors[i];
             }
@@ -388,7 +388,7 @@ public class ImmersiveStatusOverlay extends Overlay
         for (int i = 0; i < spellCount; i++)
         {
             CombatSpell spell = SPELLS[readySpellOrdinals[i]];
-            if (s.spellShower[spell.ordinal()])
+            if (s.spellShower(spell.ordinal()))
             {
                 showerSpriteIds[out] = spellTracker.getResolvedSpriteId(spell);
                 showerSpriteColors[out] = readySpellColors[i];
@@ -398,7 +398,7 @@ public class ImmersiveStatusOverlay extends Overlay
         for (StatusEffect e : STATUSES)
         {
             int i = e.ordinal();
-            if (e.getShowerSpriteId() > 0 && s.statusShower[i] && rawStatusSeverities[i] > 0.01f)
+            if (e.getShowerSpriteId() > 0 && s.statusShower(i) && rawStatusSeverities[i] > 0.01f)
             {
                 showerSpriteIds[out] = e.getShowerSpriteId();
                 showerSpriteColors[out] = statusColors[i];
@@ -417,7 +417,7 @@ public class ImmersiveStatusOverlay extends Overlay
         int out = 0;
         for (int i = 0; i < itemCount; i++)
         {
-            if (s.familyShower[readyItemFamilies[i]])
+            if (s.familyShower(readyItemFamilies[i]))
             {
                 readyItemIds[out] = readyItemIds[i];
                 readyItemColors[out] = readyItemColors[i];
@@ -428,7 +428,7 @@ public class ImmersiveStatusOverlay extends Overlay
         for (StatusEffect e : STATUSES)
         {
             int i = e.ordinal();
-            if (e.getShowerItemId() > 0 && s.statusShower[i] && rawStatusSeverities[i] > 0.01f && out < readyItemIds.length)
+            if (e.getShowerItemId() > 0 && s.statusShower(i) && rawStatusSeverities[i] > 0.01f && out < readyItemIds.length)
             {
                 readyItemIds[out] = e.getShowerItemId();
                 readyItemColors[out] = statusColors[i];
@@ -446,6 +446,6 @@ public class ImmersiveStatusOverlay extends Overlay
 
     public boolean isPrayerLow()
     {
-        return settings.get().statusDebug[StatusEffect.LOW_PRAYER.ordinal()] || isLive(StatusEffect.LOW_PRAYER);
+        return settings.get().statusDebug(StatusEffect.LOW_PRAYER.ordinal()) || isLive(StatusEffect.LOW_PRAYER);
     }
 }

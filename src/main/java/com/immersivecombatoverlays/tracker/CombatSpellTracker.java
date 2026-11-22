@@ -76,6 +76,7 @@ public class CombatSpellTracker
             liveSpriteIds[spell.ordinal()] = spell.getFallbackSpriteId();
         }
         lastObservedCombatSession = -1;
+        godCapeWorn = false;
     }
 
     /**
@@ -376,7 +377,7 @@ public class CombatSpellTracker
     public boolean isDue(CombatSpell spell, SettingsSnapshot s)
     {
         Cooldown cd = cooldownCache[spell.ordinal()];
-        return cd.isReady() || cd.getRemainingTicks() <= s.spellLeadTicks[spell.ordinal()];
+        return cd.isReady() || cd.getRemainingTicks() <= s.spellLeadTicks(spell.ordinal());
     }
 
     /**
@@ -385,17 +386,17 @@ public class CombatSpellTracker
     public boolean isSpellReadyReminder(CombatSpell spell, CombatStateTracker combatState, SettingsSnapshot s)
     {
         int idx = spell.ordinal();
-        if (s.spellDebug[idx])
+        if (s.spellDebug(idx))
         {
             return true;
         }
-        return s.spellsEnabled && s.spellEnabled[idx] && contextAllows(spell, combatState, s)
+        return s.spellsEnabled && s.spellEnabled(idx) && contextAllows(spell, combatState, s)
             && passesAfterCastFilter(spell, s) && isDue(spell, s);
     }
 
     public boolean isWithinShowerDuration(CombatSpell spell, int combatSessionId, SettingsSnapshot s, long nowNanos)
     {
-        int maxSeconds = s.spellDurationSeconds[spell.ordinal()];
+        int maxSeconds = s.spellDurationSeconds(spell.ordinal());
         if (maxSeconds <= 0)
         {
             return true;
@@ -438,10 +439,10 @@ public class CombatSpellTracker
         for (int i = 0; i < SPELL_COUNT; i++)
         {
             CombatSpell spell = SPELLS[i];
-            if (s.spellDebug[i])
+            if (s.spellDebug(i))
             {
                 outSpellOrdinals[count] = i;
-                outColorsArgb[count] = s.spellColor[i];
+                outColorsArgb[count] = s.spellColor(i);
                 count++;
                 continue;
             }
@@ -450,11 +451,11 @@ public class CombatSpellTracker
             {
                 continue;
             }
-            if (s.spellsEnabled && s.spellEnabled[i] && contextAllows(spell, combatState, s)
+            if (s.spellsEnabled && s.spellEnabled(i) && contextAllows(spell, combatState, s)
                 && passesAfterCastFilter(spell, s) && isDue(spell, s))
             {
                 outSpellOrdinals[count] = i;
-                outColorsArgb[count] = s.spellColor[i];
+                outColorsArgb[count] = s.spellColor(i);
                 count++;
             }
         }

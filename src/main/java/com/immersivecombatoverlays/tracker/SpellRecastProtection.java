@@ -44,7 +44,7 @@ public class SpellRecastProtection
         boolean any = false;
         for (int i = 0; i < SPELLS.length; i++)
         {
-            blocked[i] = s.spellRecastProtection[i] && !canRecast(client, SPELLS[i], spellTracker);
+            blocked[i] = s.spellRecastProtection(i) && !canRecast(client, SPELLS[i], spellTracker);
             any |= blocked[i];
         }
         if (!any)

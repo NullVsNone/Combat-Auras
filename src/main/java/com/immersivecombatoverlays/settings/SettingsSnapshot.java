@@ -50,13 +50,13 @@ public final class SettingsSnapshot
     public final float showerSpeed;
 
     // ---- warnings (index: StatusEffect.ordinal())
-    public final boolean[] statusEnabled = new boolean[STATUSES];
-    public final int[] statusColor = new int[STATUSES];
-    public final boolean[] statusGlow = new boolean[STATUSES];
-    public final boolean[] statusShower = new boolean[STATUSES];
-    public final int[] statusDurationSeconds = new int[STATUSES];
-    public final Notification[] statusNotification = new Notification[STATUSES];
-    public final boolean[] statusDebug = new boolean[STATUSES];
+    private final boolean[] statusEnabled = new boolean[STATUSES];
+    private final int[] statusColor = new int[STATUSES];
+    private final boolean[] statusGlow = new boolean[STATUSES];
+    private final boolean[] statusShower = new boolean[STATUSES];
+    private final int[] statusDurationSeconds = new int[STATUSES];
+    private final Notification[] statusNotification = new Notification[STATUSES];
+    private final boolean[] statusDebug = new boolean[STATUSES];
 
     // ---- spells (index: CombatSpell.ordinal())
     public final boolean spellsEnabled;
@@ -65,39 +65,40 @@ public final class SettingsSnapshot
     public final boolean thrallRemindOnCombatStart;
     public final ReminderContext shadowVeilContext;
     public final boolean chargeNeedsGodCape;
-    public final boolean[] spellEnabled = new boolean[SPELLS];
-    public final int[] spellColor = new int[SPELLS];
+    public final int combatBreakReRemindSeconds;
+    private final boolean[] spellEnabled = new boolean[SPELLS];
+    private final int[] spellColor = new int[SPELLS];
     /** Same colours as {@link #spellColor}, as Color objects so render code never allocates one. */
-    public final Color[] spellAwtColor = new Color[SPELLS];
-    public final boolean[] spellGlow = new boolean[SPELLS];
-    public final boolean[] spellShower = new boolean[SPELLS];
-    public final boolean[] spellbookGlow = new boolean[SPELLS];
-    public final Notification[] spellNotification = new Notification[SPELLS];
-    public final int[] spellDurationSeconds = new int[SPELLS];
-    public final int[] spellLeadTicks = new int[SPELLS];
-    public final boolean[] spellRecastProtection = new boolean[SPELLS];
-    public final boolean[] spellDebug = new boolean[SPELLS];
+    private final Color[] spellAwtColor = new Color[SPELLS];
+    private final boolean[] spellGlow = new boolean[SPELLS];
+    private final boolean[] spellShower = new boolean[SPELLS];
+    private final boolean[] spellbookGlow = new boolean[SPELLS];
+    private final Notification[] spellNotification = new Notification[SPELLS];
+    private final int[] spellDurationSeconds = new int[SPELLS];
+    private final int[] spellLeadTicks = new int[SPELLS];
+    private final boolean[] spellRecastProtection = new boolean[SPELLS];
+    private final boolean[] spellDebug = new boolean[SPELLS];
 
     // ---- item reminder families (index: ReminderFamily.ordinal())
-    public final boolean[] familyEnabled = new boolean[FAMILIES];
-    public final int[] familyColor = new int[FAMILIES];
-    public final boolean[] familyGlow = new boolean[FAMILIES];
-    public final boolean[] familyShower = new boolean[FAMILIES];
-    public final Notification[] familyNotification = new Notification[FAMILIES];
-    public final int[] familyDurationSeconds = new int[FAMILIES];
-    public final boolean[] familyOnlyInCombat = new boolean[FAMILIES];
-    public final int[] familyLeadTicks = new int[FAMILIES];
-    public final boolean[] familyDebug = new boolean[FAMILIES];
+    private final boolean[] familyEnabled = new boolean[FAMILIES];
+    private final int[] familyColor = new int[FAMILIES];
+    private final boolean[] familyGlow = new boolean[FAMILIES];
+    private final boolean[] familyShower = new boolean[FAMILIES];
+    private final Notification[] familyNotification = new Notification[FAMILIES];
+    private final int[] familyDurationSeconds = new int[FAMILIES];
+    private final boolean[] familyOnlyInCombat = new boolean[FAMILIES];
+    private final int[] familyLeadTicks = new int[FAMILIES];
+    private final boolean[] familyDebug = new boolean[FAMILIES];
 
     // ---- potion effects (index: PotionEffect.ordinal())
-    public final boolean[] potionRemind = new boolean[EFFECTS];
-    public final int[] potionLeadTicks = new int[EFFECTS];
+    private final boolean[] potionRemind = new boolean[EFFECTS];
+    private final int[] potionLeadTicks = new int[EFFECTS];
     public final boolean potionCooldownsEnabled;
     public final boolean potionEffectsEnabled;
     public final boolean raidPotionsEnabled;
 
     // ---- boosts (index: Skill.ordinal())
-    public final int[] redoseLevel = new int[Skill.values().length];
+    private final int[] redoseLevel = new int[Skill.values().length];
 
     /** Any debug preview is on (live warnings are hidden while previewing). */
     public final boolean anyDebugPreview;
@@ -146,6 +147,7 @@ public final class SettingsSnapshot
         thrallRemindOnCombatStart = c.thrallRemindOnCombatStart();
         shadowVeilContext = c.spellShadowVeilContext();
         chargeNeedsGodCape = c.spellChargeNeedsGodCape();
+        combatBreakReRemindSeconds = c.combatBreakReRemindSeconds();
         boolean masterGlow = allowScreenGlows && c.spellScreenGlow();
         boolean masterShower = allowIconShowers && c.spellShowerIcons();
         boolean masterBook = allowItemGlows && c.spellGlowInSpellbook();
@@ -239,5 +241,157 @@ public final class SettingsSnapshot
     public static int secondsToTicks(int seconds)
     {
         return Math.round(Math.max(0, seconds) / 0.6f);
+    }
+
+    // ---- read-only accessors (the arrays never leave this class, so a snapshot cannot be modified)
+
+    public boolean statusEnabled(int index)
+    {
+        return statusEnabled[index];
+    }
+
+    public int statusColor(int index)
+    {
+        return statusColor[index];
+    }
+
+    public boolean statusGlow(int index)
+    {
+        return statusGlow[index];
+    }
+
+    public boolean statusShower(int index)
+    {
+        return statusShower[index];
+    }
+
+    public int statusDurationSeconds(int index)
+    {
+        return statusDurationSeconds[index];
+    }
+
+    public Notification statusNotification(int index)
+    {
+        return statusNotification[index];
+    }
+
+    public boolean statusDebug(int index)
+    {
+        return statusDebug[index];
+    }
+
+    public boolean spellEnabled(int index)
+    {
+        return spellEnabled[index];
+    }
+
+    public int spellColor(int index)
+    {
+        return spellColor[index];
+    }
+
+    public Color spellAwtColor(int index)
+    {
+        return spellAwtColor[index];
+    }
+
+    public boolean spellGlow(int index)
+    {
+        return spellGlow[index];
+    }
+
+    public boolean spellShower(int index)
+    {
+        return spellShower[index];
+    }
+
+    public boolean spellbookGlow(int index)
+    {
+        return spellbookGlow[index];
+    }
+
+    public Notification spellNotification(int index)
+    {
+        return spellNotification[index];
+    }
+
+    public int spellDurationSeconds(int index)
+    {
+        return spellDurationSeconds[index];
+    }
+
+    public int spellLeadTicks(int index)
+    {
+        return spellLeadTicks[index];
+    }
+
+    public boolean spellRecastProtection(int index)
+    {
+        return spellRecastProtection[index];
+    }
+
+    public boolean spellDebug(int index)
+    {
+        return spellDebug[index];
+    }
+
+    public boolean familyEnabled(int index)
+    {
+        return familyEnabled[index];
+    }
+
+    public int familyColor(int index)
+    {
+        return familyColor[index];
+    }
+
+    public boolean familyGlow(int index)
+    {
+        return familyGlow[index];
+    }
+
+    public boolean familyShower(int index)
+    {
+        return familyShower[index];
+    }
+
+    public Notification familyNotification(int index)
+    {
+        return familyNotification[index];
+    }
+
+    public int familyDurationSeconds(int index)
+    {
+        return familyDurationSeconds[index];
+    }
+
+    public boolean familyOnlyInCombat(int index)
+    {
+        return familyOnlyInCombat[index];
+    }
+
+    public int familyLeadTicks(int index)
+    {
+        return familyLeadTicks[index];
+    }
+
+    public boolean familyDebug(int index)
+    {
+        return familyDebug[index];
+    }
+
+    public boolean potionRemind(int index)
+    {
+        return potionRemind[index];
+    }
+
+    public int potionLeadTicks(int index)
+    {
+        return potionLeadTicks[index];
+    }
+
+    public int redoseLevel(int index)
+    {
+        return redoseLevel[index];
     }
 }

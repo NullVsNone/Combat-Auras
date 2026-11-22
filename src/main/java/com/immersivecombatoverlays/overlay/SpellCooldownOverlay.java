@@ -7,6 +7,7 @@ import com.immersivecombatoverlays.model.SpellCooldownDisplayMode;
 import com.immersivecombatoverlays.model.BorderStyle;
 import com.immersivecombatoverlays.render.CooldownRenderer;
 import com.immersivecombatoverlays.render.ItemOutlineCache;
+import com.immersivecombatoverlays.render.LruCache;
 import com.immersivecombatoverlays.settings.Settings;
 import com.immersivecombatoverlays.settings.SettingsSnapshot;
 import com.immersivecombatoverlays.tracker.CombatSpellTracker;
@@ -17,7 +18,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.util.HashMap;
 import java.util.Map;
 import java.awt.RenderingHints;
 import java.awt.geom.Arc2D;
@@ -68,10 +68,10 @@ public class SpellCooldownOverlay extends Overlay
     private final Arc2D.Float reusableArc = new Arc2D.Float(Arc2D.PIE);
     private final int[] readySpellOrdinals = new int[CombatSpell.values().length];
     private final int[] readySpellColors = new int[CombatSpell.values().length];
-    private final Map<Long, BufferedImage> spriteOutlineCache = new HashMap<>();
-    private final Map<Long, BufferedImage> spriteAuraCache = new HashMap<>();
-    private final Map<Integer, CombatSpell> widgetSpellCache = new HashMap<>();
-    private final Map<Long, BufferedImage> spriteFillMaskCache = new HashMap<>();
+    private final Map<Long, BufferedImage> spriteOutlineCache = new LruCache<>(128);
+    private final Map<Long, BufferedImage> spriteAuraCache = new LruCache<>(128);
+    private final Map<Integer, CombatSpell> widgetSpellCache = new LruCache<>(256);
+    private final Map<Long, BufferedImage> spriteFillMaskCache = new LruCache<>(128);
     private volatile int currentSpellbook = 0;
     private volatile boolean specReadyLive = false;
     private long specReadySinceNanos = 0L;
@@ -118,7 +118,7 @@ public class SpellCooldownOverlay extends Overlay
     @Override
     public Dimension render(Graphics2D graphics)
     {
-        if (client.getGameState() != GameState.LOGGED_IN || !config.spellsEnabled())
+        if (client.getGameState() != GameState.LOGGED_IN)
         {
             return null;
         }
@@ -128,8 +128,14 @@ public class SpellCooldownOverlay extends Overlay
 
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+        // The spell master switch only governs spell visuals; the spec orb and debug grid have their own toggles
+        boolean spells = config.spellsEnabled();
+
         // 1. Render cooldowns & ready glows over visible spell widgets in the spellbook
-        renderSpellbookSpells(graphics, pulse);
+        if (spells)
+        {
+            renderSpellbookSpells(graphics, pulse);
+        }
 
         if (!config.allowItemGlows())
         {
@@ -137,7 +143,7 @@ public class SpellCooldownOverlay extends Overlay
         }
 
         // 2. Render blended glow on the Magic spellbook tab icon when any spell is expired/ready
-        if (config.spellbookTabGlow())
+        if (spells && config.spellbookTabGlow())
         {
             renderSpellbookTabGlow(graphics, pulse);
         }
@@ -187,14 +193,11 @@ public class SpellCooldownOverlay extends Overlay
             if (matchedSpell == null && !widgetSpellCache.containsKey(wId))
             {
                 String rawName = child.getName();
-                if (rawName != null && !rawName.isEmpty())
+                if (rawName == null || rawName.isEmpty())
                 {
-                    matchedSpell = matchSpell(Text.removeTags(rawName).trim());
+                    continue; // widget not populated yet: decide later instead of caching "no spell" forever
                 }
-                if (widgetSpellCache.size() > 256)
-                {
-                    widgetSpellCache.clear();
-                }
+                matchedSpell = matchSpell(Text.removeTags(rawName).trim());
                 widgetSpellCache.put(wId, matchedSpell);
             }
             if (matchedSpell == null)
@@ -204,7 +207,7 @@ public class SpellCooldownOverlay extends Overlay
             spellTracker.registerWidget(matchedSpell, child.getId(), child.getSpriteId());
             SettingsSnapshot snap = settings.get();
             int si = matchedSpell.ordinal();
-            if (!snap.spellEnabled[si] && !snap.spellDebug[si])
+            if (!snap.spellEnabled(si) && !snap.spellDebug(si))
             {
                 continue;
             }
@@ -221,9 +224,9 @@ public class SpellCooldownOverlay extends Overlay
                 drawSpellCooldown(g, bounds, child.getId(), child.getSpriteId(), cd);
             }
             // Ready, or within its "warn early" lead: glow (on top of the remaining cooldown fill)
-            if (snap.spellbookGlow[si] && spellTracker.isSpellReadyReminder(matchedSpell, combatState, snap))
+            if (snap.spellbookGlow(si) && spellTracker.isSpellReadyReminder(matchedSpell, combatState, snap))
             {
-                drawIconAuraAndOutline(g, bounds, child.getId(), child.getSpriteId(), snap.spellAwtColor[si], pulse);
+                drawIconAuraAndOutline(g, bounds, child.getId(), child.getSpriteId(), snap.spellAwtColor(si), pulse);
             }
         }
     }
@@ -370,7 +373,7 @@ public class SpellCooldownOverlay extends Overlay
             }
             else
             {
-                drawIconAuraAndOutline(g, r, wId, sId, settings.get().spellAwtColor[spell.ordinal()], pulse);
+                drawIconAuraAndOutline(g, r, wId, sId, settings.get().spellAwtColor(spell.ordinal()), pulse);
             }
         }
     }
@@ -523,10 +526,6 @@ public class SpellCooldownOverlay extends Overlay
                 }
             }
         }
-        if (spriteFillMaskCache.size() > 128)
-        {
-            spriteFillMaskCache.clear();
-        }
         spriteFillMaskCache.put(key, mask);
         return mask;
     }
@@ -591,10 +590,6 @@ public class SpellCooldownOverlay extends Overlay
             return null;
         }
         BufferedImage outline = ItemOutlineCache.buildOutline(sprite, new Color(color.getRed(), color.getGreen(), color.getBlue(), 215));
-        if (spriteOutlineCache.size() > 128)
-        {
-            spriteOutlineCache.clear();
-        }
         spriteOutlineCache.put(key, outline);
         return outline;
     }
@@ -613,10 +608,6 @@ public class SpellCooldownOverlay extends Overlay
             return null;
         }
         BufferedImage aura = ItemOutlineCache.buildOutwardAura(sprite, color, ItemOutlineCache.AURA_PAD);
-        if (spriteAuraCache.size() > 128)
-        {
-            spriteAuraCache.clear();
-        }
         spriteAuraCache.put(key, aura);
         return aura;
     }

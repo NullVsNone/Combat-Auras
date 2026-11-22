@@ -517,13 +517,13 @@ public class TrackersTest
     @Test
     public void onlyRealDamageHitsplatsFlash()
     {
-        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isDamageHitsplat(HitsplatID.DAMAGE_ME));
-        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isDamageHitsplat(HitsplatID.DAMAGE_MAX_ME));
-        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isDamageHitsplat(HitsplatID.BURN));
-        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isDamageHitsplat(HitsplatID.HEAL));
-        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isDamageHitsplat(HitsplatID.PRAYER_DRAIN));
-        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isDamageHitsplat(HitsplatID.CYAN_UP));
-        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isDamageHitsplat(HitsplatID.BLOCK_ME));
+        Assert.assertTrue(DamageFeedback.isDamageHitsplat(HitsplatID.DAMAGE_ME));
+        Assert.assertTrue(DamageFeedback.isDamageHitsplat(HitsplatID.DAMAGE_MAX_ME));
+        Assert.assertTrue(DamageFeedback.isDamageHitsplat(HitsplatID.BURN));
+        Assert.assertFalse(DamageFeedback.isDamageHitsplat(HitsplatID.HEAL));
+        Assert.assertFalse(DamageFeedback.isDamageHitsplat(HitsplatID.PRAYER_DRAIN));
+        Assert.assertFalse(DamageFeedback.isDamageHitsplat(HitsplatID.CYAN_UP));
+        Assert.assertFalse(DamageFeedback.isDamageHitsplat(HitsplatID.BLOCK_ME));
     }
 
     // ---------------------------------------------------------------- idle

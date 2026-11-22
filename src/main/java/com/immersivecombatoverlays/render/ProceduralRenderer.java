@@ -15,7 +15,6 @@ import com.immersivecombatoverlays.model.GlowColorMode;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import net.runelite.api.Client;
@@ -47,8 +46,8 @@ public class ProceduralRenderer
     }
 
     // Unified pre-scaled icon caches (respects Resource Packs)
-    private final Map<Integer, BufferedImage> spriteIconCache = new HashMap<>();
-    private final Map<Integer, BufferedImage> itemIconCache = new HashMap<>();
+    private final Map<Integer, BufferedImage> spriteIconCache = new LruCache<>(64);
+    private final Map<Integer, BufferedImage> itemIconCache = new LruCache<>(64);
     private int cachedIconSize = 0;
     private float smoothedGlowAlpha = 0f;
     private long lastGlowFrameNanos = 0L;
@@ -65,6 +64,13 @@ public class ProceduralRenderer
     private int glowKeyEdgeW = -1;
     private int glowKeyEdgeH = -1;
     private final java.awt.Paint[] glowPaints = new java.awt.Paint[8];
+    private int paintBuilds = 0;
+
+    /** How many times the gradient paints were (re)built; for tests guarding against per-frame rebuilds. */
+    public int getPaintBuilds()
+    {
+        return paintBuilds;
+    }
     private Color tintColor = null;
 
     // Precomputed deterministic shower lanes (zero allocation)
@@ -225,17 +231,16 @@ public class ProceduralRenderer
             {
                 continue;
             }
-            if (i == StatusEffect.LOW_HEALTH.ordinal())
-            {
-                sev *= pulseHealth;
-            }
             int argb = statusColors[i];
             float a = ((argb >>> 24) & 0xFF) / 255f;
-            float w = sev * a;
-            rAcc += ((argb >>> 16) & 0xFF) * w;
-            gAcc += ((argb >>> 8) & 0xFF) * w;
-            bAcc += (argb & 0xFF) * w;
-            weightSum += w;
+            // Colour mix uses the steady weight; the pulse only animates strength, so the blended colour (and the
+            // cached gradient paints built from it) stays constant while low HP pulses
+            float cw = sev * a;
+            float w = i == StatusEffect.LOW_HEALTH.ordinal() ? cw * pulseHealth : cw;
+            rAcc += ((argb >>> 16) & 0xFF) * cw;
+            gAcc += ((argb >>> 8) & 0xFF) * cw;
+            bAcc += (argb & 0xFF) * cw;
+            weightSum += cw;
             if (w > maxStrength)
             {
                 maxStrength = w;
@@ -251,11 +256,12 @@ public class ProceduralRenderer
             {
                 int argb = (i < spellCount) ? spellColors[i] : itemColors[i - spellCount];
                 float a = ((argb >>> 24) & 0xFF) / 255f;
-                float w = 0.65f * a * spellPulse;
-                rAcc += ((argb >>> 16) & 0xFF) * w;
-                gAcc += ((argb >>> 8) & 0xFF) * w;
-                bAcc += (argb & 0xFF) * w;
-                weightSum += w;
+                float cw = 0.65f * a;
+                float w = cw * spellPulse;
+                rAcc += ((argb >>> 16) & 0xFF) * cw;
+                gAcc += ((argb >>> 8) & 0xFF) * cw;
+                bAcc += (argb & 0xFF) * cw;
+                weightSum += cw;
                 if (w > maxStrength)
                 {
                     maxStrength = w;
@@ -266,6 +272,9 @@ public class ProceduralRenderer
 
         if (weightSum <= 0.001f)
         {
+            // Only fully transparent colours are active: fade out instead of freezing the last alpha
+            smoothedGlowAlpha = 0f;
+            lastGlowFrameNanos = nowNanos;
             return;
         }
 
@@ -280,9 +289,10 @@ public class ProceduralRenderer
         }
         else
         {
-            r = Math.min(255, Math.round(rAcc / weightSum));
-            gr = Math.min(255, Math.round(gAcc / weightSum));
-            b = Math.min(255, Math.round(bAcc / weightSum));
+            // Quantised to 5 bits per channel (invisible at vignette alpha) so float drift never rebuilds the paints
+            r = Math.min(255, Math.round(rAcc / weightSum)) & 0xF8;
+            gr = Math.min(255, Math.round(gAcc / weightSum)) & 0xF8;
+            b = Math.min(255, Math.round(bAcc / weightSum)) & 0xF8;
         }
 
         float depth = Math.max(0.10f, config.edgeDepth) * 0.5f;
@@ -403,6 +413,7 @@ public class ProceduralRenderer
             return;
         }
         glowKeyRgb = rgb;
+        paintBuilds++;
         glowKeyW = width;
         glowKeyH = height;
         glowKeyEdgeW = edgeW;
@@ -585,10 +596,6 @@ public class ProceduralRenderer
             return null;
         }
         BufferedImage scaled = scalePreserveAspect(raw, targetSize);
-        if (spriteIconCache.size() > 64)
-        {
-            spriteIconCache.clear();
-        }
         spriteIconCache.put(spriteId, scaled);
         return scaled;
     }
@@ -617,10 +624,6 @@ public class ProceduralRenderer
             return null;
         }
         BufferedImage scaled = scalePreserveAspect(raw, targetSize);
-        if (itemIconCache.size() > 64)
-        {
-            itemIconCache.clear();
-        }
         itemIconCache.put(itemId, scaled);
         return scaled;
     }

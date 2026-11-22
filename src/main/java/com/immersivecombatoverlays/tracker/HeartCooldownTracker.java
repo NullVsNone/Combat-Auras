@@ -65,6 +65,12 @@ public class HeartCooldownTracker
         {
             remainingTicks = varbit * HEART_BUCKET_TICKS;
             usedThisSession = true;
+            if (remainingTicks > SATURATED_TOTAL_TICKS)
+            {
+                // Longer than a saturated heart can be: it is the imbued heart, even if we never saw the click
+                // (e.g. logging in mid-cooldown)
+                saturated = false;
+            }
         }
         else if (varbit == lastVarbitValue && remainingTicks > 0)
         {

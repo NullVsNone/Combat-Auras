@@ -81,12 +81,12 @@ public class NotificationDispatcher
             Warning warning = warningFor(effect);
             if (warning != null)
             {
-                warnings.update(warning, isLive(s, effect, nowNanos), s.statusNotification[effect.ordinal()], notifier, nowNanos);
+                warnings.update(warning, isLive(s, effect, nowNanos), s.statusNotification(effect.ordinal()), notifier, nowNanos);
             }
         }
         for (ReminderFamily family : ReminderFamily.values())
         {
-            warnings.update(warningFor(family), reminders.isFamilyLive(family), s.familyNotification[family.ordinal()], notifier, nowNanos);
+            warnings.update(warningFor(family), reminders.isFamilyLive(family), s.familyNotification(family.ordinal()), notifier, nowNanos);
         }
 
         int book = client.getVarbitValue(VarbitID.SPELLBOOK);
@@ -97,7 +97,7 @@ public class NotificationDispatcher
                 && spellTracker.wasCastSinceLogin(spell) && spellTracker.isSpellReadyReminder(spell, combatState, s);
             if (due && !spellDueLastTick[i])
             {
-                warnings.fireSpell(spell, s.spellNotification[i], notifier, nowNanos);
+                warnings.fireSpell(spell, s.spellNotification(i), notifier, nowNanos);
             }
             spellDueLastTick[i] = due;
         }
@@ -109,11 +109,11 @@ public class NotificationDispatcher
         switch (effect)
         {
             case FREEZE:
-                return s.statusEnabled[i] && freezeTracker.getSeverity(config, nowNanos) > 0f;
+                return s.statusEnabled(i) && freezeTracker.getSeverity(config, nowNanos) > 0f;
             case UNPOTTED:
-                return unpottedTracker.getSeverity(config, nowNanos) > 0f;
+                return s.statusEnabled(i) && unpottedTracker.getSeverity(config, nowNanos) > 0f;
             case PARASITE:
-                return s.statusEnabled[i] && parasiteTracker.isActive();
+                return s.statusEnabled(i) && parasiteTracker.isActive();
             default:
                 return statusOverlay.isLive(effect);
         }

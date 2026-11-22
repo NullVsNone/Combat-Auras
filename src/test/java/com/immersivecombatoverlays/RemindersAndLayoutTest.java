@@ -101,7 +101,7 @@ public class RemindersAndLayoutTest
         }
         for (com.immersivecombatoverlays.model.CombatSpell spell : com.immersivecombatoverlays.model.CombatSpell.values())
         {
-            Assert.assertEquals(0, d.spellLeadTicks[spell.ordinal()]);
+            Assert.assertEquals(0, d.spellLeadTicks(spell.ordinal()));
         }
         Assert.assertEquals(0, DEFAULTS.heartPreRemindSeconds());
         Assert.assertEquals(0, DEFAULTS.boostPreRemindSeconds());
@@ -110,13 +110,13 @@ public class RemindersAndLayoutTest
     @Test
     public void perFamilyReminderToggles()
     {
-        Assert.assertFalse("stamina expiry reminder off by default", com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.STAMINA.ordinal()]);
-        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.ANTIVENOM.ordinal()]);
-        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.DIVINE_MAGIC.ordinal()]);
-        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.OVERLOAD.ordinal()]);
-        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.SURGE.ordinal()]);
-        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.GOADING.ordinal()]);
-        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind[PotionEffect.PRAYER_REGENERATION.ordinal()]);
+        Assert.assertFalse("stamina expiry reminder off by default", com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind(PotionEffect.STAMINA.ordinal()));
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind(PotionEffect.ANTIVENOM.ordinal()));
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind(PotionEffect.DIVINE_MAGIC.ordinal()));
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind(PotionEffect.OVERLOAD.ordinal()));
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind(PotionEffect.SURGE.ordinal()));
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind(PotionEffect.GOADING.ordinal()));
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).potionRemind(PotionEffect.PRAYER_REGENERATION.ordinal()));
         ImmersiveCombatOverlaysConfig separate = new ImmersiveCombatOverlaysConfig()
         {
             @Override
@@ -128,10 +128,10 @@ public class RemindersAndLayoutTest
             @Override
             public boolean remindPrayerRegeneration() { return false; }
         };
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind[PotionEffect.SURGE.ordinal()]);
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind[PotionEffect.GOADING.ordinal()]);
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind[PotionEffect.PRAYER_REGENERATION.ordinal()]);
-        Assert.assertTrue("other potions toggle unaffected", com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind[PotionEffect.MENAPHITE_REMEDY.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind(PotionEffect.SURGE.ordinal()));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind(PotionEffect.GOADING.ordinal()));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind(PotionEffect.PRAYER_REGENERATION.ordinal()));
+        Assert.assertTrue("other potions toggle unaffected", com.immersivecombatoverlays.settings.SettingsSnapshot.of(separate).potionRemind(PotionEffect.MENAPHITE_REMEDY.ordinal()));
         ImmersiveCombatOverlaysConfig noAnti = new ImmersiveCombatOverlaysConfig()
         {
             @Override
@@ -140,10 +140,10 @@ public class RemindersAndLayoutTest
             @Override
             public boolean raidPotionsEnabled() { return false; }
         };
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind[PotionEffect.ANTIPOISON.ordinal()]);
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind[PotionEffect.ANTIVENOM.ordinal()]);
-        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind[PotionEffect.SMELLING_SALTS.ordinal()]);
-        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind[PotionEffect.ANTIFIRE.ordinal()]);
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.ANTIPOISON.ordinal()));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.ANTIVENOM.ordinal()));
+        Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.SMELLING_SALTS.ordinal()));
+        Assert.assertTrue(com.immersivecombatoverlays.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.ANTIFIRE.ordinal()));
     }
 
     // ---------------------------------------------------------------- stamina stale varbit

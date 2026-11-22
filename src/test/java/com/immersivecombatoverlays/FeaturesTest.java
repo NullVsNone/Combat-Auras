@@ -179,7 +179,7 @@ public class FeaturesTest
         for (CombatSpell spell : CombatSpell.values())
         {
             boolean expected = spell != CombatSpell.CHARGE && spell != CombatSpell.MARK_OF_DARKNESS;
-            Assert.assertEquals(spell.name(), expected, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).spellRecastProtection[spell.ordinal()]);
+            Assert.assertEquals(spell.name(), expected, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).spellRecastProtection(spell.ordinal()));
         }
     }
 
@@ -198,10 +198,10 @@ public class FeaturesTest
         Assert.assertTrue(spells.contextAllows(CombatSpell.CHARGE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
         Assert.assertTrue(spells.contextAllows(CombatSpell.VENGEANCE, combat, com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS)));
 
-        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isGodCape("Imbued saradomin cape"));
-        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.isGodCape("Zamorak max cape"));
-        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isGodCape("Fire cape"));
-        Assert.assertFalse(ImmersiveCombatOverlaysPlugin.isGodCape("Saradomin d'hide body"));
+        Assert.assertTrue(EquipmentState.isGodCape("Imbued saradomin cape"));
+        Assert.assertTrue(EquipmentState.isGodCape("Zamorak max cape"));
+        Assert.assertFalse(EquipmentState.isGodCape("Fire cape"));
+        Assert.assertFalse(EquipmentState.isGodCape("Saradomin d'hide body"));
     }
 
     @Test
@@ -278,7 +278,7 @@ public class FeaturesTest
         Assert.assertFalse(DEFAULTS.buffNotification().isEnabled());
         for (CombatSpell spell : CombatSpell.values())
         {
-            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).spellNotification[spell.ordinal()].isEnabled());
+            Assert.assertFalse(com.immersivecombatoverlays.settings.SettingsSnapshot.of(DEFAULTS).spellNotification(spell.ordinal()).isEnabled());
         }
         Assert.assertFalse(DEFAULTS.poisonNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.boostNotification().isEnabled());
@@ -321,14 +321,14 @@ public class FeaturesTest
     @Test
     public void damageFlashScalesWithShareOfMaxHp()
     {
-        Assert.assertEquals(0f, ImmersiveCombatOverlaysPlugin.damageFlashStrength(0, 99, true), 0.001f);
-        float lowLevel = ImmersiveCombatOverlaysPlugin.damageFlashStrength(10, 40, true);
-        float highLevel = ImmersiveCombatOverlaysPlugin.damageFlashStrength(25, 99, true);
+        Assert.assertEquals(0f, DamageFeedback.damageFlashStrength(0, 99, true), 0.001f);
+        float lowLevel = DamageFeedback.damageFlashStrength(10, 40, true);
+        float highLevel = DamageFeedback.damageFlashStrength(25, 99, true);
         Assert.assertEquals("same share of HP -> same flash", lowLevel, highLevel, 0.02f);
-        Assert.assertEquals("40% of max HP is a full flash", 1f, ImmersiveCombatOverlaysPlugin.damageFlashStrength(40, 99, true), 0.02f);
-        Assert.assertTrue(ImmersiveCombatOverlaysPlugin.damageFlashStrength(10, 40, true)
-            > ImmersiveCombatOverlaysPlugin.damageFlashStrength(10, 99, true));
-        Assert.assertEquals("fixed scale unchanged when off", 0.5f, ImmersiveCombatOverlaysPlugin.damageFlashStrength(10, 99, false), 0.001f);
+        Assert.assertEquals("40% of max HP is a full flash", 1f, DamageFeedback.damageFlashStrength(40, 99, true), 0.02f);
+        Assert.assertTrue(DamageFeedback.damageFlashStrength(10, 40, true)
+            > DamageFeedback.damageFlashStrength(10, 99, true));
+        Assert.assertEquals("fixed scale unchanged when off", 0.5f, DamageFeedback.damageFlashStrength(10, 99, false), 0.001f);
         Assert.assertTrue(DEFAULTS.damageScaleWithHp());
     }
 }

@@ -86,12 +86,12 @@ public class ReminderPipeline
     public void update(long nowNanos)
     {
         SettingsSnapshot s = settings.get();
-        observe(HEART, ReminderPolicy.activeBeyondLead(heartTracker.getCooldown(), s.familyLeadTicks[ReminderFamily.HEART.ordinal()]), nowNanos);
+        observe(HEART, ReminderPolicy.activeBeyondLead(heartTracker.getCooldown(), s.familyLeadTicks(ReminderFamily.HEART.ordinal())), nowNanos);
         for (PotionEffect effect : PotionEffect.values())
         {
             observe(key(effect), ReminderPolicy.activeBeyondLead(potionTimers.getCooldown(effect), s.leadTicks(effect)), nowNanos);
         }
-        int boostLead = s.familyLeadTicks[ReminderFamily.BOOST.ordinal()];
+        int boostLead = s.familyLeadTicks(ReminderFamily.BOOST.ordinal());
         for (BoostPotion boost : BoostPotion.values())
         {
             observe(key(boost), ReminderPolicy.activeBeyondLead(boostTimers.getCooldown(client, boost, s), boostLead), nowNanos);
@@ -151,7 +151,7 @@ public class ReminderPipeline
                     family = ReminderFamily.HEART;
                     key = HEART;
                 }
-                else if (entry.effect != null && potionOk && s.potionRemind[entry.effect.ordinal()])
+                else if (entry.effect != null && potionOk && s.potionRemind(entry.effect.ordinal()))
                 {
                     family = ReminderFamily.POTION;
                     key = key(entry.effect);
@@ -165,13 +165,13 @@ public class ReminderPipeline
                 {
                     continue;
                 }
-                if (seen[key] || !isShowing(key, s.familyDurationSeconds[family.ordinal()], nowNanos))
+                if (seen[key] || !isShowing(key, s.familyDurationSeconds(family.ordinal()), nowNanos))
                 {
                     continue;
                 }
                 seen[key] = true;
                 itemIds[count] = item.getId();
-                itemColors[count] = s.familyColor[family.ordinal()];
+                itemColors[count] = s.familyColor(family.ordinal());
                 itemFamilies[count] = family.ordinal();
                 familyLive[family.ordinal()] = true;
                 count++;
@@ -183,7 +183,7 @@ public class ReminderPipeline
     private boolean allowed(SettingsSnapshot s, ReminderFamily family)
     {
         int f = family.ordinal();
-        return s.familyEnabled[f] && ReminderPolicy.combatGate(s.familyOnlyInCombat[f], combatState);
+        return s.familyEnabled(f) && ReminderPolicy.combatGate(s.familyOnlyInCombat(f), combatState);
     }
 
     public int itemCount()

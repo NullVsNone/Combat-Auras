@@ -3,7 +3,6 @@ package com.immersivecombatoverlays;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.immersivecombatoverlays.config.ImmersiveCombatOverlaysConfig;
-import com.immersivecombatoverlays.model.Preset;
 import com.immersivecombatoverlays.overlay.ImmersiveStatusOverlay;
 import com.immersivecombatoverlays.overlay.InventoryCooldownOverlay;
 import com.immersivecombatoverlays.overlay.SpellCooldownOverlay;
@@ -27,18 +26,12 @@ import com.immersivecombatoverlays.tracker.RepotProtection;
 import com.immersivecombatoverlays.tracker.SpellRecastProtection;
 import com.immersivecombatoverlays.tracker.UnpottedTracker;
 import com.immersivecombatoverlays.tracker.WarningNotifier;
-import java.util.Locale;
-import java.util.Map;
 import javax.inject.Inject;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
-import net.runelite.api.HitsplatID;
-import net.runelite.api.Item;
-import net.runelite.api.ItemContainer;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
@@ -57,6 +50,7 @@ import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.Notifier;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -86,6 +80,10 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     @Inject private OverlayManager overlayManager;
     @Inject private Notifier notifier;
     @Inject private Settings settings;
+    @Inject private ClientThread clientThread;
+    @Inject private DamageFeedback damageFeedback;
+    @Inject private EquipmentState equipment;
+    @Inject private PresetApplier presets;
 
     @Inject private CombatStateTracker combatState;
     @Inject private CombatSpellTracker spellTracker;
@@ -125,6 +123,9 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     public void configure(Binder binder)
     {
         binder.bind(Settings.class);
+        binder.bind(DamageFeedback.class);
+        binder.bind(EquipmentState.class);
+        binder.bind(PresetApplier.class);
         binder.bind(CombatStateTracker.class);
         binder.bind(CombatSpellTracker.class);
         binder.bind(HeartCooldownTracker.class);
@@ -231,12 +232,12 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             return;
         }
         long nowNanos = System.nanoTime();
-        int breakSeconds = config.combatBreakReRemindSeconds();
+        int breakSeconds = settings.get().combatBreakReRemindSeconds;
 
         // 1. Trackers
         combatState.onGameTick(client, nowNanos, breakSeconds);
+        spellTracker.setGodCapeWorn(equipment.isGodCapeWorn()); // before the spell tick reads it
         spellTracker.onGameTick(client);
-        spellTracker.setGodCapeWorn(isGodCapeWorn());
         heartTracker.onGameTick(client);
         potionTimers.onGameTick(client);
         boostTimers.onGameTick(client);
@@ -319,25 +320,11 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         }
         long nowNanos = System.nanoTime();
         combatState.onHitsplat(event.getActor(), hit.getHitsplatType(), hit.isMine(), local, nowNanos,
-            config.combatBreakReRemindSeconds());
-        if (event.getActor() != local)
+            settings.get().combatBreakReRemindSeconds);
+        if (event.getActor() == local)
         {
-            return;
-        }
-        int type = hit.getHitsplatType();
-        int amount = hit.getAmount();
-        if (type == HitsplatID.POISON)
-        {
-            impacts.poisonTick.trigger(nowNanos, 0.85f);
-        }
-        else if (type == HitsplatID.VENOM)
-        {
-            impacts.venomTick.trigger(nowNanos, 0.95f);
-        }
-        else if (amount > 0 && amount >= config.damageMinAmount() && isDamageHitsplat(type))
-        {
-            impacts.damage.trigger(nowNanos,
-                damageFlashStrength(amount, client.getRealSkillLevel(Skill.HITPOINTS), config.damageScaleWithHp()));
+            damageFeedback.onLocalHitsplat(hit.getHitsplatType(), hit.getAmount(), config.damageMinAmount(),
+                client.getRealSkillLevel(Skill.HITPOINTS), config.damageScaleWithHp(), nowNanos);
         }
     }
 
@@ -352,7 +339,7 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
             actor = entry.getNpc() != null ? entry.getNpc() : entry.getPlayer();
         }
         combatState.onMenuOptionClicked(event.getMenuAction(), opt, event.getMenuTarget(), actor,
-            System.nanoTime(), config.combatBreakReRemindSeconds());
+            System.nanoTime(), settings.get().combatBreakReRemindSeconds);
 
         int itemId = event.getItemId();
         if (itemId <= 0)
@@ -418,10 +405,14 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
         spellRecastProtection.apply();
     }
 
+    /**
+     * PluginChanged and ConfigChanged are posted on the Swing thread, while overlays render and trackers run on the
+     * client thread. Anything that touches caches or tracker state is therefore handed to the client thread.
+     */
     @Subscribe
     public void onPluginChanged(PluginChanged event)
     {
-        clearRenderCaches();
+        clientThread.invokeLater(this::clearRenderCaches); // e.g. Resource Packs turned on or off
     }
 
     @Subscribe
@@ -429,23 +420,27 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
     {
         if ("resourcepacks".equals(event.getGroup()))
         {
-            clearRenderCaches();
+            clientThread.invokeLater(this::clearRenderCaches);
             return;
         }
-        if (!CONFIG_GROUP.equals(event.getGroup()))
+        if (!CONFIG_GROUP.equals(event.getGroup()) || presets.isApplying())
         {
-            return;
+            return; // a preset batch rebuilds once when it finishes
         }
-        settings.refresh();
-        proceduralRenderer.clearCaches();
-        combatState.setSimulatedCombat(config.debugSimulateCombat());
-
         String key = event.getKey();
         if ("preset".equals(key))
         {
-            applyPreset(config.preset());
+            presets.apply(CONFIG_GROUP, config.preset()); // per-key events are skipped; one rebuild below
         }
-        else if ("debugTriggerSpellCooldowns".equals(key))
+        settings.refresh(); // immutable snapshot behind a volatile reference: safe from any thread
+        clientThread.invokeLater(() -> onOwnConfigChanged(key));
+    }
+
+    private void onOwnConfigChanged(String key)
+    {
+        proceduralRenderer.clearCaches();
+        combatState.setSimulatedCombat(config.debugSimulateCombat());
+        if ("debugTriggerSpellCooldowns".equals(key))
         {
             if (config.debugTriggerSpellCooldowns())
             {
@@ -469,106 +464,5 @@ public class ImmersiveCombatOverlaysPlugin extends Plugin
                 potionTimers.clearDebugCooldowns();
             }
         }
-    }
-
-    /**
-     * Resets every key a preset manages, writes the preset's values, then flips the dropdown back to CUSTOM, so the
-     * result never depends on which preset was applied before.
-     */
-    private void applyPreset(Preset preset)
-    {
-        if (preset == null || preset == Preset.CUSTOM)
-        {
-            return;
-        }
-        for (String key : Preset.MANAGED_KEYS)
-        {
-            configManager.unsetConfiguration(CONFIG_GROUP, key);
-        }
-        for (Map.Entry<String, Object> e : preset.settings().entrySet())
-        {
-            if (e.getValue() != null)
-            {
-                configManager.setConfiguration(CONFIG_GROUP, e.getKey(), e.getValue());
-            }
-        }
-        configManager.setConfiguration(CONFIG_GROUP, "preset", Preset.CUSTOM);
-    }
-
-    /**
-     * 0..1 damage flash strength. With {@code byPercent}, a hit of 40% of max HP (or more) is a full flash,
-     * so the flash means the same thing at any Hitpoints level.
-     */
-    static float damageFlashStrength(int amount, int maxHp, boolean byPercent)
-    {
-        if (amount <= 0)
-        {
-            return 0f;
-        }
-        if (!byPercent)
-        {
-            return Math.min(1f, 0.25f + amount / 40f); // original fixed scale
-        }
-        float frac = amount / (float) Math.max(1, maxHp);
-        return Math.min(1f, 0.25f + frac * 1.875f);
-    }
-
-    /**
-     * Only real damage flashes the screen; heals, shields, prayer/sanity drains etc. do not.
-     */
-    static boolean isDamageHitsplat(int type)
-    {
-        switch (type)
-        {
-            case HitsplatID.DAMAGE_ME:
-            case HitsplatID.DAMAGE_OTHER:
-            case HitsplatID.DAMAGE_ME_CYAN:
-            case HitsplatID.DAMAGE_OTHER_CYAN:
-            case HitsplatID.DAMAGE_ME_ORANGE:
-            case HitsplatID.DAMAGE_OTHER_ORANGE:
-            case HitsplatID.DAMAGE_ME_YELLOW:
-            case HitsplatID.DAMAGE_OTHER_YELLOW:
-            case HitsplatID.DAMAGE_ME_WHITE:
-            case HitsplatID.DAMAGE_OTHER_WHITE:
-            case HitsplatID.DAMAGE_MAX_ME:
-            case HitsplatID.DAMAGE_MAX_ME_CYAN:
-            case HitsplatID.DAMAGE_MAX_ME_ORANGE:
-            case HitsplatID.DAMAGE_MAX_ME_YELLOW:
-            case HitsplatID.DAMAGE_MAX_ME_WHITE:
-            case HitsplatID.DAMAGE_ME_POISE:
-            case HitsplatID.DAMAGE_OTHER_POISE:
-            case HitsplatID.DAMAGE_MAX_ME_POISE:
-            case HitsplatID.BLEED:
-            case HitsplatID.BURN:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    private boolean isGodCapeWorn()
-    {
-        ItemContainer worn = client.getItemContainer(InventoryID.WORN);
-        if (worn == null)
-        {
-            return false;
-        }
-        Item cape = worn.getItem(EquipmentInventorySlot.CAPE.getSlotIdx());
-        if (cape == null || cape.getId() <= 0)
-        {
-            return false;
-        }
-        return isGodCape(client.getItemDefinition(cape.getId()).getName());
-    }
-
-    /** Saradomin / Guthix / Zamorak capes, their imbued versions and the god max capes. */
-    static boolean isGodCape(String name)
-    {
-        if (name == null)
-        {
-            return false;
-        }
-        String lower = name.toLowerCase(Locale.ROOT);
-        return lower.contains("cape") && (lower.contains("saradomin") || lower.contains("guthix") || lower.contains("zamorak"));
     }
 }

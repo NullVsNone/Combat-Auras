@@ -2,7 +2,6 @@ package com.immersivecombatoverlays.render;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
-import java.util.HashMap;
 import java.util.Map;
 import net.runelite.client.game.ItemManager;
 
@@ -15,9 +14,9 @@ public class ItemOutlineCache
 {
     public static final int AURA_PAD = 5;
 
-    private final Map<Long, BufferedImage> outlineCache = new HashMap<>();
-    private final Map<Long, BufferedImage> auraCache = new HashMap<>();
-    private final Map<Long, BufferedImage> fillMaskCache = new HashMap<>();
+    private final Map<Long, BufferedImage> outlineCache = new LruCache<>(256);
+    private final Map<Long, BufferedImage> auraCache = new LruCache<>(256);
+    private final Map<Long, BufferedImage> fillMaskCache = new LruCache<>(256);
 
     /**
      * ItemManager returns images that load asynchronously and are fully transparent until loaded.
@@ -65,10 +64,6 @@ public class ItemOutlineCache
             return null;
         }
         BufferedImage outline = buildOutline(sprite, color);
-        if (outlineCache.size() > 256)
-        {
-            outlineCache.clear();
-        }
         outlineCache.put(key, outline);
         return outline;
     }
@@ -91,10 +86,6 @@ public class ItemOutlineCache
             return null;
         }
         BufferedImage aura = buildOutwardAura(sprite, color, AURA_PAD);
-        if (auraCache.size() > 256)
-        {
-            auraCache.clear();
-        }
         auraCache.put(key, aura);
         return aura;
     }
@@ -117,10 +108,6 @@ public class ItemOutlineCache
             return null;
         }
         BufferedImage mask = buildFillMask(sprite, tint);
-        if (fillMaskCache.size() > 256)
-        {
-            fillMaskCache.clear();
-        }
         fillMaskCache.put(key, mask);
         return mask;
     }
