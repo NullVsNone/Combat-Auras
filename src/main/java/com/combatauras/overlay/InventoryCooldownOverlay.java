@@ -104,6 +104,12 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         return strength;
     }
 
+    /** One-tick fade-in of the ready highlight in {@code slot}, from when its cooldown finished. */
+    public float readyFade(int slot, long nowNanos)
+    {
+        return slot < 0 || slot >= SLOT_COUNT ? 1f : Motion.fadeIn(slotReadySinceNanos[slot], nowNanos);
+    }
+
     @Override
     public void renderItemOverlay(Graphics2D graphics, int itemId, WidgetItem widgetItem)
     {
@@ -126,7 +132,8 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         {
             BorderStyle style = s.readyBorder == BorderStyle.NONE ? BorderStyle.ITEM_OUTLINE : s.readyBorder;
             renderer.drawItemGlow(graphics, bounds, itemManager, itemId, s.lowPrayerColor, style,
-                Motion.iconGlow(s.lowPrayerGlowAnimation, nowNanos, s.motionStrength), nowNanos, s);
+                Motion.iconGlow(s.lowPrayerGlowAnimation, nowNanos, s.motionStrength),
+                Motion.fadeIn(statusOverlay.prayerLowSinceNanos(), nowNanos), nowNanos, s);
         }
 
         Cooldown cooldown = cooldowns.of(itemId);
@@ -163,6 +170,7 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
             ? CooldownRenderer.readyStrength(s.readyStyle, true, s.readyDurationSeconds, 0L, nowNanos, s.motionStrength)
             : trackReady(slot, itemId, cooldown.isReady(), nowNanos);
 
-        renderer.renderItemCooldown(graphics, bounds, itemId, cooldown, s, itemManager, nowNanos, readyStrength);
+        float fade = debugSlot ? 1f : readyFade(slot, nowNanos);
+        renderer.renderItemCooldown(graphics, bounds, itemId, cooldown, s, itemManager, nowNanos, readyStrength, fade);
     }
 }

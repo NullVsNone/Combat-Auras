@@ -57,7 +57,8 @@ public class CooldownRenderer
         SettingsSnapshot s,
         ItemManager itemManager,
         long nowNanos,
-        float readyStrength
+        float readyStrength,
+        float fade
     )
     {
         if (cooldown == null || bounds == null)
@@ -69,7 +70,7 @@ public class CooldownRenderer
         {
             if (readyStrength > 0.01f)
             {
-                drawItemGlow(g, bounds, itemManager, itemId, s.readyColor, s.readyBorder, readyStrength, nowNanos, s);
+                drawItemGlow(g, bounds, itemManager, itemId, s.readyColor, s.readyBorder, readyStrength, fade, nowNanos, s);
             }
             return;
         }
@@ -101,6 +102,7 @@ public class CooldownRenderer
         Color base,
         BorderStyle style,
         double pulse,
+        float fade,
         long nowNanos,
         SettingsSnapshot s
     )
@@ -111,7 +113,7 @@ public class CooldownRenderer
         }
         BufferedImage outline = style.usesOutline() ? outlineCache.getOutline(itemManager, itemId, base) : null;
         BufferedImage aura = style.usesAura() ? outlineCache.getAura(itemManager, itemId, base) : null;
-        drawStyledGlow(g, bounds, outline, aura, base, style, pulse, nowNanos, s);
+        drawStyledGlow(g, bounds, outline, aura, base, style, pulse, fade, nowNanos, s);
     }
 
     /** Fill the bottom {@code frac} of the icon, masked to its sprite when a mask is available. */
@@ -188,7 +190,8 @@ public class CooldownRenderer
 
     /**
      * The one glow routine shared by inventory items, spell icons, the Magic tab and the spec orb.
-     * {@code pulse} is the caller's 0..1 animation strength; motion and glow strength come from the snapshot.
+     * {@code pulse} is the caller's 0..1 animation strength and {@code fade} its 0..1 fade-in; motion and glow
+     * strength come from the snapshot.
      */
     public static void drawStyledGlow(
         Graphics2D g,
@@ -198,11 +201,12 @@ public class CooldownRenderer
         Color base,
         BorderStyle border,
         double pulse,
+        float fade,
         long nowNanos,
         SettingsSnapshot s
     )
     {
-        if (border == BorderStyle.NONE || bounds == null)
+        if (border == BorderStyle.NONE || bounds == null || fade <= 0.004f)
         {
             return;
         }
@@ -213,7 +217,9 @@ public class CooldownRenderer
         int gr = base.getGreen();
         int b = base.getBlue();
         float baseA = base.getAlpha() / 255f;
-        float strength = s.iconGlowStrength;
+        // The fade-in scales every alpha below (after the style's own minimums), so a glow eases in from nothing
+        float strength = s.iconGlowStrength * fade;
+        boolean bold = s.iconGlowStrength > 1.25f;
         float motion = s.motionStrength;
 
         if (border.usesAura())
@@ -320,7 +326,7 @@ public class CooldownRenderer
                     cx + dx, cy + dy, new Color(r, gr, b, sweepAlpha),
                     cx - dx, cy - dy, new Color(r, gr, b, 0)
                 ));
-                g.setStroke(strength > 1.25f ? BOLD_SWEEP_STROKE : ANIMATED_SWEEP_STROKE);
+                g.setStroke(bold ? BOLD_SWEEP_STROKE : ANIMATED_SWEEP_STROKE);
                 g.drawRoundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 6, 6);
                 g.setPaint(oldPaint);
             }
@@ -330,7 +336,7 @@ public class CooldownRenderer
             int len = Math.max(4, Math.min(bounds.width, bounds.height) / 4);
             int x1 = bounds.x + 1, y1 = bounds.y + 1;
             int x2 = bounds.x + bounds.width - 2, y2 = bounds.y + bounds.height - 2;
-            g.setStroke(strength > 1.25f ? BOLD_BOX_STROKE : BOX_STROKE);
+            g.setStroke(bold ? BOLD_BOX_STROKE : BOX_STROKE);
             g.setColor(new Color(r, gr, b, clampAlpha(Math.max(100, Math.min(255, base.getAlpha() * pulse)) * strength)));
             g.drawLine(x1, y1, x1 + len, y1); g.drawLine(x1, y1, x1, y1 + len);
             g.drawLine(x2, y1, x2 - len, y1); g.drawLine(x2, y1, x2, y1 + len);
@@ -339,7 +345,7 @@ public class CooldownRenderer
         }
         else if (border == BorderStyle.BOX)
         {
-            g.setStroke(strength > 1.25f ? BOLD_BOX_STROKE : BOX_STROKE);
+            g.setStroke(bold ? BOLD_BOX_STROKE : BOX_STROKE);
             g.setColor(new Color(r, gr, b, clampAlpha(Math.max(80, Math.min(255, base.getAlpha() * pulse)) * strength)));
             g.drawRoundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 4, 4);
         }

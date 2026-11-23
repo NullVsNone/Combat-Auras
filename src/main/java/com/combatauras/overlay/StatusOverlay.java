@@ -4,6 +4,7 @@ import com.combatauras.config.CombatAurasConfig;
 import com.combatauras.model.CombatSpell;
 import com.combatauras.model.ReminderFamily;
 import com.combatauras.model.StatusEffect;
+import com.combatauras.render.Motion;
 import com.combatauras.render.ProceduralRenderer;
 import com.combatauras.settings.Settings;
 import com.combatauras.settings.SettingsSnapshot;
@@ -65,6 +66,7 @@ public class StatusOverlay extends Overlay
     // Client-thread-sampled live severities (index: StatusEffect ordinal; only tick-sampled ones are written)
     private final float[] liveSeverity = new float[STATUSES.length];
     private volatile int cachedSpellbook = 0;
+    private long prayerLowSince;
 
     // Render-thread reusable primitive buffers (zero per-frame heap allocations)
     private final float[] statusSeverities = new float[STATUSES.length];
@@ -76,6 +78,13 @@ public class StatusOverlay extends Overlay
     private final int[] showerSpriteIds = new int[SPELLS.length + STATUSES.length];
     private final int[] showerSpriteColors = new int[SPELLS.length + STATUSES.length];
     private final int[] glowExtraColors = new int[SPELLS.length + MAX_ITEMS];
+    private final float[] glowExtraPulse = new float[SPELLS.length + MAX_ITEMS];
+    private final float[] glowExtraFade = new float[SPELLS.length + MAX_ITEMS];
+    // When each spell / reminder family's screen glow appeared, for its one-tick fade-in (0 = not showing)
+    private final long[] spellGlowSince = new long[SPELLS.length];
+    private final boolean[] spellGlowSeen = new boolean[SPELLS.length];
+    private final long[] familyGlowSince = new long[ReminderFamily.values().length];
+    private final boolean[] familyGlowSeen = new boolean[ReminderFamily.values().length];
     private final int[] readyItemIds = new int[MAX_ITEMS + STATUSES.length];
     private final int[] readyItemColors = new int[MAX_ITEMS + STATUSES.length];
     private final int[] readyItemFamilies = new int[MAX_ITEMS + STATUSES.length];
@@ -190,20 +199,28 @@ public class StatusOverlay extends Overlay
         SettingsSnapshot s = settings.get();
         long nowNanos = System.nanoTime();
 
+        if (!isPrayerLow())
+        {
+            prayerLowSince = 0L;
+        }
+        else if (prayerLowSince == 0L)
+        {
+            prayerLowSince = nowNanos;
+        }
         populateStatusArrays(s, nowNanos);
         int rawSpellCount = s.anyDebugPreview
             ? collectDebugSpells(s)
             : spellTracker.collectReadySpells(combatState, s, cachedSpellbook, true, readySpellOrdinals, readySpellColors);
         int readySpellCount = filterSpellsByDuration(s, rawSpellCount, nowNanos);
         int readyItemCount = collectReadyItems(s);
-        int glowExtraCount = buildGlowExtras(s, readySpellCount, readyItemCount);
+        int glowExtraCount = buildGlowExtras(s, readySpellCount, readyItemCount, nowNanos);
         int showerSpriteCount = buildSpriteShower(s, readySpellCount);
         int showerItemCount = buildItemShower(s, readyItemCount);
 
         renderer.render(graphics, client.getCanvasWidth(), client.getCanvasHeight(), nowNanos, s,
             client, spriteManager, itemManager,
             statusSeverities, statusColors,
-            glowExtraCount, glowExtraColors,
+            glowExtraCount, glowExtraColors, glowExtraPulse, glowExtraFade,
             showerSpriteCount, showerSpriteIds, showerSpriteColors,
             showerItemCount, readyItemIds, readyItemColors);
         return null;
@@ -222,6 +239,7 @@ public class StatusOverlay extends Overlay
                 {
                     rawStatusSeverities[e.ordinal()] = s.previewIntensity;
                 }
+                applyDuration(e.ordinal(), 0, nowNanos); // tracks when the preview appeared, for its fade-in
             }
         }
         else
@@ -239,7 +257,9 @@ public class StatusOverlay extends Overlay
             statusColors[i] = s.statusColor(i);
             if (s.statusGlow(i))
             {
-                statusSeverities[i] = rawStatusSeverities[i];
+                // Warnings ease in over one tick; hit flashes (damage, poison / venom ticks) stay instant
+                float fade = isImpact(STATUSES[i]) ? 1f : Motion.fadeIn(statusActiveSince[i], nowNanos);
+                statusSeverities[i] = rawStatusSeverities[i] * fade;
             }
         }
     }
@@ -354,23 +374,60 @@ public class StatusOverlay extends Overlay
         return idx + 1;
     }
 
-    private int buildGlowExtras(SettingsSnapshot s, int spellCount, int itemCount)
+    private static boolean isImpact(StatusEffect e)
+    {
+        return e == StatusEffect.DAMAGE || e == StatusEffect.POISON_TICK || e == StatusEffect.VENOM_TICK;
+    }
+
+    private static float trackFade(long[] since, boolean[] seen, int i, long nowNanos)
+    {
+        seen[i] = true;
+        if (since[i] == 0L)
+        {
+            since[i] = nowNanos;
+        }
+        return Motion.fadeIn(since[i], nowNanos);
+    }
+
+    private static void forgetUnseen(long[] since, boolean[] seen)
+    {
+        for (int i = 0; i < since.length; i++)
+        {
+            if (!seen[i])
+            {
+                since[i] = 0L;
+            }
+            seen[i] = false;
+        }
+    }
+
+    private int buildGlowExtras(SettingsSnapshot s, int spellCount, int itemCount, long nowNanos)
     {
         int out = 0;
         for (int i = 0; i < spellCount; i++)
         {
-            if (s.spellGlow(readySpellOrdinals[i]))
+            int ord = readySpellOrdinals[i];
+            if (s.spellGlow(ord))
             {
-                glowExtraColors[out++] = readySpellColors[i];
+                glowExtraColors[out] = readySpellColors[i];
+                glowExtraPulse[out] = s.spellPulse(ord);
+                glowExtraFade[out] = trackFade(spellGlowSince, spellGlowSeen, ord, nowNanos);
+                out++;
             }
         }
         for (int i = 0; i < itemCount; i++)
         {
-            if (s.familyGlow(readyItemFamilies[i]))
+            int fam = readyItemFamilies[i];
+            if (s.familyGlow(fam))
             {
-                glowExtraColors[out++] = readyItemColors[i];
+                glowExtraColors[out] = readyItemColors[i];
+                glowExtraPulse[out] = s.familyPulse(fam);
+                glowExtraFade[out] = trackFade(familyGlowSince, familyGlowSeen, fam, nowNanos);
+                out++;
             }
         }
+        forgetUnseen(spellGlowSince, spellGlowSeen);
+        forgetUnseen(familyGlowSince, familyGlowSeen);
         return out;
     }
 
@@ -443,5 +500,14 @@ public class StatusOverlay extends Overlay
     public boolean isPrayerLow()
     {
         return settings.get().statusDebug(StatusEffect.LOW_PRAYER.ordinal()) || isLive(StatusEffect.LOW_PRAYER);
+    }
+
+    /**
+     * When prayer went low (System.nanoTime), for the restore glow's fade-in; 0 when not low. Updated every frame
+     * by the screen overlay, so it stays current even while no restore potion is in the inventory.
+     */
+    public long prayerLowSinceNanos()
+    {
+        return prayerLowSince;
     }
 }

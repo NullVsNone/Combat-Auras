@@ -12,7 +12,15 @@ All notable changes to Combat Auras. Dates are UTC.
   (Shared Combat Spells), the spec orb (Special Attack Ready) and prayer restores (Low Prayer). Inventory ready
   highlights keep their Single flash / Pulse / Solid choice.
 
+- **Heartbeat pulse** on every lasting screen glow, not only Low Health: each spell, warning and reminder section
+  has the same *Heartbeat pulse* slider (off by default; Low Health keeps 60%). With it off, spells and reminders keep
+  their gentle breathing.
+- **One-tick fade-in**: screen glows, icon showers and every icon glow (inventory ready highlights, prayer restores,
+  spell icons, the Magic tab, the spec orb) now ease in over 600 ms instead of appearing at full strength. Hit
+  flashes (damage, poison and venom ticks) stay instant.
+
 ### Changed
+- Low Health's *Heartbeat pulse* moved next to the other per-section options (same setting, same value).
 - *Motion strength* now drives every animation, not only the screen glow: icon pulses, breathing and sweeping
   borders, the inventory Pulse ready animation and shower sway. At 0% they hold steady at full strength.
 - The low-prayer restore highlight follows the inventory *Ready border* style and the new glow strength

@@ -75,7 +75,7 @@ public class RendererAndConfigTest
             canvas = new BufferedImage(400, 300, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = canvas.createGraphics();
             renderer.render(g, 400, 300, t, com.combatauras.settings.SettingsSnapshot.of(cfg), null, null, null, severities, colors,
-                0, new int[0], 0, new int[0], new int[0], 0, new int[0], new int[0]);
+                0, new int[0], new float[0], new float[0], 0, new int[0], new int[0], 0, new int[0], new int[0]);
             g.dispose();
             t += 50_000_000L;
         }
@@ -99,7 +99,7 @@ public class RendererAndConfigTest
             BufferedImage canvas = new BufferedImage(200, 150, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = canvas.createGraphics();
             renderer.render(g, 200, 150, t, s, null, null, null, sev, colors,
-                0, new int[0], 0, new int[0], new int[0], 0, new int[0], new int[0]);
+                0, new int[0], new float[0], new float[0], 0, new int[0], new int[0], 0, new int[0], new int[0]);
             g.dispose();
             t += 16_000_000L; // 60 fps across a full heartbeat
         }
@@ -319,7 +319,7 @@ public class RendererAndConfigTest
                 g, 400, 300, System.nanoTime(), com.combatauras.settings.SettingsSnapshot.of(cfg),
                 null, null, null,
                 severities, colors,
-                spriteIds.length, spriteCols,
+                spriteIds.length, spriteCols, new float[spriteIds.length], fullFade(spriteIds.length),
                 spriteIds.length, spriteIds, spriteCols,
                 itemIds.length, itemIds, itemCols
             );
@@ -469,8 +469,8 @@ public class RendererAndConfigTest
         Rectangle bounds = new Rectangle(10, 10, 32, 32);
 
         SettingsSnapshot snap = SettingsSnapshot.of(cfg);
-        cr.renderItemCooldown(g, bounds, 23685, Cooldown.active(10, 20), snap, null, System.nanoTime(), 0f);
-        cr.renderItemCooldown(g, bounds, 23685, Cooldown.ready(), snap, null, System.nanoTime(), 1f);
+        cr.renderItemCooldown(g, bounds, 23685, Cooldown.active(10, 20), snap, null, System.nanoTime(), 0f, 1f);
+        cr.renderItemCooldown(g, bounds, 23685, Cooldown.ready(), snap, null, System.nanoTime(), 1f, 1f);
         BufferedImage sprite = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         for (int y = 5; y < 11; y++)
         {
@@ -488,7 +488,7 @@ public class RendererAndConfigTest
 
         for (BorderStyle bs : BorderStyle.values())
         {
-            CooldownRenderer.drawStyledGlow(g, bounds, outline, aura, cfg.readyColor(), bs, 0.8, System.nanoTime(), snap);
+            CooldownRenderer.drawStyledGlow(g, bounds, outline, aura, cfg.readyColor(), bs, 0.8, 1f, System.nanoTime(), snap);
         }
         g.dispose();
 
@@ -533,7 +533,19 @@ public class RendererAndConfigTest
         Assert.assertEquals(com.combatauras.model.GlowAnimation.PULSE, s.lowPrayerGlowAnimation);
     }
 
+    private static float[] fullFade(int n)
+    {
+        float[] f = new float[n];
+        java.util.Arrays.fill(f, 1f);
+        return f;
+    }
+
     private static int centreAlphaAfterOutline(int strengthPercent)
+    {
+        return centreAlphaAfterOutline(strengthPercent, 1f);
+    }
+
+    private static int centreAlphaAfterOutline(int strengthPercent, float fade)
     {
         CombatAurasConfig cfg = new CombatAurasConfig()
         {
@@ -545,7 +557,7 @@ public class RendererAndConfigTest
         BufferedImage canvas = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = canvas.createGraphics();
         CooldownRenderer.drawStyledGlow(g, new Rectangle(0, 0, 8, 8), outline, null, new Color(0, 255, 255, 120),
-            BorderStyle.ITEM_OUTLINE, 1.0, 0L, SettingsSnapshot.of(cfg));
+            BorderStyle.ITEM_OUTLINE, 1.0, fade, 0L, SettingsSnapshot.of(cfg));
         g.dispose();
         return canvas.getRGB(4, 4) >>> 24;
     }
@@ -567,5 +579,66 @@ public class RendererAndConfigTest
         CombatAurasConfig cfg = new CombatAurasConfig() {};
         Assert.assertEquals(66, cfg.showerOpacity());
         Assert.assertEquals(0.66f, SettingsSnapshot.of(cfg).showerOpacity, 0.0001f);
+    }
+
+    // ---------------------------------------------------------------- one-tick fade-in, heartbeat everywhere
+
+    @Test
+    public void fadeInEasesFromZeroToFullOverOneTick()
+    {
+        long since = 5_000_000_000L;
+        Assert.assertEquals(0f, Motion.fadeIn(since, since), 0f);
+        float early = Motion.fadeIn(since, since + 150_000_000L);
+        float mid = Motion.fadeIn(since, since + 300_000_000L);
+        Assert.assertTrue(early > 0f && early < mid);
+        Assert.assertEquals("smoothstep is half way at half time", 0.5f, mid, 0.001f);
+        Assert.assertEquals(1f, Motion.fadeIn(since, since + Motion.FADE_IN_NANOS), 0f);
+        Assert.assertEquals("untracked shows at once", 1f, Motion.fadeIn(0L, since), 0f);
+
+        Assert.assertEquals("nothing drawn at the start of a fade", 0, centreAlphaAfterOutline(100, 0f));
+        Assert.assertTrue("half faded is dimmer", centreAlphaAfterOutline(100, 0.5f) < centreAlphaAfterOutline(100, 1f));
+    }
+
+    @Test
+    public void heartbeatPulseIsAvailableOnEveryScreenGlow()
+    {
+        CombatAurasConfig cfg = new CombatAurasConfig()
+        {
+            @Override
+            public int spellThrallPulse() { return 80; }
+
+            @Override
+            public int poisonPulse() { return 50; }
+
+            @Override
+            public int heartPulse() { return 30; }
+        };
+        SettingsSnapshot s = SettingsSnapshot.of(cfg);
+        Assert.assertEquals("Low Health keeps its heartbeat", 0.6f, s.statusPulse(StatusEffect.LOW_HEALTH.ordinal()), 0.001f);
+        Assert.assertEquals(0.5f, s.statusPulse(StatusEffect.POISON.ordinal()), 0.001f);
+        Assert.assertEquals(0.8f, s.spellPulse(CombatSpell.RESURRECT_THRALL.ordinal()), 0.001f);
+        Assert.assertEquals(0.3f, s.familyPulse(com.combatauras.model.ReminderFamily.HEART.ordinal()), 0.001f);
+        Assert.assertEquals("off by default elsewhere", 0f, SettingsSnapshot.of(new CombatAurasConfig() {})
+            .spellPulse(CombatSpell.VENGEANCE.ordinal()), 0f);
+        Assert.assertEquals("hit flashes have no pulse", 0f, s.statusPulse(StatusEffect.DAMAGE.ordinal()), 0f);
+
+        // A heartbeat on a spell glow changes the edge alpha over time
+        ProceduralRenderer renderer = new ProceduralRenderer();
+        int[] extra = {0xC8A050FF};
+        float[] pulse = {1f};
+        java.util.Set<Integer> alphas = new java.util.HashSet<>();
+        long t = 1_000_000_000L;
+        for (int i = 0; i < 60; i++)
+        {
+            BufferedImage canvas = new BufferedImage(200, 150, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = canvas.createGraphics();
+            renderer.render(g, 200, 150, t, s, null, null, null, new float[StatusEffect.values().length],
+                new int[StatusEffect.values().length], 1, extra, pulse, fullFade(1),
+                0, new int[0], new int[0], 0, new int[0], new int[0]);
+            g.dispose();
+            alphas.add((canvas.getRGB(1, 75) >>> 24) & 0xFF);
+            t += 50_000_000L;
+        }
+        Assert.assertTrue("heartbeat animates the spell glow", alphas.size() > 3);
     }
 }

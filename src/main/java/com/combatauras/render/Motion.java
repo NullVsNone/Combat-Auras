@@ -54,6 +54,38 @@ public final class Motion
         return animation == GlowAnimation.STEADY ? 1f : pulse(nowNanos, ICON_PULSE_RATE, 0.10f, motion);
     }
 
+    /** How long anything newly shown takes to fade in: one game tick. */
+    public static final long FADE_IN_NANOS = 600_000_000L;
+
+    /**
+     * 0..1 fade-in (smoothstep, so it eases in and out) for something that appeared at {@code sinceNanos}.
+     * A {@code sinceNanos} of 0 means "not tracked" and returns 1.
+     */
+    public static float fadeIn(long sinceNanos, long nowNanos)
+    {
+        if (sinceNanos <= 0L)
+        {
+            return 1f;
+        }
+        long elapsed = nowNanos - sinceNanos;
+        if (elapsed >= FADE_IN_NANOS)
+        {
+            return 1f;
+        }
+        if (elapsed <= 0L)
+        {
+            return 0f;
+        }
+        float t = elapsed / (float) FADE_IN_NANOS;
+        return t * t * (3f - 2f * t);
+    }
+
+    /** Low-HP heartbeat multiplier for a glow with heartbeat strength {@code strength} (0..1), scaled by motion. */
+    public static float heartbeat(long nowNanos, float strength, float motion)
+    {
+        return pulse(nowNanos, HEARTBEAT_RATE, 0.65f, strength * motion);
+    }
+
     /** Elapsed animation angle in radians, slowed by motion (0 = frozen). */
     public static double angle(long nowNanos, double radPerSec, float motion)
     {

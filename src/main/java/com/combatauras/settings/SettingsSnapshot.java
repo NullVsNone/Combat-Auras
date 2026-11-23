@@ -45,7 +45,6 @@ public final class SettingsSnapshot
     public final boolean glowBottom;
     public final boolean glowLeft;
     public final boolean glowRight;
-    public final float healthPulseStrength;
     public final float previewIntensity;
 
     // ---- icon shower
@@ -97,6 +96,8 @@ public final class SettingsSnapshot
     private final int[] statusDurationSeconds = new int[STATUSES];
     private final Notification[] statusNotification = new Notification[STATUSES];
     private final boolean[] statusDebug = new boolean[STATUSES];
+    /** Heartbeat pulse strength 0..1 (Low Health's "Heartbeat pulse", and the same option on every other glow). */
+    private final float[] statusPulse = new float[STATUSES];
 
     // ---- spells (index: CombatSpell.ordinal())
     public final boolean spellsEnabled;
@@ -118,6 +119,7 @@ public final class SettingsSnapshot
     private final int[] spellLeadTicks = new int[SPELLS];
     private final boolean[] spellRecastProtection = new boolean[SPELLS];
     private final boolean[] spellDebug = new boolean[SPELLS];
+    private final float[] spellPulse = new float[SPELLS];
 
     // ---- item reminder families (index: ReminderFamily.ordinal())
     private final boolean[] familyEnabled = new boolean[FAMILIES];
@@ -129,6 +131,7 @@ public final class SettingsSnapshot
     private final boolean[] familyOnlyInCombat = new boolean[FAMILIES];
     private final int[] familyLeadTicks = new int[FAMILIES];
     private final boolean[] familyDebug = new boolean[FAMILIES];
+    private final float[] familyPulse = new float[FAMILIES];
 
     // ---- potion effects (index: PotionEffect.ordinal())
     private final boolean[] potionRemind = new boolean[EFFECTS];
@@ -157,7 +160,6 @@ public final class SettingsSnapshot
         glowBottom = c.glowBottom();
         glowLeft = c.glowLeft();
         glowRight = c.glowRight();
-        healthPulseStrength = c.healthPulseStrength() / 100f;
         previewIntensity = c.previewIntensity() / 100f;
 
         showerStartLocation = c.showerStartLocation();
@@ -208,6 +210,7 @@ public final class SettingsSnapshot
             statusDurationSeconds[i] = b.durationSeconds.applyAsInt(c);
             statusNotification[i] = b.notification.apply(c);
             statusDebug[i] = b.debug.test(c);
+            statusPulse[i] = b.pulse.applyAsInt(c) / 100f;
             debug |= statusDebug[i];
         }
 
@@ -236,6 +239,7 @@ public final class SettingsSnapshot
             spellLeadTicks[i] = secondsToTicks(b.leadSeconds.applyAsInt(c));
             spellRecastProtection[i] = b.recastProtection.test(c);
             spellDebug[i] = b.debug.test(c);
+            spellPulse[i] = b.pulse.applyAsInt(c) / 100f;
             debug |= spellDebug[i];
         }
 
@@ -252,6 +256,7 @@ public final class SettingsSnapshot
             familyOnlyInCombat[i] = b.onlyInCombat.test(c);
             familyLeadTicks[i] = secondsToTicks(b.leadSeconds.applyAsInt(c));
             familyDebug[i] = b.debug.test(c);
+            familyPulse[i] = b.pulse.applyAsInt(c) / 100f;
             debug |= familyDebug[i];
         }
         anyDebugPreview = debug;
@@ -463,5 +468,20 @@ public final class SettingsSnapshot
     public int redoseLevel(int index)
     {
         return redoseLevel[index];
+    }
+
+    public float statusPulse(int index)
+    {
+        return statusPulse[index];
+    }
+
+    public float spellPulse(int index)
+    {
+        return spellPulse[index];
+    }
+
+    public float familyPulse(int index)
+    {
+        return familyPulse[index];
     }
 }

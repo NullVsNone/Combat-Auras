@@ -234,6 +234,11 @@ public class RemindersAndLayoutTest
             Assert.assertEquals(e.getKey() + " slot 0", "Enable", slots.get(0));
             check(e.getKey(), slots, 10, "Color");
             check(e.getKey(), slots, 11, "Screen glow");
+            if ("Screen glow".equals(slots.get(11)) && !e.getKey().equals("warnDamageSection"))
+            {
+                // every lasting screen glow can pulse like Low Health
+                Assert.assertEquals(e.getKey() + " slot 9", "Heartbeat pulse", slots.get(9));
+            }
             check(e.getKey(), slots, 12, "Shower icon");
             check(e.getKey(), slots, 14, "Notification");
             check(e.getKey(), slots, 15, "Reminder duration");

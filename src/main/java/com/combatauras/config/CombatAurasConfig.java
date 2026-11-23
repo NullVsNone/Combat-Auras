@@ -326,7 +326,7 @@ public interface CombatAurasConfig extends Config
 
     @Range(min = 0, max = 100)
     @Units(Units.PERCENT)
-    @ConfigItem(keyName = "healthPulseStrength", name = "Heartbeat pulse", description = "Strength of the low-health heartbeat pulse.", section = warnLowHealthSection, position = 2)
+    @ConfigItem(keyName = "healthPulseStrength", name = "Heartbeat pulse", description = "Strength of the low-health heartbeat pulse.", section = warnLowHealthSection, position = 9)
     default int healthPulseStrength() { return 60; }
 
     @Range(min = 0, max = 100)
@@ -412,6 +412,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "lowPrayerEscalation", name = "Danger escalation", description = "Extra intensity as prayer drops further below the threshold.", section = warnPrayerSection, position = 3)
     default int lowPrayerEscalation() { return 60; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "lowPrayerPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnPrayerSection, position = 9)
+    default int lowPrayerPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "lowPrayerColor", name = "Color", description = "Color for low prayer vignette and inventory glow.", section = warnPrayerSection, position = 10)
     default Color lowPrayerColor() { return new Color(52, 158, 224, 200); }
@@ -446,6 +451,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "poisonEnabled", name = "Enable", description = "Track poison status.", section = warnPoisonSection, position = 0)
     default boolean poisonEnabled() { return true; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "poisonPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnPoisonSection, position = 9)
+    default int poisonPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "poisonColor", name = "Color", description = "Color for poison vignette.", section = warnPoisonSection, position = 10)
     default Color poisonColor() { return new Color(54, 178, 62, 195); }
@@ -473,6 +483,11 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "venomEnabled", name = "Enable", description = "Track venom status.", section = warnVenomSection, position = 0)
     default boolean venomEnabled() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "venomPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnVenomSection, position = 9)
+    default int venomPulse() { return 0; }
 
     @Alpha
     @ConfigItem(keyName = "venomColor", name = "Color", description = "Color for venom vignette.", section = warnVenomSection, position = 10)
@@ -502,6 +517,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "diseaseEnabled", name = "Enable", description = "Track disease status.", section = warnDiseaseSection, position = 0)
     default boolean diseaseEnabled() { return true; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "diseasePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnDiseaseSection, position = 9)
+    default int diseasePulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "diseaseColor", name = "Color", description = "Color for disease vignette.", section = warnDiseaseSection, position = 10)
     default Color diseaseColor() { return new Color(186, 152, 42, 195); }
@@ -529,6 +549,11 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "freezeEnabled", name = "Enable", description = "Track freeze/entangle status.", section = warnFreezeSection, position = 0)
     default boolean freezeEnabled() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "freezePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnFreezeSection, position = 9)
+    default int freezePulse() { return 0; }
 
     @Alpha
     @ConfigItem(keyName = "freezeColor", name = "Color", description = "Color for freeze vignette.", section = warnFreezeSection, position = 10)
@@ -574,6 +599,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "idleAutoHide", name = "Auto-hide", description = "Fade out the idle warning once it has been at full strength for the Reminder duration.", section = warnIdleSection, position = 4)
     default boolean idleAutoHide() { return false; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "idlePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnIdleSection, position = 9)
+    default int idlePulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "idleColor", name = "Color", description = "Color of the idle screen-edge glow.", section = warnIdleSection, position = 10)
     default Color idleColor() { return new Color(235, 135, 35, 210); }
@@ -616,6 +646,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "specOrbAnimation", name = "Orb glow animation", description = "Pulse: the spec orb glow pulses (its depth follows Motion strength). Steady: constant strength.", section = warnSpecSection, position = 4)
     default GlowAnimation specOrbAnimation() { return GlowAnimation.PULSE; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "specPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnSpecSection, position = 9)
+    default int specPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "specColor", name = "Color", description = "Color of the spec ready glow.", section = warnSpecSection, position = 10)
     default Color specColor() { return new Color(45, 212, 191, 190); }
@@ -655,6 +690,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "lowRunOnlyInCombat", name = "Only in combat", description = "Only trigger while in combat.", section = warnLowRunSection, position = 2)
     default boolean lowRunOnlyInCombat() { return true; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "lowRunPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnLowRunSection, position = 9)
+    default int lowRunPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "lowRunColor", name = "Color", description = "Color of the low run energy glow.", section = warnLowRunSection, position = 10)
     default Color lowRunColor() { return new Color(234, 179, 8, 195); }
@@ -686,6 +726,11 @@ public interface CombatAurasConfig extends Config
     @Range(min = 0, max = 10)
     @ConfigItem(keyName = "unpottedThreshold", name = "Boost threshold", description = "Trigger if boosted level is at or below real level + this value.", section = warnUnpottedSection, position = 1)
     default int unpottedThreshold() { return 1; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "unpottedPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnUnpottedSection, position = 9)
+    default int unpottedPulse() { return 0; }
 
     @Alpha
     @ConfigItem(keyName = "unpottedColor", name = "Color", description = "Color of the unpotted-in-combat glow.", section = warnUnpottedSection, position = 10)
@@ -722,6 +767,11 @@ public interface CombatAurasConfig extends Config
     @Units(Units.SECONDS)
     @ConfigItem(keyName = "heartPreRemindSeconds", name = "Warn early", description = "Start the Heart reminder this many seconds before it can be used again, so you can re-dose without losing uptime (0 = when ready).", section = warnHeartSection, position = 2)
     default int heartPreRemindSeconds() { return 0; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "heartPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnHeartSection, position = 9)
+    default int heartPulse() { return 0; }
 
     @Alpha
     @ConfigItem(keyName = "heartReminderColor", name = "Color", description = "Color when the Heart becomes ready again.", section = warnHeartSection, position = 10)
@@ -789,6 +839,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "divinePreRemindSeconds", name = "Divine: warn early", description = "Start the divine potion reminder this many seconds before it expires, so you can re-dose without losing uptime.", section = potionRemindersSection, position = 8)
     default int divinePreRemindSeconds() { return 0; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "buffPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnPotionsBuffsSection, position = 9)
+    default int buffPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "buffReminderColor", name = "Color", description = "Color when a potion you used expires.", section = warnPotionsBuffsSection, position = 10)
     default Color buffReminderColor() { return new Color(65, 215, 145, 200); }
@@ -845,6 +900,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "boostOnlyInCombat", name = "Only remind in combat", description = "Only show boost re-dose reminders while in combat.", section = boostSection, position = 7)
     default boolean boostOnlyInCombat() { return true; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "boostPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = boostSection, position = 9)
+    default int boostPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "boostReminderColor", name = "Color", description = "Color when a boost potion is ready to re-dose.", section = boostSection, position = 10)
     default Color boostReminderColor() { return new Color(239, 68, 68, 200); }
@@ -891,6 +951,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "thrallRemindOnCombatStart", name = "Remind on combat start", description = "Remind to summon a Thrall as soon as combat starts, even before your first cast.", section = spellThrallSection, position = 2)
     default boolean thrallRemindOnCombatStart() { return false; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellThrallPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellThrallSection, position = 9)
+    default int spellThrallPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "spellThrallColor", name = "Color", description = "Glow color for Resurrect Thrall.", section = spellThrallSection, position = 10)
     default Color spellThrallColor() { return new Color(138, 92, 246, 210); }
@@ -929,6 +994,11 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "spellDeathChargeRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Death Charge while it is active or on cooldown (right-click still casts).", section = spellDeathChargeSection, position = 1)
     default boolean spellDeathChargeRecastProtection() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellDeathChargePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellDeathChargeSection, position = 9)
+    default int spellDeathChargePulse() { return 0; }
 
     @Alpha
     @ConfigItem(keyName = "spellDeathChargeColor", name = "Color", description = "Glow color for Death Charge.", section = spellDeathChargeSection, position = 10)
@@ -969,6 +1039,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellMarkOfDarknessRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Mark of Darkness while it is active or on cooldown (off by default: some players refresh it early) (right-click still casts).", section = spellMarkOfDarknessSection, position = 1)
     default boolean spellMarkOfDarknessRecastProtection() { return false; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellMarkOfDarknessPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellMarkOfDarknessSection, position = 9)
+    default int spellMarkOfDarknessPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "spellMarkOfDarknessColor", name = "Color", description = "Glow color for Mark of Darkness.", section = spellMarkOfDarknessSection, position = 10)
     default Color spellMarkOfDarknessColor() { return new Color(80, 175, 255, 210); }
@@ -1007,6 +1082,11 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "spellWardOfArceuusRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Ward of Arceuus while it is on cooldown (right-click still casts).", section = spellWardOfArceuusSection, position = 1)
     default boolean spellWardOfArceuusRecastProtection() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellWardOfArceuusPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellWardOfArceuusSection, position = 9)
+    default int spellWardOfArceuusPulse() { return 0; }
 
     @Alpha
     @ConfigItem(keyName = "spellWardOfArceuusColor", name = "Color", description = "Glow color for Ward of Arceuus.", section = spellWardOfArceuusSection, position = 10)
@@ -1050,6 +1130,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellShadowVeilRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Shadow Veil while it is active or on cooldown (right-click still casts).", section = spellShadowVeilSection, position = 1)
     default boolean spellShadowVeilRecastProtection() { return true; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellShadowVeilPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellShadowVeilSection, position = 9)
+    default int spellShadowVeilPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "spellShadowVeilColor", name = "Color", description = "Glow color for Shadow Veil.", section = spellShadowVeilSection, position = 10)
     default Color spellShadowVeilColor() { return new Color(140, 120, 190, 200); }
@@ -1088,6 +1173,11 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "spellCorruptionRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Lesser/Greater Corruption while it is on cooldown (right-click still casts).", section = spellCorruptionSection, position = 1)
     default boolean spellCorruptionRecastProtection() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellCorruptionPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellCorruptionSection, position = 9)
+    default int spellCorruptionPulse() { return 0; }
 
     @Alpha
     @ConfigItem(keyName = "spellCorruptionColor", name = "Color", description = "Glow color for Corruption.", section = spellCorruptionSection, position = 10)
@@ -1128,6 +1218,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellVengeanceRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Vengeance while it is still charged or on cooldown (right-click still casts).", section = spellVengeanceSection, position = 1)
     default boolean spellVengeanceRecastProtection() { return true; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellVengeancePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellVengeanceSection, position = 9)
+    default int spellVengeancePulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "spellVengeanceColor", name = "Color", description = "Glow color for Vengeance.", section = spellVengeanceSection, position = 10)
     default Color spellVengeanceColor() { return new Color(245, 158, 11, 210); }
@@ -1167,6 +1262,11 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellVengeanceOtherRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on Vengeance Other while it is on cooldown (right-click still casts).", section = spellVengeanceOtherSection, position = 1)
     default boolean spellVengeanceOtherRecastProtection() { return true; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellVengeanceOtherPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellVengeanceOtherSection, position = 9)
+    default int spellVengeanceOtherPulse() { return 0; }
+
     @Alpha
     @ConfigItem(keyName = "spellVengeanceOtherColor", name = "Color", description = "Glow color for Vengeance Other.", section = spellVengeanceOtherSection, position = 10)
     default Color spellVengeanceOtherColor() { return new Color(235, 190, 60, 200); }
@@ -1205,6 +1305,11 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "spellChargeNeedsGodCape", name = "Only with a god cape", description = "Charge only boosts god spells cast while wearing a god cape, so only remind while one is worn.", section = spellChargeSection, position = 1)
     default boolean spellChargeNeedsGodCape() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "spellChargePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellChargeSection, position = 9)
+    default int spellChargePulse() { return 0; }
 
     @Alpha
     @ConfigItem(keyName = "spellChargeColor", name = "Color", description = "Glow color for Charge.", section = spellChargeSection, position = 10)

@@ -2,7 +2,6 @@ package com.combatauras.render;
 
 import com.combatauras.settings.SettingsSnapshot;
 import com.combatauras.model.ShowerStartLocation;
-import com.combatauras.model.StatusEffect;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Composite;
@@ -110,6 +109,8 @@ public class ProceduralRenderer
         int[] statusColors,
         int glowExtraCount,
         int[] glowExtraColors,
+        float[] glowExtraPulse,
+        float[] glowExtraFade,
         int showerSpriteCount,
         int[] showerSpriteIds,
         int[] showerSpriteColors,
@@ -169,7 +170,9 @@ public class ProceduralRenderer
                 statusSeverities,
                 statusColors,
                 glowExtraCount,
-                glowExtraColors
+                glowExtraColors,
+                glowExtraPulse,
+                glowExtraFade
             );
         }
 
@@ -199,7 +202,9 @@ public class ProceduralRenderer
         float[] statusSeverities,
         int[] statusColors,
         int extraCount,
-        int[] extraColors
+        int[] extraColors,
+        float[] extraPulse,
+        float[] extraFade
     )
     {
         float rAcc = 0f;
@@ -208,12 +213,6 @@ public class ProceduralRenderer
         float weightSum = 0f;
         float maxStrength = 0f;
         int strongestArgb = 0;
-
-        float pulseHealth = 1f;
-        if (statusSeverities[StatusEffect.LOW_HEALTH.ordinal()] > 0f && config.healthPulseStrength > 0f)
-        {
-            pulseHealth = Motion.pulse(nowNanos, Motion.HEARTBEAT_RATE, 0.65f, config.healthPulseStrength * motion);
-        }
 
         for (int i = 0; i < statusSeverities.length; i++)
         {
@@ -224,10 +223,11 @@ public class ProceduralRenderer
             }
             int argb = statusColors[i];
             float a = ((argb >>> 24) & 0xFF) / 255f;
-            // Colour mix uses the steady weight; the pulse only animates strength, so the blended colour (and the
-            // cached gradient paints built from it) stays constant while low HP pulses
+            // Colour mix uses the steady weight; the heartbeat only animates strength, so the blended colour (and the
+            // cached gradient paints built from it) stays constant while a warning pulses
             float cw = sev * a;
-            float w = i == StatusEffect.LOW_HEALTH.ordinal() ? cw * pulseHealth : cw;
+            float beat = config.statusPulse(i);
+            float w = beat > 0f ? cw * Motion.heartbeat(nowNanos, beat, motion) : cw;
             rAcc += ((argb >>> 16) & 0xFF) * cw;
             gAcc += ((argb >>> 8) & 0xFF) * cw;
             bAcc += (argb & 0xFF) * cw;
@@ -241,13 +241,14 @@ public class ProceduralRenderer
 
         if (extraCount > 0)
         {
-            float spellPulse = Motion.pulse(nowNanos, Motion.SCREEN_PULSE_RATE, 0.72f, motion);
+            // Spells and item reminders breathe gently by default, or use the heartbeat when one is set
+            float breathe = Motion.pulse(nowNanos, Motion.SCREEN_PULSE_RATE, 0.72f, motion);
             for (int i = 0; i < extraCount; i++)
             {
                 int argb = extraColors[i];
                 float a = ((argb >>> 24) & 0xFF) / 255f;
-                float cw = 0.65f * a;
-                float w = cw * spellPulse;
+                float cw = 0.65f * a * extraFade[i];
+                float w = cw * (extraPulse[i] > 0f ? Motion.heartbeat(nowNanos, extraPulse[i], motion) : breathe);
                 rAcc += ((argb >>> 16) & 0xFF) * cw;
                 gAcc += ((argb >>> 8) & 0xFF) * cw;
                 bAcc += (argb & 0xFF) * cw;
@@ -477,6 +478,7 @@ public class ProceduralRenderer
         float screenFrac = config.showerScreenFraction;
         ShowerStartLocation startLoc = config.showerStartLocation;
 
+        float showerFade = Motion.fadeIn(showerStartNanos, nowNanos); // the whole shower eases in over one tick
         for (int i = 0; i < maxIcons; i++)
         {
             int slot = i % totalSources;
@@ -502,7 +504,7 @@ public class ProceduralRenderer
             }
             double cycle = rawCycle % 1.0;
             float fade = (float) Math.sin(cycle * Math.PI);
-            float alpha = Math.max(0f, Math.min(1f, fade * config.showerOpacity));
+            float alpha = Math.max(0f, Math.min(1f, fade * config.showerOpacity * showerFade));
             if (alpha <= 0.03f)
             {
                 continue;

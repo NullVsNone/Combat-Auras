@@ -33,6 +33,15 @@ public final class Bindings
     /** Per-spell settings. */
     public static final class Spell
     {
+        /** Heartbeat pulse strength (0..100), set after construction; none by default. */
+        ToIntFunction<CombatAurasConfig> pulse = ZERO;
+
+        Spell pulse(ToIntFunction<CombatAurasConfig> pulse)
+        {
+            this.pulse = pulse;
+            return this;
+        }
+
         final Predicate<CombatAurasConfig> enabled;
         final Function<CombatAurasConfig, Color> color;
         final Predicate<CombatAurasConfig> glow;
@@ -66,6 +75,15 @@ public final class Bindings
     /** Per-warning settings. */
     public static final class Status
     {
+        /** Heartbeat pulse strength (0..100), set after construction; none by default. */
+        ToIntFunction<CombatAurasConfig> pulse = ZERO;
+
+        Status pulse(ToIntFunction<CombatAurasConfig> pulse)
+        {
+            this.pulse = pulse;
+            return this;
+        }
+
         final Predicate<CombatAurasConfig> enabled;
         final Function<CombatAurasConfig, Color> color;
         final Predicate<CombatAurasConfig> glow;
@@ -92,6 +110,15 @@ public final class Bindings
     /** Shared settings of an item reminder family (heart, potions, boosts). */
     public static final class Family
     {
+        /** Heartbeat pulse strength (0..100), set after construction; none by default. */
+        ToIntFunction<CombatAurasConfig> pulse = ZERO;
+
+        Family pulse(ToIntFunction<CombatAurasConfig> pulse)
+        {
+            this.pulse = pulse;
+            return this;
+        }
+
         final Predicate<CombatAurasConfig> enabled;
         final Function<CombatAurasConfig, Color> color;
         final Predicate<CombatAurasConfig> glow;
@@ -294,5 +321,32 @@ public final class Bindings
             CombatAurasConfig::remindPrayerRegeneration, CombatAurasConfig::prayerRegenerationLeadSeconds));
         POTIONS.put(PotionFamily.OTHER, new Potion(
             CombatAurasConfig::remindOtherPotions, CombatAurasConfig::otherPotionLeadSeconds));
+    }
+
+    // Heartbeat pulse per screen glow (one block so the long constructors above stay unchanged)
+    static
+    {
+        SPELLS.get(CombatSpell.RESURRECT_THRALL).pulse(CombatAurasConfig::spellThrallPulse);
+        SPELLS.get(CombatSpell.DEATH_CHARGE).pulse(CombatAurasConfig::spellDeathChargePulse);
+        SPELLS.get(CombatSpell.MARK_OF_DARKNESS).pulse(CombatAurasConfig::spellMarkOfDarknessPulse);
+        SPELLS.get(CombatSpell.WARD_OF_ARCEUUS).pulse(CombatAurasConfig::spellWardOfArceuusPulse);
+        SPELLS.get(CombatSpell.SHADOW_VEIL).pulse(CombatAurasConfig::spellShadowVeilPulse);
+        SPELLS.get(CombatSpell.CORRUPTION).pulse(CombatAurasConfig::spellCorruptionPulse);
+        SPELLS.get(CombatSpell.VENGEANCE).pulse(CombatAurasConfig::spellVengeancePulse);
+        SPELLS.get(CombatSpell.VENGEANCE_OTHER).pulse(CombatAurasConfig::spellVengeanceOtherPulse);
+        SPELLS.get(CombatSpell.CHARGE).pulse(CombatAurasConfig::spellChargePulse);
+        STATUSES.get(StatusEffect.LOW_HEALTH).pulse(CombatAurasConfig::healthPulseStrength);
+        STATUSES.get(StatusEffect.LOW_PRAYER).pulse(CombatAurasConfig::lowPrayerPulse);
+        STATUSES.get(StatusEffect.POISON).pulse(CombatAurasConfig::poisonPulse);
+        STATUSES.get(StatusEffect.VENOM).pulse(CombatAurasConfig::venomPulse);
+        STATUSES.get(StatusEffect.DISEASE).pulse(CombatAurasConfig::diseasePulse);
+        STATUSES.get(StatusEffect.FREEZE).pulse(CombatAurasConfig::freezePulse);
+        STATUSES.get(StatusEffect.IDLE).pulse(CombatAurasConfig::idlePulse);
+        STATUSES.get(StatusEffect.SPEC_READY).pulse(CombatAurasConfig::specPulse);
+        STATUSES.get(StatusEffect.LOW_RUN_ENERGY).pulse(CombatAurasConfig::lowRunPulse);
+        STATUSES.get(StatusEffect.UNPOTTED).pulse(CombatAurasConfig::unpottedPulse);
+        FAMILIES.get(ReminderFamily.HEART).pulse(CombatAurasConfig::heartPulse);
+        FAMILIES.get(ReminderFamily.POTION).pulse(CombatAurasConfig::buffPulse);
+        FAMILIES.get(ReminderFamily.BOOST).pulse(CombatAurasConfig::boostPulse);
     }
 }

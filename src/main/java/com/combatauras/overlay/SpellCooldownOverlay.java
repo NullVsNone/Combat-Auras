@@ -21,6 +21,7 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.geom.Arc2D;
+import java.util.Arrays;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
@@ -67,6 +68,9 @@ public class SpellCooldownOverlay extends Overlay
 
     private final Arc2D.Float reusableArc = new Arc2D.Float(Arc2D.PIE);
     private Color tabBlend;
+    // When each ready-glow appeared (System.nanoTime), for its one-tick fade-in; 0 = not glowing
+    private final long[] spellIconSince = new long[CombatSpell.values().length];
+    private long tabGlowSince;
     private final int[] readySpellOrdinals = new int[CombatSpell.values().length];
     private final int[] readySpellColors = new int[CombatSpell.values().length];
     private final KeyedCache<BufferedImage> spriteOutlineCache = new KeyedCache<>(128);
@@ -134,21 +138,22 @@ public class SpellCooldownOverlay extends Overlay
         // The snapshot already folds "Allow item & spellbook glows" into each glow flag below.
 
         // 1. Render cooldowns & ready glows over visible spell widgets in the spellbook
-        if (s.spellsEnabled)
+        if (!s.spellsEnabled || !renderSpellbookSpells(graphics, pulse, nowNanos))
         {
-            renderSpellbookSpells(graphics, pulse);
+            Arrays.fill(spellIconSince, 0L); // book closed or spells off: fade in again when next shown
         }
 
         // 2. Render blended glow on the Magic spellbook tab icon when any spell is expired/ready
-        if (s.spellbookTabGlow)
+        if (!s.spellbookTabGlow || !renderSpellbookTabGlow(graphics, pulse, nowNanos))
         {
-            renderSpellbookTabGlow(graphics, pulse);
+            tabGlowSince = 0L;
         }
 
         // 3. Spec orb glow when Special Attack is ready
         if (s.specOrbGlow && (specReadyLive || s.debugSpecReady))
         {
-            renderSpecOrbGlow(graphics, Motion.iconGlow(s.specOrbAnimation, nowNanos, s.motionStrength));
+            float fade = specReadyLive ? Motion.fadeIn(specReadySinceNanos, nowNanos) : 1f;
+            renderSpecOrbGlow(graphics, Motion.iconGlow(s.specOrbAnimation, nowNanos, s.motionStrength), fade);
         }
 
         // 4. Optional floating Debug Spell Grid preview (works regardless of current spellbook)
@@ -160,12 +165,13 @@ public class SpellCooldownOverlay extends Overlay
         return null;
     }
 
-    private void renderSpellbookSpells(Graphics2D g, double pulse)
+    /** @return false when the spellbook is not on screen */
+    private boolean renderSpellbookSpells(Graphics2D g, double pulse, long nowNanos)
     {
         Widget spellbookContainer = client.getWidget(SPELLBOOK_GROUP_ID, 0);
         if (spellbookContainer == null || spellbookContainer.isHidden())
         {
-            return;
+            return false;
         }
 
         Widget[] children = spellbookContainer.getStaticChildren();
@@ -175,7 +181,7 @@ public class SpellCooldownOverlay extends Overlay
         }
         if (children == null)
         {
-            return;
+            return false;
         }
 
         SettingsSnapshot snap = settings.get();
@@ -223,9 +229,19 @@ public class SpellCooldownOverlay extends Overlay
             // Ready, or within its "warn early" lead: glow (on top of the remaining cooldown fill)
             if (snap.spellbookGlow(si) && spellTracker.isSpellReadyReminder(matchedSpell, combatState, snap))
             {
-                drawIconAuraAndOutline(g, bounds, child.getId(), child.getSpriteId(), snap.spellAwtColor(si), pulse);
+                if (spellIconSince[si] == 0L)
+                {
+                    spellIconSince[si] = nowNanos;
+                }
+                drawIconAuraAndOutline(g, bounds, child.getId(), child.getSpriteId(), snap.spellAwtColor(si), pulse,
+                    Motion.fadeIn(spellIconSince[si], nowNanos));
+            }
+            else
+            {
+                spellIconSince[si] = 0L;
             }
         }
+        return true;
     }
 
     private void drawSpellCooldown(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Cooldown cd)
@@ -251,7 +267,8 @@ public class SpellCooldownOverlay extends Overlay
         }
     }
 
-    private void renderSpellbookTabGlow(Graphics2D g, double pulse)
+    /** @return false when no tab glow is drawn */
+    private boolean renderSpellbookTabGlow(Graphics2D g, double pulse, long nowNanos)
     {
         int spellbook = this.currentSpellbook;
         int count = spellTracker.collectReadySpells(
@@ -259,19 +276,19 @@ public class SpellCooldownOverlay extends Overlay
         );
         if (count <= 0)
         {
-            return;
+            return false;
         }
 
         Widget magicTab = findMagicTabWidget();
         if (magicTab == null || magicTab.isHidden())
         {
-            return;
+            return false;
         }
 
         Rectangle bounds = magicTab.getBounds();
         if (bounds == null || bounds.width <= 0 || bounds.height <= 0)
         {
-            return;
+            return false;
         }
 
         // Blend all active ready spell colors together for the spellbook tab icon glow
@@ -289,7 +306,12 @@ public class SpellCooldownOverlay extends Overlay
         {
             tabBlend = new Color(argb, true); // only reallocated when the set of ready spells changes
         }
-        drawIconAuraAndOutline(g, bounds, magicTab.getId(), SPRITE_TAB_MAGIC, tabBlend, pulse);
+        if (tabGlowSince == 0L)
+        {
+            tabGlowSince = nowNanos;
+        }
+        drawIconAuraAndOutline(g, bounds, magicTab.getId(), SPRITE_TAB_MAGIC, tabBlend, pulse, Motion.fadeIn(tabGlowSince, nowNanos));
+        return true;
     }
 
     private void renderDebugSpellGrid(Graphics2D g, double pulse)
@@ -346,12 +368,12 @@ public class SpellCooldownOverlay extends Overlay
             }
             else
             {
-                drawIconAuraAndOutline(g, r, wId, sId, settings.get().spellAwtColor(spell.ordinal()), pulse);
+                drawIconAuraAndOutline(g, r, wId, sId, settings.get().spellAwtColor(spell.ordinal()), pulse, 1f);
             }
         }
     }
 
-    private void renderSpecOrbGlow(Graphics2D g, double pulse)
+    private void renderSpecOrbGlow(Graphics2D g, double pulse, float fade)
     {
         // Target the orb circle itself. The ORB_SPECENERGY container also spans the "100" text beside the orb,
         // which is why centring the glow on it drew the ring off to one side.
@@ -377,7 +399,7 @@ public class SpellCooldownOverlay extends Overlay
         // Build the outline from the orb's own (possibly resource-pack) sprite so its shape and size match exactly
         int spriteId = orb.getSpriteId() > 0 ? orb.getSpriteId() : SPRITE_SPEC_ORB;
         SettingsSnapshot s = settings.get();
-        drawIconAuraAndOutline(g, bounds, orb.getId(), spriteId, s.specColor, pulse, s.specOrbStyle);
+        drawIconAuraAndOutline(g, bounds, orb.getId(), spriteId, s.specColor, pulse, fade, s.specOrbStyle);
     }
 
     private Widget findMagicTabWidget()
@@ -504,12 +526,12 @@ public class SpellCooldownOverlay extends Overlay
         return mask;
     }
 
-    private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse)
+    private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse, float fade)
     {
-        drawIconAuraAndOutline(g, bounds, widgetId, spriteId, base, pulse, settings.get().spellBorder);
+        drawIconAuraAndOutline(g, bounds, widgetId, spriteId, base, pulse, fade, settings.get().spellBorder);
     }
 
-    private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse, BorderStyle style)
+    private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse, float fade, BorderStyle style)
     {
         if (style == BorderStyle.NONE)
         {
@@ -517,7 +539,7 @@ public class SpellCooldownOverlay extends Overlay
         }
         BufferedImage outline = spriteId > 0 && style.usesOutline() ? getSpriteOutline(widgetId, spriteId, base) : null;
         BufferedImage aura = spriteId > 0 && style.usesAura() ? getSpriteAura(widgetId, spriteId, base) : null;
-        CooldownRenderer.drawStyledGlow(g, bounds, outline, aura, base, style, pulse, System.nanoTime(), settings.get());
+        CooldownRenderer.drawStyledGlow(g, bounds, outline, aura, base, style, pulse, fade, System.nanoTime(), settings.get());
     }
 
     private BufferedImage resolveSprite(int widgetId, int spriteId)
