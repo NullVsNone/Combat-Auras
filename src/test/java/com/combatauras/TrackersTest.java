@@ -768,4 +768,38 @@ public class TrackersTest
         Assert.assertEquals("Different item in the slot resets tracking", 0f, overlay.trackReady(4, 2436, true, t + 1), 0.001f);
         Assert.assertEquals("Out-of-range slots are ignored", 0f, overlay.trackReady(-1, 2434, true, t), 0.001f);
     }
+
+    @Test
+    public void inventoryReadyHighlightFadesInOverOneTick()
+    {
+        CombatAurasConfig cfg = new CombatAurasConfig() {};
+        InventoryCooldownOverlay overlay = new InventoryCooldownOverlay(new com.combatauras.settings.Settings(cfg), null, null, null, null, null);
+        long t = 10_000_000_000L;
+        overlay.trackReady(2, 2434, false, t);
+        overlay.trackReady(2, 2434, true, t + 1);
+        Assert.assertEquals("starts invisible", 0f, overlay.readyFade(2, t + 1), 0.001f);
+        Assert.assertTrue("part way after 300 ms", overlay.readyFade(2, t + 300_000_001L) > 0.3f);
+        Assert.assertEquals("full after one tick", 1f, overlay.readyFade(2, t + 600_000_001L), 0.001f);
+        Assert.assertEquals("unknown slots draw at full", 1f, overlay.readyFade(-1, t), 0f);
+    }
+
+    @Test
+    public void consumableCatalogCachesPerIdAndGrowsForHighIds()
+    {
+        int[] lookups = {0};
+        com.combatauras.tracker.ConsumableCatalog catalog = new com.combatauras.tracker.ConsumableCatalog(id -> { lookups[0]++; return null; });
+        Assert.assertSame(com.combatauras.tracker.ConsumableCatalog.NOTHING, catalog.get(2434));
+        catalog.get(2434);
+        Assert.assertEquals("classified once per id", 1, lookups[0]);
+        catalog.get(70_000); // beyond the initial table
+        catalog.get(70_000);
+        Assert.assertEquals(2, lookups[0]);
+        catalog.get(5_000_000); // implausible ids are classified but never cached
+        catalog.get(5_000_000);
+        Assert.assertEquals(4, lookups[0]);
+        Assert.assertSame(com.combatauras.tracker.ConsumableCatalog.NOTHING, catalog.get(0));
+        catalog.clear();
+        catalog.get(2434);
+        Assert.assertEquals("clear forgets classifications", 5, lookups[0]);
+    }
 }
