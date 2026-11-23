@@ -1,12 +1,17 @@
 package com.combatauras.settings;
 
 import com.combatauras.config.CombatAurasConfig;
+import com.combatauras.model.AnimationMode;
+import com.combatauras.model.BorderStyle;
 import com.combatauras.model.CombatSpell;
+import com.combatauras.model.DisplayMode;
 import com.combatauras.model.GlowColorMode;
 import com.combatauras.model.PotionEffect;
 import com.combatauras.model.ReminderContext;
 import com.combatauras.model.ReminderFamily;
+import com.combatauras.model.ReadyStyle;
 import com.combatauras.model.ShowerStartLocation;
+import com.combatauras.model.SpellCooldownDisplayMode;
 import com.combatauras.model.StatusEffect;
 import java.awt.Color;
 import net.runelite.api.Skill;
@@ -48,6 +53,37 @@ public final class SettingsSnapshot
     public final int showerMaxIcons;
     public final int showerIconSize;
     public final float showerSpeed;
+    public final float showerOpacity;
+
+    // ---- item & spellbook icons (drawn every frame per visible item; "allow item glows" is folded in)
+    /** Multiplier for icon glow alpha, 0.25..2 (above 1 draws a second layer). */
+    public final float iconGlowStrength;
+    public final DisplayMode cooldownStyle;
+    public final Color cooldownTint;
+    public final boolean showCooldownTimer;
+    public final ReadyStyle readyStyle;
+    public final boolean readyPermanent;
+    public final int readyDurationSeconds;
+    public final Color readyColor;
+    /** Inventory ready border, NONE when item glows are off. */
+    public final BorderStyle readyBorder;
+    public final boolean foodCooldownsEnabled;
+    public final boolean lowPrayerInventoryGlow;
+    public final Color lowPrayerColor;
+    public final BorderStyle spellBorder;
+    public final SpellCooldownDisplayMode spellCooldownStyle;
+    public final Color spellCooldownTint;
+    public final boolean spellbookTabGlow;
+    public final boolean specOrbGlow;
+    public final BorderStyle specOrbStyle;
+    public final Color specColor;
+    public final boolean debugPreviewInventory;
+    public final boolean debugPreviewSpellGrid;
+    public final boolean debugSpecReady;
+
+    // ---- damage flash
+    public final float damageFlashScale;
+    public final long damageFlashNanos;
 
     // ---- warnings (index: StatusEffect.ordinal())
     private final boolean[] statusEnabled = new boolean[STATUSES];
@@ -125,6 +161,33 @@ public final class SettingsSnapshot
         showerMaxIcons = c.spellShowerMaxIcons();
         showerIconSize = c.spellShowerIconSize();
         showerSpeed = c.spellShowerSpeed() / 100f;
+        showerOpacity = Math.max(0.10f, Math.min(1f, c.showerOpacity() / 100f));
+
+        iconGlowStrength = Math.max(0.25f, Math.min(2f, c.iconGlowStrength() / 100f));
+        cooldownStyle = c.displayMode();
+        cooldownTint = c.cooldownOverlayColor();
+        showCooldownTimer = c.showCooldownTimer();
+        readyStyle = c.readyStyle();
+        readyPermanent = c.animationMode() == AnimationMode.PERMANENT;
+        readyDurationSeconds = c.readyDurationSeconds();
+        readyColor = c.readyColor();
+        readyBorder = allowItemGlows ? c.borderStyle() : BorderStyle.NONE;
+        foodCooldownsEnabled = c.foodCooldownsEnabled();
+        lowPrayerInventoryGlow = allowItemGlows && c.lowPrayerInventoryGlow();
+        lowPrayerColor = c.lowPrayerColor();
+        spellBorder = c.spellBorderStyle();
+        spellCooldownStyle = c.spellCooldownDisplayMode();
+        spellCooldownTint = c.spellCooldownOverlayColor();
+        spellbookTabGlow = allowItemGlows && c.spellsEnabled() && c.spellbookTabGlow();
+        specOrbGlow = allowItemGlows && c.specOrbGlow();
+        specOrbStyle = c.specOrbStyle();
+        specColor = c.specColor();
+        debugPreviewInventory = c.debugPreviewInventory();
+        debugPreviewSpellGrid = allowItemGlows && c.debugPreviewSpellGrid();
+        debugSpecReady = c.debugSpecReady();
+
+        damageFlashScale = c.damageFeedbackStrength() / 100f;
+        damageFlashNanos = c.damageFeedbackDuration() * 1_000_000L;
 
         boolean debug = false;
         for (StatusEffect s : StatusEffect.values())

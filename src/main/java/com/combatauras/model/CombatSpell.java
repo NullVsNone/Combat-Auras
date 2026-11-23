@@ -183,11 +183,6 @@ public enum CombatSpell
         return cooldownTicks;
     }
 
-    public String[] getWidgetNames()
-    {
-        return widgetNames;
-    }
-
     public boolean matchesWidgetName(String cleanedName)
     {
         if (cleanedName == null || cleanedName.isEmpty())

@@ -1,10 +1,10 @@
 package com.combatauras.render;
 
-import com.combatauras.config.CombatAurasConfig;
 import com.combatauras.model.BorderStyle;
 import com.combatauras.model.Cooldown;
 import com.combatauras.model.DisplayMode;
 import com.combatauras.model.ReadyStyle;
+import com.combatauras.settings.SettingsSnapshot;
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Composite;
@@ -32,6 +32,9 @@ public class CooldownRenderer
     private static final Stroke BOX_STROKE = new BasicStroke(1.5f);
     private static final Stroke ANIMATED_BASE_STROKE = new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final Stroke ANIMATED_SWEEP_STROKE = new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    // Glow strength above 125% also thickens the line styles, whose alpha is already near opaque
+    private static final Stroke BOLD_BOX_STROKE = new BasicStroke(2.5f);
+    private static final Stroke BOLD_SWEEP_STROKE = new BasicStroke(3.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final Font TIMER_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 11);
 
     private final ItemOutlineCache outlineCache = new ItemOutlineCache();
@@ -51,7 +54,7 @@ public class CooldownRenderer
         Rectangle bounds,
         int itemId,
         Cooldown cooldown,
-        CombatAurasConfig config,
+        SettingsSnapshot s,
         ItemManager itemManager,
         long nowNanos,
         float readyStrength
@@ -64,90 +67,82 @@ public class CooldownRenderer
 
         if (cooldown.isReady())
         {
-            if (readyStrength > 0.01f && config.allowItemGlows())
+            if (readyStrength > 0.01f)
             {
-                drawReadyIndicator(g, bounds, itemId, config, itemManager, nowNanos, readyStrength);
+                drawItemGlow(g, bounds, itemManager, itemId, s.readyColor, s.readyBorder, readyStrength, nowNanos, s);
             }
             return;
         }
 
-        DisplayMode mode = config.displayMode();
-        Color tint = config.cooldownOverlayColor();
-        float frac = cooldown.getRemainingFraction();
-
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        if (mode == DisplayMode.ITEM_FILL)
+        float frac = cooldown.getRemainingFraction();
+        if (s.cooldownStyle == DisplayMode.ITEM_FILL)
         {
-            BufferedImage mask = itemManager != null ? outlineCache.getFillMask(itemManager, itemId, tint) : null;
-            if (mask != null)
-            {
-                int maskW = mask.getWidth();
-                int maskH = mask.getHeight();
-                int srcFillH = Math.max(1, Math.round(maskH * frac));
-                int srcY = maskH - srcFillH;
-                int fillH = Math.max(1, Math.round(bounds.height * frac));
-                int dstY = bounds.y + (bounds.height - fillH);
-                g.drawImage(
-                    mask,
-                    bounds.x, dstY, bounds.x + bounds.width, bounds.y + bounds.height,
-                    0, srcY, maskW, maskH,
-                    null
-                );
-            }
-            else
-            {
-                int fillH = Math.max(1, Math.round(bounds.height * frac));
-                int fillY = bounds.y + (bounds.height - fillH);
-                g.setColor(tint);
-                g.fillRect(bounds.x, fillY, bounds.width, fillH);
-            }
+            BufferedImage mask = itemManager != null ? outlineCache.getFillMask(itemManager, itemId, s.cooldownTint) : null;
+            drawFill(g, bounds, mask, frac, s.cooldownTint);
         }
-        else if (mode == DisplayMode.CIRCLE)
+        else if (s.cooldownStyle == DisplayMode.CIRCLE)
         {
-            int size = Math.min(bounds.width, bounds.height) - 4;
-            int cx = bounds.x + (bounds.width - size) / 2;
-            int cy = bounds.y + (bounds.height - size) / 2;
-            reusableArc.setFrame(cx, cy, size, size);
-            reusableArc.setAngleStart(90.0);
-            reusableArc.setAngleExtent(-360.0 * frac);
-            g.setColor(tint);
-            g.fill(reusableArc);
+            drawRadial(g, reusableArc, bounds, 4, frac, s.cooldownTint);
         }
 
-        if (config.showCooldownTimer())
+        if (s.showCooldownTimer)
         {
-            String text = cooldown.isUnknownDuration() ? "?" : formatSeconds(cooldown.getRemainingSeconds());
-            drawCenteredText(g, bounds, text, Color.WHITE);
+            drawCenteredText(g, bounds, formatSeconds(cooldown.getRemainingSeconds()), Color.WHITE);
         }
     }
 
-    private void drawReadyIndicator(
+    /** Glow an inventory item in {@code style}, building (and caching) its outline and aura only when the style needs them. */
+    public void drawItemGlow(
         Graphics2D g,
         Rectangle bounds,
-        int itemId,
-        CombatAurasConfig config,
         ItemManager itemManager,
+        int itemId,
+        Color base,
+        BorderStyle style,
+        double pulse,
         long nowNanos,
-        float pulse
+        SettingsSnapshot s
     )
     {
-        BorderStyle border = config.borderStyle();
-        if (border == BorderStyle.NONE)
+        if (style == BorderStyle.NONE)
         {
             return;
         }
+        BufferedImage outline = style.usesOutline() ? outlineCache.getOutline(itemManager, itemId, base) : null;
+        BufferedImage aura = style.usesAura() ? outlineCache.getAura(itemManager, itemId, base) : null;
+        drawStyledGlow(g, bounds, outline, aura, base, style, pulse, nowNanos, s);
+    }
 
-        Color base = config.readyColor();
-        boolean needsSprite = border == BorderStyle.ITEM_OUTLINE
-            || border == BorderStyle.BREATHING_GLOW
-            || border == BorderStyle.SOFT_GLOW
-            || border == BorderStyle.ANIMATED_BORDER;
-        BufferedImage outline = needsSprite ? outlineCache.getOutline(itemManager, itemId, base) : null;
-        BufferedImage aura = (border == BorderStyle.SOFT_GLOW || border == BorderStyle.BREATHING_GLOW)
-            ? outlineCache.getAura(itemManager, itemId, base)
-            : null;
-        drawStyledGlow(g, bounds, outline, aura, ItemOutlineCache.AURA_PAD, base, border, pulse, nowNanos);
+    /** Fill the bottom {@code frac} of the icon, masked to its sprite when a mask is available. */
+    public static void drawFill(Graphics2D g, Rectangle bounds, BufferedImage mask, float frac, Color tint)
+    {
+        int fillH = Math.max(1, Math.round(bounds.height * frac));
+        int dstY = bounds.y + (bounds.height - fillH);
+        if (mask != null)
+        {
+            int maskW = mask.getWidth();
+            int maskH = mask.getHeight();
+            int srcFillH = Math.max(1, Math.round(maskH * frac));
+            g.drawImage(mask, bounds.x, dstY, bounds.x + bounds.width, bounds.y + bounds.height,
+                0, maskH - srcFillH, maskW, maskH, null);
+        }
+        else
+        {
+            g.setColor(tint);
+            g.fillRect(bounds.x, dstY, bounds.width, fillH);
+        }
+    }
+
+    /** Clockwise pie of the remaining fraction, starting at 12 o'clock. */
+    public static void drawRadial(Graphics2D g, Arc2D.Float arc, Rectangle bounds, int inset, float frac, Color tint)
+    {
+        int size = Math.min(bounds.width, bounds.height) - inset;
+        arc.setFrame(bounds.x + (bounds.width - size) / 2f, bounds.y + (bounds.height - size) / 2f, size, size);
+        arc.setAngleStart(90.0);
+        arc.setAngleExtent(-360.0 * frac);
+        g.setColor(tint);
+        g.fill(arc);
     }
 
     private static final ThreadLocal<BufferedImage> SWEEP_SCRATCH = new ThreadLocal<>();
@@ -163,29 +158,48 @@ public class CooldownRenderer
         return buf;
     }
 
-    public static void drawStyledGlow(
-        Graphics2D g,
-        Rectangle bounds,
-        BufferedImage outline,
-        Color base,
-        BorderStyle border,
-        double pulse,
-        long nowNanos
-    )
+    /**
+     * Draw {@code img} at {@code alpha}. Alpha above 1 (glow strength over 100%) adds a second layer for the
+     * excess, so a stronger glow gets brighter instead of clipping.
+     */
+    private static void drawLayered(Graphics2D g, BufferedImage img, int x, int y, int w, int h, float alpha, Composite restore)
     {
-        drawStyledGlow(g, bounds, outline, null, ItemOutlineCache.AURA_PAD, base, border, pulse, nowNanos);
+        g.setComposite(ProceduralRenderer.quantizedAlpha(Math.min(1f, alpha)));
+        g.drawImage(img, x, y, w, h, null);
+        if (alpha > 1.01f)
+        {
+            g.setComposite(ProceduralRenderer.quantizedAlpha(Math.min(1f, alpha - 1f)));
+            g.drawImage(img, x, y, w, h, null);
+        }
+        g.setComposite(restore);
     }
 
+    private static void drawCentered(Graphics2D g, Rectangle bounds, BufferedImage img, float alpha, Composite restore)
+    {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        drawLayered(g, img, bounds.x + (bounds.width - w) / 2, bounds.y + (bounds.height - h) / 2, w, h, alpha, restore);
+    }
+
+    private static int clampAlpha(double a)
+    {
+        return Math.max(0, Math.min(255, (int) Math.round(a)));
+    }
+
+    /**
+     * The one glow routine shared by inventory items, spell icons, the Magic tab and the spec orb.
+     * {@code pulse} is the caller's 0..1 animation strength; motion and glow strength come from the snapshot.
+     */
     public static void drawStyledGlow(
         Graphics2D g,
         Rectangle bounds,
         BufferedImage outline,
         BufferedImage aura,
-        int auraPad,
         Color base,
         BorderStyle border,
         double pulse,
-        long nowNanos
+        long nowNanos,
+        SettingsSnapshot s
     )
     {
         if (border == BorderStyle.NONE || bounds == null)
@@ -198,39 +212,36 @@ public class CooldownRenderer
         int r = base.getRed();
         int gr = base.getGreen();
         int b = base.getBlue();
+        float baseA = base.getAlpha() / 255f;
+        float strength = s.iconGlowStrength;
+        float motion = s.motionStrength;
 
-        if (border == BorderStyle.SOFT_GLOW || border == BorderStyle.BREATHING_GLOW)
+        if (border.usesAura())
         {
-            double breathWave = 0.5 + 0.5 * Math.sin((nowNanos / 1_000_000_000.0) * 3.0);
-            double breath = border == BorderStyle.BREATHING_GLOW ? (0.30 + 0.70 * breathWave) : pulse;
-            float a = Math.max(0.18f, Math.min(1f, (float) breath * (base.getAlpha() / 255f)));
+            boolean breathing = border == BorderStyle.BREATHING_GLOW;
+            double breath = breathing ? Motion.pulse(nowNanos, Motion.BREATH_RATE, 0.30f, motion) : pulse;
+            float a = Math.max(0.18f, Math.min(1f, (float) breath * baseA)) * strength;
 
             if (aura != null)
             {
-                g.setComposite(ProceduralRenderer.quantizedAlpha(a));
-                int ax = bounds.x + (bounds.width - aura.getWidth()) / 2;
-                int ay = bounds.y + (bounds.height - aura.getHeight()) / 2;
-                if (border == BorderStyle.BREATHING_GLOW)
+                if (breathing)
                 {
-                    float scale = 1.0f + 0.08f * (float) breathWave;
+                    float scale = 1.0f + 0.08f * motion * Motion.wave(nowNanos, Motion.BREATH_RATE);
                     int sw = Math.round(aura.getWidth() * scale);
                     int sh = Math.round(aura.getHeight() * scale);
-                    int sx = bounds.x + (bounds.width - sw) / 2;
-                    int sy = bounds.y + (bounds.height - sh) / 2;
-                    g.drawImage(aura, sx, sy, sw, sh, null);
+                    drawLayered(g, aura, bounds.x + (bounds.width - sw) / 2, bounds.y + (bounds.height - sh) / 2, sw, sh, a, oldComp);
                 }
                 else
                 {
-                    g.drawImage(aura, ax, ay, null);
+                    drawCentered(g, bounds, aura, a, oldComp);
                 }
-                g.setComposite(oldComp);
             }
             else
             {
                 float cx = bounds.x + bounds.width * 0.5f;
                 float cy = bounds.y + bounds.height * 0.5f;
                 float radius = Math.max(8f, Math.min(bounds.width, bounds.height) * 0.58f);
-                int cAlpha = Math.max(35, Math.min(170, (int) Math.round(base.getAlpha() * 0.65 * breath)));
+                int cAlpha = clampAlpha(Math.max(35, Math.min(170, base.getAlpha() * 0.65 * breath)) * strength);
                 Paint oldPaint = g.getPaint();
                 g.setPaint(new RadialGradientPaint(
                     new Point2D.Float(cx, cy),
@@ -244,24 +255,19 @@ public class CooldownRenderer
 
             if (outline != null)
             {
-                g.setComposite(ProceduralRenderer.quantizedAlpha(a));
-                g.drawImage(outline, bounds.x + (bounds.width - outline.getWidth()) / 2, bounds.y + (bounds.height - outline.getHeight()) / 2, null);
-                g.setComposite(oldComp);
+                drawCentered(g, bounds, outline, a, oldComp);
             }
         }
         else if (border == BorderStyle.ITEM_OUTLINE)
         {
             if (outline != null)
             {
-                float a = Math.max(0.15f, Math.min(1f, (float) pulse * (base.getAlpha() / 255f)));
-                g.setComposite(ProceduralRenderer.quantizedAlpha(a));
-                g.drawImage(outline, bounds.x + (bounds.width - outline.getWidth()) / 2, bounds.y + (bounds.height - outline.getHeight()) / 2, null);
-                g.setComposite(oldComp);
+                drawCentered(g, bounds, outline, Math.max(0.15f, Math.min(1f, (float) pulse * baseA)) * strength, oldComp);
             }
         }
         else if (border == BorderStyle.ANIMATED_BORDER)
         {
-            double angle = (nowNanos / 1_000_000_000.0) * 3.6;
+            double angle = Motion.angle(nowNanos, Motion.SWEEP_RATE, motion);
             if (outline != null)
             {
                 int ow = outline.getWidth();
@@ -270,9 +276,8 @@ public class CooldownRenderer
                 int oy = bounds.y + (bounds.height - oh) / 2;
 
                 // Subtle dim base outline of the sprite
-                float dimAlpha = Math.max(0.15f, Math.min(0.45f, 0.28f * (float) pulse * (base.getAlpha() / 255f)));
-                g.setComposite(ProceduralRenderer.quantizedAlpha(dimAlpha));
-                g.drawImage(outline, ox, oy, null);
+                float dimAlpha = Math.max(0.15f, Math.min(0.45f, 0.28f * (float) pulse * baseA)) * strength;
+                drawLayered(g, outline, ox, oy, ow, oh, dimAlpha, oldComp);
 
                 // Bright rotating light sweep masked strictly to the sprite's 1px outline
                 BufferedImage scratch = getScratchBuffer(ow, oh);
@@ -295,13 +300,12 @@ public class CooldownRenderer
                 sg.fillRect(0, 0, ow, oh);
                 sg.dispose();
 
-                g.setComposite(oldComp);
-                g.drawImage(scratch, ox, oy, null);
+                drawLayered(g, scratch, ox, oy, ow, oh, strength, oldComp);
             }
             else
             {
-                int baseAlpha = Math.max(40, Math.min(255, (int) Math.round(base.getAlpha() * 0.30 * pulse)));
-                int sweepAlpha = Math.max(140, Math.min(255, (int) Math.round(base.getAlpha() * pulse)));
+                int baseAlpha = clampAlpha(Math.max(40, Math.min(255, base.getAlpha() * 0.30 * pulse)) * strength);
+                int sweepAlpha = clampAlpha(Math.max(140, Math.min(255, base.getAlpha() * pulse)) * strength);
                 g.setStroke(ANIMATED_BASE_STROKE);
                 g.setColor(new Color(r, gr, b, baseAlpha));
                 g.drawRoundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 6, 6);
@@ -316,7 +320,7 @@ public class CooldownRenderer
                     cx + dx, cy + dy, new Color(r, gr, b, sweepAlpha),
                     cx - dx, cy - dy, new Color(r, gr, b, 0)
                 ));
-                g.setStroke(ANIMATED_SWEEP_STROKE);
+                g.setStroke(strength > 1.25f ? BOLD_SWEEP_STROKE : ANIMATED_SWEEP_STROKE);
                 g.drawRoundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 6, 6);
                 g.setPaint(oldPaint);
             }
@@ -326,8 +330,8 @@ public class CooldownRenderer
             int len = Math.max(4, Math.min(bounds.width, bounds.height) / 4);
             int x1 = bounds.x + 1, y1 = bounds.y + 1;
             int x2 = bounds.x + bounds.width - 2, y2 = bounds.y + bounds.height - 2;
-            g.setStroke(BOX_STROKE);
-            g.setColor(new Color(r, gr, b, Math.max(100, Math.min(255, (int) Math.round(base.getAlpha() * pulse)))));
+            g.setStroke(strength > 1.25f ? BOLD_BOX_STROKE : BOX_STROKE);
+            g.setColor(new Color(r, gr, b, clampAlpha(Math.max(100, Math.min(255, base.getAlpha() * pulse)) * strength)));
             g.drawLine(x1, y1, x1 + len, y1); g.drawLine(x1, y1, x1, y1 + len);
             g.drawLine(x2, y1, x2 - len, y1); g.drawLine(x2, y1, x2, y1 + len);
             g.drawLine(x1, y2, x1 + len, y2); g.drawLine(x1, y2, x1, y2 - len);
@@ -335,8 +339,8 @@ public class CooldownRenderer
         }
         else if (border == BorderStyle.BOX)
         {
-            g.setStroke(BOX_STROKE);
-            g.setColor(new Color(r, gr, b, Math.max(80, Math.min(255, (int) Math.round(base.getAlpha() * pulse)))));
+            g.setStroke(strength > 1.25f ? BOLD_BOX_STROKE : BOX_STROKE);
+            g.setColor(new Color(r, gr, b, clampAlpha(Math.max(80, Math.min(255, base.getAlpha() * pulse)) * strength)));
             g.drawRoundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 4, 4);
         }
 
@@ -361,9 +365,9 @@ public class CooldownRenderer
 
     /**
      * Strength (0..1) of an item's ready highlight, {@code elapsedNanos} after its cooldown finished.
-     * Returns 0 when the highlight should no longer be drawn.
+     * Returns 0 when the highlight should no longer be drawn. {@code motion} (0..1) scales the Pulse animation.
      */
-    public static float readyStrength(ReadyStyle style, boolean permanent, int durationSeconds, long elapsedNanos, long nowNanos)
+    public static float readyStrength(ReadyStyle style, boolean permanent, int durationSeconds, long elapsedNanos, long nowNanos, float motion)
     {
         if (style == null || style == ReadyStyle.NONE || elapsedNanos < 0L)
         {
@@ -384,10 +388,7 @@ public class CooldownRenderer
                 return permanent ? Math.max(0.35f, fade) : fade;
             }
             case PULSE:
-            {
-                double phase = (nowNanos / 1_000_000_000.0) * 3.2;
-                return 0.45f + 0.55f * (float) (0.5 + 0.5 * Math.sin(phase));
-            }
+                return Motion.pulse(nowNanos, Motion.READY_PULSE_RATE, 0.45f, motion);
             default:
                 return 1f;
         }

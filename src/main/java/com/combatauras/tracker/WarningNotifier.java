@@ -22,8 +22,6 @@ public class WarningNotifier
         SPEC_READY("Special attack is ready."),
         HEART_READY("Your heart is ready."),
         BUFF_EXPIRED("A potion effect has expired."),
-        SPELL_READY("A spell is ready to recast."),
-        PARASITE("A parasite is growing inside you - drink a Sanfew serum!"),
         POISON("You have been poisoned."),
         VENOM("You have been envenomed."),
         DISEASE("You have been diseased."),
@@ -76,15 +74,6 @@ public class WarningNotifier
             notifier.notify(notification, spell.getDisplayName() + " is ready to recast.");
         }
         return true;
-    }
-
-    /**
-     * Fires once for an externally detected event (e.g. one specific spell became ready), still honouring the cooldown.
-     */
-    public boolean fire(Warning warning, Notification notification, Notifier notifier, long nowNanos)
-    {
-        active[warning.ordinal()] = false;
-        return update(warning, true, notification, notifier, nowNanos);
     }
 
     /**

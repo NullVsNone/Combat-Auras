@@ -256,11 +256,6 @@ public final class Bindings
             CombatAurasConfig::unpottedGlow, CombatAurasConfig::unpottedShower,
             ZERO, // the unpotted tracker applies its own alert duration
             CombatAurasConfig::unpottedNotification, CombatAurasConfig::debugUnpotted));
-        STATUSES.put(StatusEffect.PARASITE, new Status(
-            CombatAurasConfig::parasiteEnabled, CombatAurasConfig::parasiteColor,
-            CombatAurasConfig::parasiteGlow, CombatAurasConfig::parasiteShower,
-            CombatAurasConfig::parasiteDurationSeconds, CombatAurasConfig::parasiteNotification,
-            CombatAurasConfig::debugParasite));
 
         FAMILIES.put(ReminderFamily.HEART, new Family(
             CombatAurasConfig::heartsEnabled, CombatAurasConfig::heartReminderColor,

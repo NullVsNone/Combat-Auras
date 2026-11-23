@@ -20,6 +20,6 @@ than misbehaving silently. Check in this order:
 1. `./gradlew build` against the new RuneLite release; fix any missing `VarbitID` / `VarPlayerID` / `ItemID` names.
 2. New potions or food: run with debug logging and look for `Unrecognised potion` lines from `ConsumableCatalog`;
    add a rule in `PotionItems` or `FoodCooldownTracker.classify`.
-3. Chat-driven timers (thrall, Mark of Darkness, Ward, Shadow Veil, parasite, freeze fallback): compare the
+3. Chat-driven timers (thrall, Mark of Darkness, Ward, Shadow Veil, freeze fallback): compare the
    message constants in the trackers with the game's wording.
 4. Spell durations and cooldowns: compare with RuneLite's Timers & Buffs plugin.

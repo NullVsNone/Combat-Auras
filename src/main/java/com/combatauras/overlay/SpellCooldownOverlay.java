@@ -8,6 +8,7 @@ import com.combatauras.model.BorderStyle;
 import com.combatauras.render.CooldownRenderer;
 import com.combatauras.render.ItemOutlineCache;
 import com.combatauras.render.LruCache;
+import com.combatauras.render.Motion;
 import com.combatauras.settings.Settings;
 import com.combatauras.settings.SettingsSnapshot;
 import com.combatauras.tracker.CombatSpellTracker;
@@ -124,38 +125,34 @@ public class SpellCooldownOverlay extends Overlay
         }
 
         long nowNanos = System.nanoTime();
-        double pulse = 0.55 + 0.45 * Math.sin((nowNanos / 1_000_000_000.0) * 4.2);
+        SettingsSnapshot s = settings.get();
+        double pulse = Motion.pulse(nowNanos, Motion.ICON_PULSE_RATE, 0.10f, s.motionStrength);
 
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // The spell master switch only governs spell visuals; the spec orb and debug grid have their own toggles
-        boolean spells = config.spellsEnabled();
+        // The spell master switch only governs spell visuals; the spec orb and debug grid have their own toggles.
+        // The snapshot already folds "Allow item & spellbook glows" into each glow flag below.
 
         // 1. Render cooldowns & ready glows over visible spell widgets in the spellbook
-        if (spells)
+        if (s.spellsEnabled)
         {
             renderSpellbookSpells(graphics, pulse);
         }
 
-        if (!config.allowItemGlows())
-        {
-            return null;
-        }
-
         // 2. Render blended glow on the Magic spellbook tab icon when any spell is expired/ready
-        if (spells && config.spellbookTabGlow())
+        if (s.spellbookTabGlow)
         {
             renderSpellbookTabGlow(graphics, pulse);
         }
 
         // 3. Spec orb glow when Special Attack is ready
-        if (config.specOrbGlow() && (specReadyLive || config.debugSpecReady()))
+        if (s.specOrbGlow && (specReadyLive || s.debugSpecReady))
         {
             renderSpecOrbGlow(graphics, pulse);
         }
 
         // 4. Optional floating Debug Spell Grid preview (works regardless of current spellbook)
-        if (config.debugPreviewSpellGrid())
+        if (s.debugPreviewSpellGrid)
         {
             renderDebugSpellGrid(graphics, pulse);
         }
@@ -233,46 +230,18 @@ public class SpellCooldownOverlay extends Overlay
 
     private void drawSpellCooldown(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Cooldown cd)
     {
-        SpellCooldownDisplayMode mode = config.spellCooldownDisplayMode();
-        Color tint = config.spellCooldownOverlayColor();
+        SettingsSnapshot s = settings.get();
+        SpellCooldownDisplayMode mode = s.spellCooldownStyle;
         float frac = cd.getRemainingFraction();
 
         if (mode == SpellCooldownDisplayMode.RADIAL_AND_TEXT || mode == SpellCooldownDisplayMode.RADIAL_ONLY)
         {
-            int size = Math.min(bounds.width, bounds.height) - 2;
-            int cx = bounds.x + (bounds.width - size) / 2;
-            int cy = bounds.y + (bounds.height - size) / 2;
-            reusableArc.setFrame(cx, cy, size, size);
-            reusableArc.setAngleStart(90.0);
-            reusableArc.setAngleExtent(-360.0 * frac);
-            g.setColor(tint);
-            g.fill(reusableArc);
+            CooldownRenderer.drawRadial(g, reusableArc, bounds, 2, frac, s.spellCooldownTint);
         }
         else if (mode == SpellCooldownDisplayMode.FILL_AND_TEXT)
         {
-            BufferedImage mask = spriteId > 0 ? getSpriteFillMask(widgetId, spriteId, tint) : null;
-            if (mask != null)
-            {
-                int maskW = mask.getWidth();
-                int maskH = mask.getHeight();
-                int srcFillH = Math.max(1, Math.round(maskH * frac));
-                int srcY = maskH - srcFillH;
-                int fillH = Math.max(1, Math.round(bounds.height * frac));
-                int dstY = bounds.y + (bounds.height - fillH);
-                g.drawImage(
-                    mask,
-                    bounds.x, dstY, bounds.x + bounds.width, bounds.y + bounds.height,
-                    0, srcY, maskW, maskH,
-                    null
-                );
-            }
-            else
-            {
-                int fillH = Math.max(1, Math.round(bounds.height * frac));
-                int fillY = bounds.y + (bounds.height - fillH);
-                g.setColor(tint);
-                g.fillRect(bounds.x, fillY, bounds.width, fillH);
-            }
+            BufferedImage mask = spriteId > 0 ? getSpriteFillMask(widgetId, spriteId, s.spellCooldownTint) : null;
+            CooldownRenderer.drawFill(g, bounds, mask, frac, s.spellCooldownTint);
         }
 
         if (mode != SpellCooldownDisplayMode.RADIAL_ONLY)
@@ -403,7 +372,8 @@ public class SpellCooldownOverlay extends Overlay
         }
         // Build the outline from the orb's own (possibly resource-pack) sprite so its shape and size match exactly
         int spriteId = orb.getSpriteId() > 0 ? orb.getSpriteId() : SPRITE_SPEC_ORB;
-        drawIconAuraAndOutline(g, bounds, orb.getId(), spriteId, config.specColor(), pulse, config.specOrbStyle());
+        SettingsSnapshot s = settings.get();
+        drawIconAuraAndOutline(g, bounds, orb.getId(), spriteId, s.specColor, pulse, s.specOrbStyle);
     }
 
     private Widget findMagicTabWidget()
@@ -532,22 +502,18 @@ public class SpellCooldownOverlay extends Overlay
 
     private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse)
     {
-        drawIconAuraAndOutline(g, bounds, widgetId, spriteId, base, pulse, config.spellBorderStyle());
+        drawIconAuraAndOutline(g, bounds, widgetId, spriteId, base, pulse, settings.get().spellBorder);
     }
 
     private void drawIconAuraAndOutline(Graphics2D g, Rectangle bounds, int widgetId, int spriteId, Color base, double pulse, BorderStyle style)
     {
-        boolean needsSprite = spriteId > 0 && (
-            style == BorderStyle.ITEM_OUTLINE
-            || style == BorderStyle.SOFT_GLOW
-            || style == BorderStyle.BREATHING_GLOW
-            || style == BorderStyle.ANIMATED_BORDER
-        );
-        BufferedImage outline = needsSprite ? getSpriteOutline(widgetId, spriteId, base) : null;
-        BufferedImage aura = (spriteId > 0 && (style == BorderStyle.SOFT_GLOW || style == BorderStyle.BREATHING_GLOW))
-            ? getSpriteAura(widgetId, spriteId, base)
-            : null;
-        CooldownRenderer.drawStyledGlow(g, bounds, outline, aura, ItemOutlineCache.AURA_PAD, base, style, pulse, System.nanoTime());
+        if (style == BorderStyle.NONE)
+        {
+            return;
+        }
+        BufferedImage outline = spriteId > 0 && style.usesOutline() ? getSpriteOutline(widgetId, spriteId, base) : null;
+        BufferedImage aura = spriteId > 0 && style.usesAura() ? getSpriteAura(widgetId, spriteId, base) : null;
+        CooldownRenderer.drawStyledGlow(g, bounds, outline, aura, base, style, pulse, System.nanoTime(), settings.get());
     }
 
     private BufferedImage resolveSprite(int widgetId, int spriteId)

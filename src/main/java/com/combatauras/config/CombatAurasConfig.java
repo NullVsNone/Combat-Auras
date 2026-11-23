@@ -78,9 +78,6 @@ public interface CombatAurasConfig extends Config
     @ConfigSection(name = "Unpotted Alert", description = "Alert when gaining combat XP without a stat boost.", position = 20, closedByDefault = true)
     String warnUnpottedSection = "warnUnpottedSection";
 
-    @ConfigSection(name = "Nightmare Parasite", description = "Phosani's / Nightmare parasite warning.", position = 21, closedByDefault = true)
-    String warnParasiteSection = "warnParasiteSection";
-
     @ConfigSection(name = "Imbued / Saturated Heart", description = "Heart cooldown overlay and expiry reminder.", position = 22, closedByDefault = true)
     String warnHeartSection = "warnHeartSection";
 
@@ -156,7 +153,7 @@ public interface CombatAurasConfig extends Config
 
     @Range(min = 0, max = 100)
     @Units(Units.PERCENT)
-    @ConfigItem(keyName = "motionStrength", name = "Motion strength", description = "Strength of pulsing and breathing animations.", section = generalDisplaySection, position = 7)
+    @ConfigItem(keyName = "motionStrength", name = "Motion strength", description = "How much everything animates: screen glow pulses, the low-HP heartbeat, icon shower sway, and pulsing, breathing or sweeping item and spellbook glows. 0% holds them steady at full strength.", section = generalDisplaySection, position = 7)
     default int motionStrength() { return 65; }
 
     @ConfigItem(keyName = "glowColorMode", name = "Glow colour mixing", description = "When several warnings are active: blend their colours, or use the strongest warning's colour.", section = generalDisplaySection, position = 8)
@@ -173,6 +170,11 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "glowRight", name = "Glow edge: Right", description = "Draw the screen glow along the right edge. Any combination works; corners blend only where two enabled edges meet.", section = generalDisplaySection, position = 12)
     default boolean glowRight() { return true; }
+
+    @Range(min = 25, max = 200)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "iconGlowStrength", name = "Item & spellbook glow strength", description = "Strength of glows and outlines on inventory items, spell icons, the Magic tab and the spec orb. Above 100% layers the glow for extra brightness.", section = generalDisplaySection, position = 13)
+    default int iconGlowStrength() { return 100; }
 
     // =========================================================================
     // Icon Shower
@@ -198,6 +200,11 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "spellShowerSpeed", name = "Speed", description = "Speed multiplier for showering icons.", section = sharedShowerSection, position = 4)
     default int spellShowerSpeed() { return 100; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "showerOpacity", name = "Icon opacity", description = "Peak opacity of showering icons.", section = sharedShowerSection, position = 5)
+    default int showerOpacity() { return 66; }
 
     // =========================================================================
     // Inventory Cooldowns
@@ -690,34 +697,6 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "debugUnpotted", name = "Debug preview", description = "Preview unpotted alert vignette & Stats (three bars) icon.", section = warnUnpottedSection, position = 19)
     default boolean debugUnpotted() { return false; }
-
-    // =========================================================================
-    // Nightmare Parasite
-    // =========================================================================
-
-    @ConfigItem(keyName = "parasiteEnabled", name = "Enable", description = "Warn while a Nightmare parasite is growing inside you (drink Sanfew / Relicym's).", section = warnParasiteSection, position = 0)
-    default boolean parasiteEnabled() { return true; }
-
-    @Alpha
-    @ConfigItem(keyName = "parasiteColor", name = "Color", description = "Color of the parasite warning.", section = warnParasiteSection, position = 10)
-    default Color parasiteColor() { return new Color(236, 72, 153, 215); }
-
-    @ConfigItem(keyName = "parasiteGlow", name = "Screen glow", description = "Show screen-edge glow while a parasite is growing.", section = warnParasiteSection, position = 11)
-    default boolean parasiteGlow() { return true; }
-
-    @ConfigItem(keyName = "parasiteShower", name = "Shower icon", description = "Shower Sanfew serum icons while a parasite is growing.", section = warnParasiteSection, position = 12)
-    default boolean parasiteShower() { return true; }
-
-    @ConfigItem(keyName = "parasiteNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when a parasite is implanted.", section = warnParasiteSection, position = 14)
-    default Notification parasiteNotification() { return Notification.OFF; }
-
-    @Range(min = 0, max = 120)
-    @Units(Units.SECONDS)
-    @ConfigItem(keyName = "parasiteDurationSeconds", name = "Reminder duration", description = "Seconds to show the screen glow and icon shower for the parasite warning, then hide until it happens again (0 = while active).", section = warnParasiteSection, position = 15)
-    default int parasiteDurationSeconds() { return 0; }
-
-    @ConfigItem(keyName = "debugParasite", name = "Debug preview", description = "Preview the parasite warning.", section = warnParasiteSection, position = 19)
-    default boolean debugParasite() { return false; }
 
     // =========================================================================
     // Imbued / Saturated Heart
@@ -1314,7 +1293,6 @@ public interface CombatAurasConfig extends Config
         "debugSpecReady",
         "debugLowRun",
         "debugUnpotted",
-        "debugParasite",
         "debugHeartReady",
         "debugBuffExpired",
         "debugSpellThrall",

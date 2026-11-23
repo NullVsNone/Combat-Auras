@@ -4,13 +4,12 @@ import com.combatauras.config.CombatAurasConfig;
 import com.combatauras.model.CombatSpell;
 import com.combatauras.model.ReminderFamily;
 import com.combatauras.model.StatusEffect;
-import com.combatauras.overlay.ImmersiveStatusOverlay;
+import com.combatauras.overlay.StatusOverlay;
 import com.combatauras.settings.Settings;
 import com.combatauras.settings.SettingsSnapshot;
 import com.combatauras.tracker.CombatSpellTracker;
 import com.combatauras.tracker.CombatStateTracker;
 import com.combatauras.tracker.FreezeTracker;
-import com.combatauras.tracker.ParasiteTracker;
 import com.combatauras.tracker.ReminderPipeline;
 import com.combatauras.tracker.UnpottedTracker;
 import com.combatauras.tracker.WarningNotifier;
@@ -37,19 +36,18 @@ public class NotificationDispatcher
     private final Settings settings;
     private final Notifier notifier;
     private final WarningNotifier warnings;
-    private final ImmersiveStatusOverlay statusOverlay;
+    private final StatusOverlay statusOverlay;
     private final ReminderPipeline reminders;
     private final FreezeTracker freezeTracker;
     private final UnpottedTracker unpottedTracker;
-    private final ParasiteTracker parasiteTracker;
     private final CombatSpellTracker spellTracker;
     private final CombatStateTracker combatState;
     private final boolean[] spellDueLastTick = new boolean[SPELLS.length];
 
     @Inject
     public NotificationDispatcher(Client client, CombatAurasConfig config, Settings settings, Notifier notifier,
-        WarningNotifier warnings, ImmersiveStatusOverlay statusOverlay, ReminderPipeline reminders, FreezeTracker freezeTracker,
-        UnpottedTracker unpottedTracker, ParasiteTracker parasiteTracker, CombatSpellTracker spellTracker,
+        WarningNotifier warnings, StatusOverlay statusOverlay, ReminderPipeline reminders, FreezeTracker freezeTracker,
+        UnpottedTracker unpottedTracker, CombatSpellTracker spellTracker,
         CombatStateTracker combatState)
     {
         this.client = client;
@@ -61,7 +59,6 @@ public class NotificationDispatcher
         this.reminders = reminders;
         this.freezeTracker = freezeTracker;
         this.unpottedTracker = unpottedTracker;
-        this.parasiteTracker = parasiteTracker;
         this.spellTracker = spellTracker;
         this.combatState = combatState;
     }
@@ -112,8 +109,6 @@ public class NotificationDispatcher
                 return s.statusEnabled(i) && freezeTracker.getSeverity(config, nowNanos) > 0f;
             case UNPOTTED:
                 return s.statusEnabled(i) && unpottedTracker.getSeverity(config, nowNanos) > 0f;
-            case PARASITE:
-                return s.statusEnabled(i) && parasiteTracker.isActive();
             default:
                 return statusOverlay.isLive(effect);
         }
@@ -133,7 +128,6 @@ public class NotificationDispatcher
             case SPEC_READY: return Warning.SPEC_READY;
             case LOW_RUN_ENERGY: return Warning.LOW_RUN;
             case UNPOTTED: return Warning.UNPOTTED;
-            case PARASITE: return Warning.PARASITE;
             default: return null;
         }
     }

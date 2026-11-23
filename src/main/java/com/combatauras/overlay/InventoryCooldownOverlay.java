@@ -1,21 +1,19 @@
 package com.combatauras.overlay;
 
-import com.combatauras.config.CombatAurasConfig;
+import com.combatauras.model.BorderStyle;
 import com.combatauras.model.Cooldown;
 import com.combatauras.render.CooldownRenderer;
-import com.combatauras.render.ItemOutlineCache;
-import com.combatauras.render.ProceduralRenderer;
-import java.awt.Composite;
-import java.awt.image.BufferedImage;
+import com.combatauras.render.Motion;
+import com.combatauras.settings.Settings;
+import com.combatauras.settings.SettingsSnapshot;
 import com.combatauras.tracker.ConsumableCatalog;
 import com.combatauras.tracker.FoodCooldownTracker;
 import com.combatauras.tracker.ItemCooldowns;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.util.Arrays;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import net.runelite.api.Client;
-import com.combatauras.model.AnimationMode;
 import net.runelite.api.widgets.WidgetItem;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.overlay.WidgetItemOverlay;
@@ -26,13 +24,11 @@ import net.runelite.client.ui.overlay.WidgetItemOverlay;
 @Singleton
 public class InventoryCooldownOverlay extends WidgetItemOverlay
 {
-    private final Client client;
-    private final CombatAurasConfig config;
+    private final Settings settings;
     private final ItemManager itemManager;
     private final ItemCooldowns cooldowns;
     private final FoodCooldownTracker foodTracker;
-    private final ImmersiveStatusOverlay statusOverlay;
-    private final ItemOutlineCache prayerOutlineCache = new ItemOutlineCache();
+    private final StatusOverlay statusOverlay;
     private final CooldownRenderer renderer;
 
     // Per-inventory-slot ready transition tracking (no per-frame allocation)
@@ -43,17 +39,15 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
 
     @Inject
     public InventoryCooldownOverlay(
-        Client client,
-        CombatAurasConfig config,
+        Settings settings,
         ItemManager itemManager,
         ItemCooldowns cooldowns,
         FoodCooldownTracker foodTracker,
-        ImmersiveStatusOverlay statusOverlay,
+        StatusOverlay statusOverlay,
         CooldownRenderer renderer
     )
     {
-        this.client = client;
-        this.config = config;
+        this.settings = settings;
         this.itemManager = itemManager;
         this.cooldowns = cooldowns;
         this.foodTracker = foodTracker;
@@ -64,10 +58,9 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
 
     public void clearCache()
     {
-        prayerOutlineCache.clear();
-        java.util.Arrays.fill(slotItemId, 0);
-        java.util.Arrays.fill(slotWasCooling, false);
-        java.util.Arrays.fill(slotReadySinceNanos, 0L);
+        Arrays.fill(slotItemId, 0);
+        Arrays.fill(slotWasCooling, false);
+        Arrays.fill(slotReadySinceNanos, 0L);
     }
 
     /**
@@ -100,10 +93,10 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         {
             slotReadySinceNanos[slot] = nowNanos;
         }
-        boolean permanent = config.animationMode() == AnimationMode.PERMANENT;
+        SettingsSnapshot s = settings.get();
         float strength = CooldownRenderer.readyStrength(
-            config.readyStyle(), permanent, config.readyDurationSeconds(), nowNanos - slotReadySinceNanos[slot], nowNanos);
-        if (strength <= 0f && !permanent)
+            s.readyStyle, s.readyPermanent, s.readyDurationSeconds, nowNanos - slotReadySinceNanos[slot], nowNanos, s.motionStrength);
+        if (strength <= 0f && !s.readyPermanent)
         {
             // Highlight finished: forget the transition until the next cooldown
             slotWasCooling[slot] = false;
@@ -120,35 +113,30 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
             return;
         }
 
-        long nowNanos = System.nanoTime();
+        SettingsSnapshot s = settings.get();
         ConsumableCatalog.Entry item = cooldowns.catalog().get(itemId);
-        if (!item.isTracked() && !item.prayerRestore && !config.debugPreviewInventory())
+        if (!item.isTracked() && !item.prayerRestore && !s.debugPreviewInventory)
         {
             return; // most inventory items: one cached lookup and done
         }
+        long nowNanos = System.nanoTime();
 
-        // Glow prayer-restore potions in inventory when Low Prayer is active
-        if (config.allowItemGlows() && config.lowPrayerInventoryGlow() && statusOverlay != null && statusOverlay.isPrayerLow() && item.prayerRestore)
+        // Glow prayer-restore potions while Low Prayer is active, in the inventory's ready border style
+        if (item.prayerRestore && s.lowPrayerInventoryGlow && statusOverlay != null && statusOverlay.isPrayerLow())
         {
-            BufferedImage outline = prayerOutlineCache.getOutline(itemManager, itemId, config.lowPrayerColor());
-            if (outline != null)
-            {
-                double pulse = 0.55 + 0.45 * Math.sin((nowNanos / 1_000_000_000.0) * 4.2);
-                Composite oldComp = graphics.getComposite();
-                graphics.setComposite(ProceduralRenderer.quantizedAlpha((float) pulse));
-                graphics.drawImage(outline, bounds.x, bounds.y, null);
-                graphics.setComposite(oldComp);
-            }
+            BorderStyle style = s.readyBorder == BorderStyle.NONE ? BorderStyle.ITEM_OUTLINE : s.readyBorder;
+            renderer.drawItemGlow(graphics, bounds, itemManager, itemId, s.lowPrayerColor, style,
+                Motion.pulse(nowNanos, Motion.ICON_PULSE_RATE, 0.10f, s.motionStrength), nowNanos, s);
         }
 
         Cooldown cooldown = cooldowns.of(itemId);
-        if (cooldown == null && config.foodCooldownsEnabled())
+        if (cooldown == null && s.foodCooldownsEnabled)
         {
             cooldown = foodTracker.getCooldown(item.food);
         }
         int slot = widgetItem.getWidget() != null ? widgetItem.getWidget().getIndex() : -1;
         boolean debugSlot = false;
-        if (cooldown == null && config.debugPreviewInventory())
+        if (cooldown == null && s.debugPreviewInventory)
         {
             int idx = slot >= 0 ? slot : (itemId & 3);
             if (idx >= 0 && idx < 4)
@@ -172,18 +160,9 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         }
 
         float readyStrength = debugSlot
-            ? CooldownRenderer.readyStrength(config.readyStyle(), true, config.readyDurationSeconds(), 0L, nowNanos)
+            ? CooldownRenderer.readyStrength(s.readyStyle, true, s.readyDurationSeconds, 0L, nowNanos, s.motionStrength)
             : trackReady(slot, itemId, cooldown.isReady(), nowNanos);
 
-        renderer.renderItemCooldown(
-            graphics,
-            bounds,
-            itemId,
-            cooldown,
-            config,
-            itemManager,
-            nowNanos,
-            readyStrength
-        );
+        renderer.renderItemCooldown(graphics, bounds, itemId, cooldown, s, itemManager, nowNanos, readyStrength);
     }
 }

@@ -8,9 +8,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import com.combatauras.model.StatusEffect;
 import com.combatauras.tracker.CombatSpellTracker;
-import com.combatauras.tracker.ParasiteTracker;
 import com.combatauras.tracker.SpellRecastProtection;
 import com.combatauras.tracker.WarningNotifier;
 import java.lang.reflect.Proxy;
@@ -32,42 +30,6 @@ public class FeaturesTest
     public void damageThresholdDefaultsToEveryHit()
     {
         Assert.assertEquals(0, DEFAULTS.damageMinAmount());
-    }
-
-    // ---------------------------------------------------------------- parasite
-
-    @Test
-    public void parasiteStartsOnImpregnationAndEndsOnWeakenOrBurst()
-    {
-        ParasiteTracker parasite = new ParasiteTracker();
-        Assert.assertFalse(parasite.isActive());
-
-        parasite.onChatMessage("<col=ff0000>The Nightmare has impregnated you with a deadly parasite!</col>");
-        Assert.assertTrue(parasite.isActive());
-        float early = parasite.getSeverity();
-        for (int i = 0; i < 20; i++)
-        {
-            parasite.onGameTick();
-        }
-        Assert.assertTrue("urgency rises towards the burst", parasite.getSeverity() > early);
-
-        parasite.onChatMessage("The parasite within you has been weakened.");
-        Assert.assertFalse(parasite.isActive());
-
-        parasite.onChatMessage("The Nightmare has impregnated you with a deadly parasite!");
-        parasite.onChatMessage("The parasite bursts out of you, fully grown!");
-        Assert.assertFalse(parasite.isActive());
-
-        // Missed end message: fallback timeout clears it
-        parasite.onChatMessage("The Nightmare has impregnated you with a deadly parasite!");
-        for (int i = 0; i < 31; i++)
-        {
-            parasite.onGameTick();
-        }
-        Assert.assertFalse(parasite.isActive());
-        Assert.assertEquals(0f, parasite.getSeverity(), 0.001f);
-
-        Assert.assertEquals("PARASITE appended after existing effects", StatusEffect.values().length - 1, StatusEffect.PARASITE.ordinal());
     }
 
     // ---------------------------------------------------------------- vengeance recast protection
@@ -257,10 +219,7 @@ public class FeaturesTest
             notifier.update(WarningNotifier.Warning.LOW_HEALTH, true, on, null, t + 20_000_000_000L));
 
         Assert.assertFalse("OFF never fires", notifier.update(WarningNotifier.Warning.FREEZE, true, Notification.OFF, null, t));
-        Assert.assertTrue("independent per warning", notifier.update(WarningNotifier.Warning.PARASITE, true, on, null, t));
-
-        Assert.assertTrue(notifier.fire(WarningNotifier.Warning.SPELL_READY, on, null, t));
-        Assert.assertFalse("one-shot fire still honours cooldown", notifier.fire(WarningNotifier.Warning.SPELL_READY, on, null, t + 1_000_000_000L));
+        Assert.assertTrue("independent per warning", notifier.update(WarningNotifier.Warning.POISON, true, on, null, t));
 
         notifier.reset();
         Assert.assertTrue(notifier.update(WarningNotifier.Warning.LOW_HEALTH, true, on, null, t + 21_000_000_000L));
@@ -282,7 +241,6 @@ public class FeaturesTest
         }
         Assert.assertFalse(DEFAULTS.poisonNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.boostNotification().isEnabled());
-        Assert.assertFalse(DEFAULTS.parasiteNotification().isEnabled());
         Assert.assertFalse(DEFAULTS.idleNotification().isEnabled());
     }
     // ---------------------------------------------------------------- presets & HP-scaled flash

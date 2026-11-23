@@ -11,10 +11,11 @@ A RuneLite plugin that turns combat timers into auras: screen glows, icon shower
 - **Eat / drink delays**: food, combo food (karambwan, halibut, gnome food), potions, barbarian mixes and Varlamore hunter meat follow the game's separate food, combo and potion timers, so combo eats show correctly. Items are recognised from their real Eat/Drink actions (raw, burnt, noted items and furs never match), and a lock only starts once the item is actually consumed.
 - **Expiry-only reminders with expiring-soon warnings**: Heart, potion and boost reminders fire when something you used runs out, never just because a potion is in your inventory. Every spell, the Heart, boost potions and each potion family (stamina, antipoison, antifire, divine, overload / salts, surge, goading, prayer regeneration, other) has its own *Warn early* lead, so the reminder can start a few seconds before it expires.
 - **Per-stat re-dose levels**: e.g. remind when Ranged drops to +7 and Defence to +5 (Preserve-aware decay estimate).
-- **Status warnings**: low HP, damage flash (scaled by % of max HP, minimum-damage threshold), low prayer, poison, venom, disease, freeze, idle, special attack ready, low run energy, unpotted-in-combat (only XP backed by a hit you dealt counts, so teleports, alchemy, lamps and utility casts never trigger it) and the Nightmare parasite.
+- **Status warnings**: low HP, damage flash (scaled by % of max HP, minimum-damage threshold), low prayer, poison, venom, disease, freeze, idle, special attack ready, low run energy, unpotted-in-combat (only XP backed by a hit you dealt counts, so teleports, alchemy, lamps and utility casts never trigger it).
 - **Consistent settings**: every warning and spell section has the same layout (Enable, options, Color, Screen glow, Shower icon, extra glow, Notification, Reminder duration, Debug preview), its own reminder duration and its own RuneLite notification (sound / tray / flash). Global *Allow* switches and Minimal / Standard / Everything presets sit in the shared sections at the top.
 - **Combat detection**: combat starts from what you click (Attack, an attack spell) or hits you deal or take. Talking, trading, following, pickpocket stuns, utility spells such as Vengeance Other, and poison or venom ticks do not count.
 - **Glow edges**: choose any combination of top, bottom, left and right screen edges; corners blend only where two enabled edges meet, and a single edge runs cleanly through the corners.
+- **One look across every system**: a single *Motion strength* drives every animation (screen pulses, the low-HP heartbeat, shower sway, and pulsing, breathing or sweeping icon glows; 0% holds them steady). *Item & spellbook glow strength* (25 to 200%) brightens or dims glows on inventory items, spell icons, the Magic tab and the spec orb, and *Icon opacity* (default 66%) sets how solid showering icons are.
 - **Lightweight rendering**: cached vignette paints, nothing drawn while idle, settings read from an immutable snapshot (rebuilt only when settings change) instead of per frame, and one cached classification per item id.
 
 ## Installing
@@ -26,8 +27,7 @@ Settings are under the wrench icon; every section starts collapsed, with shared 
 
 - **Combat detection is a heuristic.** Combat starts from clicks (Attack, attack spells) and hits you deal or take.
   It can miss fights started in unusual ways and ends 17 ticks (~10 s) after the last activity.
-- **Some timers come from chat messages** (thrall length, Mark of Darkness, Ward of Arceuus, Shadow Veil, the
-  parasite). If you turn the plugin on mid-effect, those timers are unknown or estimated until the next cast.
+- **Some timers come from chat messages** (thrall length, Mark of Darkness, Ward of Arceuus, Shadow Veil). If you turn the plugin on mid-effect, those timers are unknown or estimated until the next cast.
   Timers backed by game variables (potions, hearts, recast cooldowns) are exact.
 - **After logging in during a spell cooldown**, the game only says "on cooldown", so the full cooldown length is
   shown until it clears, as in RuneLite's Timers & Buffs.

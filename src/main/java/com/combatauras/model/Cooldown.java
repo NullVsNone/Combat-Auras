@@ -6,18 +6,16 @@ package com.combatauras.model;
  */
 public final class Cooldown
 {
-    public static final Cooldown READY = new Cooldown(0, 0, false, true);
+    public static final Cooldown READY = new Cooldown(0, 0, true);
 
     private final int remainingTicks;
     private final int totalTicks;
-    private final boolean unknownDuration;
     private final boolean ready;
 
-    public Cooldown(int remainingTicks, int totalTicks, boolean unknownDuration, boolean ready)
+    private Cooldown(int remainingTicks, int totalTicks, boolean ready)
     {
         this.remainingTicks = Math.max(0, remainingTicks);
         this.totalTicks = Math.max(0, totalTicks);
-        this.unknownDuration = unknownDuration;
         this.ready = ready;
     }
 
@@ -32,12 +30,7 @@ public final class Cooldown
         {
             return READY;
         }
-        return new Cooldown(remainingTicks, totalTicks, false, false);
-    }
-
-    public static Cooldown unknown(int remainingTicks)
-    {
-        return new Cooldown(remainingTicks, 0, true, false);
+        return new Cooldown(remainingTicks, totalTicks, false);
     }
 
     public int getRemainingTicks()
@@ -48,11 +41,6 @@ public final class Cooldown
     public int getTotalTicks()
     {
         return totalTicks;
-    }
-
-    public boolean isUnknownDuration()
-    {
-        return unknownDuration;
     }
 
     public boolean isReady()

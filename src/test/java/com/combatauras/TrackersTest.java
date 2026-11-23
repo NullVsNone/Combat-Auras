@@ -731,15 +731,17 @@ public class TrackersTest
     public void readyStrengthSemantics()
     {
         long sec = 1_000_000_000L;
-        Assert.assertEquals(0f, CooldownRenderer.readyStrength(ReadyStyle.NONE, false, 4, 0L, 0L), 0.001f);
-        Assert.assertEquals(1f, CooldownRenderer.readyStrength(ReadyStyle.SINGLE_FLASH, false, 4, 0L, 0L), 0.001f);
-        float mid = CooldownRenderer.readyStrength(ReadyStyle.SINGLE_FLASH, false, 4, 2 * sec, 0L);
+        Assert.assertEquals(0f, CooldownRenderer.readyStrength(ReadyStyle.NONE, false, 4, 0L, 0L, 1f), 0.001f);
+        Assert.assertEquals(1f, CooldownRenderer.readyStrength(ReadyStyle.SINGLE_FLASH, false, 4, 0L, 0L, 1f), 0.001f);
+        float mid = CooldownRenderer.readyStrength(ReadyStyle.SINGLE_FLASH, false, 4, 2 * sec, 0L, 1f);
         Assert.assertTrue("single flash fades", mid > 0f && mid < 1f);
-        Assert.assertEquals("timed highlight ends", 0f, CooldownRenderer.readyStrength(ReadyStyle.SOLID, false, 4, 5 * sec, 0L), 0.001f);
-        Assert.assertEquals("permanent highlight stays", 1f, CooldownRenderer.readyStrength(ReadyStyle.SOLID, true, 4, 500 * sec, 0L), 0.001f);
-        Assert.assertTrue("permanent single flash settles dim", CooldownRenderer.readyStrength(ReadyStyle.SINGLE_FLASH, true, 4, 500 * sec, 0L) > 0.3f);
-        float pulse = CooldownRenderer.readyStrength(ReadyStyle.PULSE, true, 4, sec, 123 * sec);
+        Assert.assertEquals("timed highlight ends", 0f, CooldownRenderer.readyStrength(ReadyStyle.SOLID, false, 4, 5 * sec, 0L, 1f), 0.001f);
+        Assert.assertEquals("permanent highlight stays", 1f, CooldownRenderer.readyStrength(ReadyStyle.SOLID, true, 4, 500 * sec, 0L, 1f), 0.001f);
+        Assert.assertTrue("permanent single flash settles dim", CooldownRenderer.readyStrength(ReadyStyle.SINGLE_FLASH, true, 4, 500 * sec, 0L, 1f) > 0.3f);
+        float pulse = CooldownRenderer.readyStrength(ReadyStyle.PULSE, true, 4, sec, 123 * sec, 1f);
         Assert.assertTrue(pulse >= 0.45f && pulse <= 1f);
+        Assert.assertEquals("no motion holds the pulse steady", 1f,
+            CooldownRenderer.readyStrength(ReadyStyle.PULSE, true, 4, sec, 123 * sec, 0f), 0.001f);
     }
 
     @Test
@@ -753,7 +755,7 @@ public class TrackersTest
             @Override
             public AnimationMode animationMode() { return AnimationMode.TIMED; }
         };
-        InventoryCooldownOverlay overlay = new InventoryCooldownOverlay(null, cfg, null, null, null, null, null);
+        InventoryCooldownOverlay overlay = new InventoryCooldownOverlay(new com.combatauras.settings.Settings(cfg), null, null, null, null, null);
         long t = 10_000_000_000L;
 
         Assert.assertEquals("Unused potion never glows", 0f, overlay.trackReady(3, 2434, true, t), 0.001f);

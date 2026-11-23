@@ -1,6 +1,5 @@
 package com.combatauras.model;
 
-import net.runelite.api.gameval.ItemID;
 
 /**
  * Continuous screen warnings. Each one carries the icon its shower uses (a sprite or an item, or none);
@@ -20,8 +19,7 @@ public enum StatusEffect
     IDLE(580, -1),
     SPEC_READY(168, -1),
     LOW_RUN_ENERGY(1070, -1),
-    UNPOTTED(898, -1),
-    PARASITE(-1, ItemID.SANFEW_SALVE_4_DOSE);
+    UNPOTTED(898, -1);
 
     private final int showerSpriteId;
     private final int showerItemId;

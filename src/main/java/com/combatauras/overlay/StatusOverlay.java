@@ -13,7 +13,6 @@ import com.combatauras.tracker.FreezeTracker;
 import com.combatauras.tracker.HeartCooldownTracker;
 import com.combatauras.tracker.IdleTracker;
 import com.combatauras.tracker.ImpactTrackers;
-import com.combatauras.tracker.ParasiteTracker;
 import com.combatauras.tracker.ReminderPipeline;
 import com.combatauras.tracker.ReminderPolicy;
 import com.combatauras.tracker.UnpottedTracker;
@@ -43,7 +42,7 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  * settings snapshot, so a new warning needs no code here beyond its live severity source.
  */
 @Singleton
-public class ImmersiveStatusOverlay extends Overlay
+public class StatusOverlay extends Overlay
 {
     private static final StatusEffect[] STATUSES = StatusEffect.values();
     private static final CombatSpell[] SPELLS = CombatSpell.values();
@@ -61,7 +60,6 @@ public class ImmersiveStatusOverlay extends Overlay
     private final FreezeTracker freezeTracker;
     private final IdleTracker idleTracker;
     private final UnpottedTracker unpottedTracker;
-    private final ParasiteTracker parasiteTracker;
     private final ReminderPipeline reminders;
 
     // Client-thread-sampled live severities (index: StatusEffect ordinal; only tick-sampled ones are written)
@@ -83,7 +81,7 @@ public class ImmersiveStatusOverlay extends Overlay
     private final int[] readyItemFamilies = new int[MAX_ITEMS + STATUSES.length];
 
     @Inject
-    public ImmersiveStatusOverlay(
+    public StatusOverlay(
         Client client,
         CombatAurasConfig config,
         Settings settings,
@@ -96,7 +94,6 @@ public class ImmersiveStatusOverlay extends Overlay
         FreezeTracker freezeTracker,
         IdleTracker idleTracker,
         UnpottedTracker unpottedTracker,
-        ParasiteTracker parasiteTracker,
         ReminderPipeline reminders
     )
     {
@@ -112,7 +109,6 @@ public class ImmersiveStatusOverlay extends Overlay
         this.freezeTracker = freezeTracker;
         this.idleTracker = idleTracker;
         this.unpottedTracker = unpottedTracker;
-        this.parasiteTracker = parasiteTracker;
         this.reminders = reminders;
 
         setPosition(OverlayPosition.DYNAMIC);
@@ -254,8 +250,10 @@ public class ImmersiveStatusOverlay extends Overlay
         switch (effect)
         {
             case DAMAGE:
-                return impacts.damage.getSeverity(nowNanos, config.damageFeedbackDuration() * 1_000_000L)
-                    * (config.damageFeedbackStrength() / 100f);
+            {
+                SettingsSnapshot s = settings.get();
+                return impacts.damage.getSeverity(nowNanos, s.damageFlashNanos) * s.damageFlashScale;
+            }
             case POISON_TICK:
                 return impacts.poisonTick.getSeverity(nowNanos, 500_000_000L);
             case VENOM_TICK:
@@ -264,8 +262,6 @@ public class ImmersiveStatusOverlay extends Overlay
                 return freezeTracker.getSeverity(config, nowNanos);
             case IDLE:
                 return idleTracker.getSeverity(config, nowNanos);
-            case PARASITE:
-                return parasiteTracker.isActive() ? parasiteTracker.getSeverity() : 0f;
             case UNPOTTED:
                 return unpottedTracker.getSeverity(config, nowNanos);
             default:

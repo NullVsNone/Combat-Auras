@@ -164,15 +164,12 @@ public class ProceduralRenderer
                 width,
                 height,
                 nowNanos,
-                timeSec,
                 config,
                 masterIntensity,
                 motion,
                 statusSeverities,
                 statusColors,
                 glowExtraCount,
-                glowExtraColors,
-                0,
                 glowExtraColors
             );
         }
@@ -197,16 +194,13 @@ public class ProceduralRenderer
         int width,
         int height,
         long nowNanos,
-        double timeSec,
         SettingsSnapshot config,
         float masterIntensity,
         float motion,
         float[] statusSeverities,
         int[] statusColors,
-        int spellCount,
-        int[] spellColors,
-        int itemCount,
-        int[] itemColors
+        int extraCount,
+        int[] extraColors
     )
     {
         float rAcc = 0f;
@@ -219,9 +213,7 @@ public class ProceduralRenderer
         float pulseHealth = 1f;
         if (statusSeverities[StatusEffect.LOW_HEALTH.ordinal()] > 0f && config.healthPulseStrength > 0f)
         {
-            float pStr = config.healthPulseStrength * motion;
-            double beat = 0.5 + 0.5 * Math.sin(timeSec * 5.2);
-            pulseHealth = (1f - 0.35f * pStr) + (0.35f * pStr) * (float) beat;
+            pulseHealth = Motion.pulse(nowNanos, Motion.HEARTBEAT_RATE, 0.65f, config.healthPulseStrength * motion);
         }
 
         for (int i = 0; i < statusSeverities.length; i++)
@@ -248,13 +240,12 @@ public class ProceduralRenderer
             }
         }
 
-        int totalExtra = spellCount + itemCount;
-        if (totalExtra > 0)
+        if (extraCount > 0)
         {
-            float spellPulse = 0.72f + 0.28f * (float) (0.5 + 0.5 * Math.sin(timeSec * 3.4)) * motion + (1f - motion) * 0.28f;
-            for (int i = 0; i < totalExtra; i++)
+            float spellPulse = Motion.pulse(nowNanos, Motion.SCREEN_PULSE_RATE, 0.72f, motion);
+            for (int i = 0; i < extraCount; i++)
             {
-                int argb = (i < spellCount) ? spellColors[i] : itemColors[i - spellCount];
+                int argb = extraColors[i];
                 float a = ((argb >>> 24) & 0xFF) / 255f;
                 float cw = 0.65f * a;
                 float w = cw * spellPulse;
@@ -512,7 +503,7 @@ public class ProceduralRenderer
             }
             double cycle = rawCycle % 1.0;
             float fade = (float) Math.sin(cycle * Math.PI);
-            float alpha = Math.max(0f, Math.min(1f, fade * 0.92f));
+            float alpha = Math.max(0f, Math.min(1f, fade * config.showerOpacity));
             if (alpha <= 0.03f)
             {
                 continue;
@@ -520,7 +511,7 @@ public class ProceduralRenderer
 
             int x;
             int y;
-            int sway = (int) Math.round(Math.sin(timeSec * 2.5 + i) * 8.0);
+            int sway = (int) Math.round(Math.sin(timeSec * Motion.SWAY_RATE + i) * 8.0 * config.motionStrength);
             if (startLoc == ShowerStartLocation.BOTTOM)
             {
                 double travel = height * screenFrac;

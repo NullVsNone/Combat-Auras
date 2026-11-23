@@ -7,12 +7,14 @@ import com.combatauras.model.Cooldown;
 import com.combatauras.model.GlowColorMode;
 import com.combatauras.model.ShowerStartLocation;
 import com.combatauras.model.StatusEffect;
-import com.combatauras.overlay.ImmersiveStatusOverlay;
+import com.combatauras.overlay.StatusOverlay;
 import com.combatauras.overlay.InventoryCooldownOverlay;
 import com.combatauras.overlay.SpellCooldownOverlay;
 import com.combatauras.render.CooldownRenderer;
 import com.combatauras.render.ItemOutlineCache;
+import com.combatauras.render.Motion;
 import com.combatauras.render.ProceduralRenderer;
+import com.combatauras.settings.SettingsSnapshot;
 import com.combatauras.tracker.HeartCooldownTracker;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -48,7 +50,6 @@ public class RendererAndConfigTest
         Assert.assertSame("ready() is a shared instance (no allocation)", Cooldown.READY, Cooldown.ready());
         Assert.assertSame(Cooldown.READY, Cooldown.active(0, 10));
         Assert.assertEquals(0f, Cooldown.READY.getRemainingFraction(), 0.001f);
-        Assert.assertTrue(Cooldown.unknown(5).isUnknownDuration());
     }
 
     private static float[] sev(StatusEffect e, float v)
@@ -448,8 +449,9 @@ public class RendererAndConfigTest
         Graphics2D g = canvas.createGraphics();
         Rectangle bounds = new Rectangle(10, 10, 32, 32);
 
-        cr.renderItemCooldown(g, bounds, 23685, Cooldown.active(10, 20), cfg, null, System.nanoTime(), 0f);
-        cr.renderItemCooldown(g, bounds, 23685, Cooldown.ready(), cfg, null, System.nanoTime(), 1f);
+        SettingsSnapshot snap = SettingsSnapshot.of(cfg);
+        cr.renderItemCooldown(g, bounds, 23685, Cooldown.active(10, 20), snap, null, System.nanoTime(), 0f);
+        cr.renderItemCooldown(g, bounds, 23685, Cooldown.ready(), snap, null, System.nanoTime(), 1f);
         BufferedImage sprite = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         for (int y = 5; y < 11; y++)
         {
@@ -467,13 +469,69 @@ public class RendererAndConfigTest
 
         for (BorderStyle bs : BorderStyle.values())
         {
-            CooldownRenderer.drawStyledGlow(g, bounds, outline, aura, ItemOutlineCache.AURA_PAD, cfg.readyColor(), bs, 0.8, System.nanoTime());
+            CooldownRenderer.drawStyledGlow(g, bounds, outline, aura, cfg.readyColor(), bs, 0.8, System.nanoTime(), snap);
         }
         g.dispose();
 
         Assert.assertNotNull(SpellCooldownOverlay.class.getDeclaredMethod("renderDebugSpellGrid", Graphics2D.class, double.class));
-        Assert.assertTrue(ImmersiveStatusOverlay.class.isAnnotationPresent(Singleton.class));
+        Assert.assertTrue(StatusOverlay.class.isAnnotationPresent(Singleton.class));
         Assert.assertTrue(InventoryCooldownOverlay.class.isAnnotationPresent(Singleton.class));
         Assert.assertTrue(SpellCooldownOverlay.class.isAnnotationPresent(Singleton.class));
+    }
+
+    // ---------------------------------------------------------------- shared motion, glow strength, shower opacity
+
+    @Test
+    public void motionPulseIsSteadyAtZeroAndBoundedAtFull()
+    {
+        long t = 777_000_000L;
+        Assert.assertEquals(1f, Motion.pulse(t, Motion.ICON_PULSE_RATE, 0.1f, 0f), 0.0001f);
+        for (long n = 0; n < 4_000_000_000L; n += 50_000_000L)
+        {
+            float p = Motion.pulse(n, Motion.ICON_PULSE_RATE, 0.1f, 1f);
+            Assert.assertTrue(p >= 0.1f - 1e-4f && p <= 1f + 1e-4f);
+        }
+        // Same curve the screen glow used before it moved here
+        double timeSec = t / 1_000_000_000.0;
+        float m = 0.65f;
+        float legacy = 0.72f + 0.28f * (float) (0.5 + 0.5 * Math.sin(timeSec * 3.4)) * m + (1f - m) * 0.28f;
+        Assert.assertEquals(legacy, Motion.pulse(t, Motion.SCREEN_PULSE_RATE, 0.72f, m), 0.0001f);
+        Assert.assertEquals("no motion freezes the sweep", 0.0, Motion.angle(t, Motion.SWEEP_RATE, 0f), 0.0);
+    }
+
+    private static int centreAlphaAfterOutline(int strengthPercent)
+    {
+        CombatAurasConfig cfg = new CombatAurasConfig()
+        {
+            @Override
+            public int iconGlowStrength() { return strengthPercent; }
+        };
+        BufferedImage outline = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
+        outline.setRGB(4, 4, 0xFF00FFFF);
+        BufferedImage canvas = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = canvas.createGraphics();
+        CooldownRenderer.drawStyledGlow(g, new Rectangle(0, 0, 8, 8), outline, null, new Color(0, 255, 255, 120),
+            BorderStyle.ITEM_OUTLINE, 1.0, 0L, SettingsSnapshot.of(cfg));
+        g.dispose();
+        return canvas.getRGB(4, 4) >>> 24;
+    }
+
+    @Test
+    public void iconGlowStrengthScalesGlowAlpha()
+    {
+        int weak = centreAlphaAfterOutline(25);
+        int normal = centreAlphaAfterOutline(100);
+        int strong = centreAlphaAfterOutline(200);
+        Assert.assertTrue("25% is dimmer than 100%", weak < normal);
+        Assert.assertTrue("200% is brighter than 100%", strong > normal);
+        Assert.assertEquals(100, new CombatAurasConfig() {}.iconGlowStrength());
+    }
+
+    @Test
+    public void showerOpacityDefaultsToTwoThirds()
+    {
+        CombatAurasConfig cfg = new CombatAurasConfig() {};
+        Assert.assertEquals(66, cfg.showerOpacity());
+        Assert.assertEquals(0.66f, SettingsSnapshot.of(cfg).showerOpacity, 0.0001f);
     }
 }

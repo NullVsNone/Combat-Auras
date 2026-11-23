@@ -3,7 +3,7 @@ package com.combatauras;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.combatauras.config.CombatAurasConfig;
-import com.combatauras.overlay.ImmersiveStatusOverlay;
+import com.combatauras.overlay.StatusOverlay;
 import com.combatauras.overlay.InventoryCooldownOverlay;
 import com.combatauras.overlay.SpellCooldownOverlay;
 import com.combatauras.render.CooldownRenderer;
@@ -19,7 +19,6 @@ import com.combatauras.tracker.HeartCooldownTracker;
 import com.combatauras.tracker.IdleTracker;
 import com.combatauras.tracker.ImpactTrackers;
 import com.combatauras.tracker.ItemCooldowns;
-import com.combatauras.tracker.ParasiteTracker;
 import com.combatauras.tracker.PotionTimers;
 import com.combatauras.tracker.ReminderPipeline;
 import com.combatauras.tracker.RepotProtection;
@@ -95,7 +94,6 @@ public class CombatAurasPlugin extends Plugin
     @Inject private IdleTracker idleTracker;
     @Inject private FoodCooldownTracker foodTracker;
     @Inject private UnpottedTracker unpottedTracker;
-    @Inject private ParasiteTracker parasiteTracker;
     @Inject private ConsumableCatalog catalog;
     @Inject private ReminderPipeline reminders;
     @Inject private NotificationDispatcher notifications;
@@ -106,7 +104,7 @@ public class CombatAurasPlugin extends Plugin
     @Inject private ProceduralRenderer proceduralRenderer;
     @Inject private InventoryCooldownOverlay inventoryOverlay;
     @Inject private SpellCooldownOverlay spellOverlay;
-    @Inject private ImmersiveStatusOverlay statusOverlay;
+    @Inject private StatusOverlay statusOverlay;
 
     @Provides
     CombatAurasConfig provideConfig(ConfigManager configManager)
@@ -136,7 +134,6 @@ public class CombatAurasPlugin extends Plugin
         binder.bind(IdleTracker.class);
         binder.bind(FoodCooldownTracker.class);
         binder.bind(UnpottedTracker.class);
-        binder.bind(ParasiteTracker.class);
         binder.bind(ConsumableCatalog.class);
         binder.bind(ItemCooldowns.class);
         binder.bind(ReminderPipeline.class);
@@ -146,7 +143,7 @@ public class CombatAurasPlugin extends Plugin
         binder.bind(SpellRecastProtection.class);
         binder.bind(CooldownRenderer.class);
         binder.bind(ProceduralRenderer.class);
-        binder.bind(ImmersiveStatusOverlay.class);
+        binder.bind(StatusOverlay.class);
         binder.bind(InventoryCooldownOverlay.class);
         binder.bind(SpellCooldownOverlay.class);
     }
@@ -197,7 +194,6 @@ public class CombatAurasPlugin extends Plugin
         idleTracker.reset();
         foodTracker.reset();
         unpottedTracker.reset();
-        parasiteTracker.reset();
         reminders.reset();
         notifications.reset();
     }
@@ -245,7 +241,6 @@ public class CombatAurasPlugin extends Plugin
         idleTracker.onGameTick(client, config, combatState, notifier, nowNanos);
         foodTracker.onGameTick();
         unpottedTracker.onGameTick(client, config, combatState, nowNanos);
-        parasiteTracker.onGameTick();
 
         // 2. Derived state for the overlays
         reminders.update(nowNanos);
@@ -267,7 +262,6 @@ public class CombatAurasPlugin extends Plugin
         String msg = event.getMessage();
         spellTracker.onChatMessage(client, msg, config);
         potionTimers.onChatMessage(msg);
-        parasiteTracker.onChatMessage(msg);
         freezeTracker.onChatMessage(client.getLocalPlayer(), msg, System.nanoTime());
     }
 
@@ -386,7 +380,6 @@ public class CombatAurasPlugin extends Plugin
             freezeTracker.reset();
             spellTracker.onPlayerDeath();
             combatState.reset();
-            parasiteTracker.reset();
         }
     }
 

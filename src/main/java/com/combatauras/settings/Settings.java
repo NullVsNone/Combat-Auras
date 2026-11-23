@@ -6,7 +6,7 @@ import javax.inject.Singleton;
 
 /**
  * Holds the current {@link SettingsSnapshot}. Rebuilt by the plugin on every change to its own config group
- * (a preset applying many keys simply rebuilds a few times; each build is a few hundred cached getter calls).
+ * (a preset rebuilds once after all its keys are written; each build is a few hundred cached getter calls).
  */
 @Singleton
 public class Settings
