@@ -8,6 +8,9 @@ All notable changes to Combat Auras. Dates are UTC.
 - **Item & spellbook glow strength** (General, 25 to 200%, default 100%): brightens or dims glows on inventory
   items, spell icons, the Magic tab and the spec orb. Above 100% layers the glow, and thickens box-style borders.
 - **Icon opacity** for showering icons (Icon Shower, default 66%).
+- **Pulse / Steady** glow animation for every icon aura that lacked one: spell icons and the Magic tab
+  (Shared Combat Spells), the spec orb (Special Attack Ready) and prayer restores (Low Prayer). Inventory ready
+  highlights keep their Single flash / Pulse / Solid choice.
 
 ### Changed
 - *Motion strength* now drives every animation, not only the screen glow: icon pulses, breathing and sweeping
@@ -31,6 +34,15 @@ All notable changes to Combat Auras. Dates are UTC.
   instead of being rebuilt each frame.
 - Image caches evict the least recently used entry instead of clearing everything when full.
 - Applying a preset rebuilds settings once instead of once per key.
+
+### Performance
+- Image and widget caches are keyed by primitive longs (4-way set-associative, LRU within each set), so a frame's
+  lookups no longer box a key per inventory item or spellbook widget (up to ~100 per frame with the spellbook open).
+- Item classification is a plain array indexed by item id instead of a boxed `HashMap`.
+- Cooldown timer labels are built once per remaining tick and reused, instead of a new string (and a
+  `String.format` for the last ten seconds) per icon per frame. This also fixes "5,4"-style labels in locales that
+  use a decimal comma.
+- The Magic tab glow colour is only rebuilt when the set of ready spells changes.
 
 ### Internal
 - Inventory, spellbook and damage-flash rendering read the settings snapshot instead of the config each frame.

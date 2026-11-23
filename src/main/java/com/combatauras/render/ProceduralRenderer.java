@@ -15,7 +15,6 @@ import com.combatauras.model.GlowColorMode;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.util.Map;
 import java.util.Random;
 import net.runelite.api.Client;
 import net.runelite.api.SpritePixels;
@@ -46,8 +45,8 @@ public class ProceduralRenderer
     }
 
     // Unified pre-scaled icon caches (respects Resource Packs)
-    private final Map<Integer, BufferedImage> spriteIconCache = new LruCache<>(64);
-    private final Map<Integer, BufferedImage> itemIconCache = new LruCache<>(64);
+    private final KeyedCache<BufferedImage> spriteIconCache = new KeyedCache<>(64);
+    private final KeyedCache<BufferedImage> itemIconCache = new KeyedCache<>(64);
     private int cachedIconSize = 0;
     private float smoothedGlowAlpha = 0f;
     private long lastGlowFrameNanos = 0L;

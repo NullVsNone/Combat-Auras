@@ -7,7 +7,7 @@ import com.combatauras.model.SpellCooldownDisplayMode;
 import com.combatauras.model.BorderStyle;
 import com.combatauras.render.CooldownRenderer;
 import com.combatauras.render.ItemOutlineCache;
-import com.combatauras.render.LruCache;
+import com.combatauras.render.KeyedCache;
 import com.combatauras.render.Motion;
 import com.combatauras.settings.Settings;
 import com.combatauras.settings.SettingsSnapshot;
@@ -19,7 +19,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.util.Map;
 import java.awt.RenderingHints;
 import java.awt.geom.Arc2D;
 import javax.inject.Inject;
@@ -67,12 +66,13 @@ public class SpellCooldownOverlay extends Overlay
     private final SpriteManager spriteManager;
 
     private final Arc2D.Float reusableArc = new Arc2D.Float(Arc2D.PIE);
+    private Color tabBlend;
     private final int[] readySpellOrdinals = new int[CombatSpell.values().length];
     private final int[] readySpellColors = new int[CombatSpell.values().length];
-    private final Map<Long, BufferedImage> spriteOutlineCache = new LruCache<>(128);
-    private final Map<Long, BufferedImage> spriteAuraCache = new LruCache<>(128);
-    private final Map<Integer, CombatSpell> widgetSpellCache = new LruCache<>(256);
-    private final Map<Long, BufferedImage> spriteFillMaskCache = new LruCache<>(128);
+    private final KeyedCache<BufferedImage> spriteOutlineCache = new KeyedCache<>(128);
+    private final KeyedCache<BufferedImage> spriteAuraCache = new KeyedCache<>(128);
+    private final KeyedCache<CombatSpell> widgetSpellCache = new KeyedCache<>(256);
+    private final KeyedCache<BufferedImage> spriteFillMaskCache = new KeyedCache<>(128);
     private volatile int currentSpellbook = 0;
     private volatile boolean specReadyLive = false;
     private long specReadySinceNanos = 0L;
@@ -126,7 +126,7 @@ public class SpellCooldownOverlay extends Overlay
 
         long nowNanos = System.nanoTime();
         SettingsSnapshot s = settings.get();
-        double pulse = Motion.pulse(nowNanos, Motion.ICON_PULSE_RATE, 0.10f, s.motionStrength);
+        double pulse = Motion.iconGlow(s.spellGlowAnimation, nowNanos, s.motionStrength);
 
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -148,7 +148,7 @@ public class SpellCooldownOverlay extends Overlay
         // 3. Spec orb glow when Special Attack is ready
         if (s.specOrbGlow && (specReadyLive || s.debugSpecReady))
         {
-            renderSpecOrbGlow(graphics, pulse);
+            renderSpecOrbGlow(graphics, Motion.iconGlow(s.specOrbAnimation, nowNanos, s.motionStrength));
         }
 
         // 4. Optional floating Debug Spell Grid preview (works regardless of current spellbook)
@@ -178,6 +178,7 @@ public class SpellCooldownOverlay extends Overlay
             return;
         }
 
+        SettingsSnapshot snap = settings.get();
         for (Widget child : children)
         {
             if (child == null || child.isHidden())
@@ -187,7 +188,7 @@ public class SpellCooldownOverlay extends Overlay
 
             int wId = child.getId();
             CombatSpell matchedSpell = widgetSpellCache.get(wId);
-            if (matchedSpell == null && !widgetSpellCache.containsKey(wId))
+            if (matchedSpell == null && !widgetSpellCache.contains(wId))
             {
                 String rawName = child.getName();
                 if (rawName == null || rawName.isEmpty())
@@ -202,7 +203,6 @@ public class SpellCooldownOverlay extends Overlay
                 continue;
             }
             spellTracker.registerWidget(matchedSpell, child.getId(), child.getSpriteId());
-            SettingsSnapshot snap = settings.get();
             int si = matchedSpell.ordinal();
             if (!snap.spellEnabled(si) && !snap.spellDebug(si))
             {
@@ -246,7 +246,7 @@ public class SpellCooldownOverlay extends Overlay
 
         if (mode != SpellCooldownDisplayMode.RADIAL_ONLY)
         {
-            String text = CooldownRenderer.formatSeconds(cd.getRemainingSeconds());
+            String text = CooldownRenderer.formatTicks(cd.getRemainingTicks());
             CooldownRenderer.drawCenteredText(g, bounds, text, Color.WHITE);
         }
     }
@@ -284,8 +284,12 @@ public class SpellCooldownOverlay extends Overlay
             bSum += argb & 0xFF;
             aMax = Math.max(aMax, (argb >>> 24) & 0xFF);
         }
-        Color blended = new Color(rSum / count, gSum / count, bSum / count, Math.max(120, aMax));
-        drawIconAuraAndOutline(g, bounds, magicTab.getId(), SPRITE_TAB_MAGIC, blended, pulse);
+        int argb = (Math.max(120, aMax) << 24) | ((rSum / count) << 16) | ((gSum / count) << 8) | (bSum / count);
+        if (tabBlend == null || tabBlend.getRGB() != argb)
+        {
+            tabBlend = new Color(argb, true); // only reallocated when the set of ready spells changes
+        }
+        drawIconAuraAndOutline(g, bounds, magicTab.getId(), SPRITE_TAB_MAGIC, tabBlend, pulse);
     }
 
     private void renderDebugSpellGrid(Graphics2D g, double pulse)

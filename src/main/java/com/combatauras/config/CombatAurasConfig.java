@@ -3,6 +3,7 @@ package com.combatauras.config;
 import com.combatauras.model.AnimationMode;
 import com.combatauras.model.BorderStyle;
 import com.combatauras.model.DisplayMode;
+import com.combatauras.model.GlowAnimation;
 import com.combatauras.model.GlowColorMode;
 import com.combatauras.model.Preset;
 import com.combatauras.model.ReadyStyle;
@@ -272,16 +273,19 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellBorderStyle", name = "Spellbook glow style", description = "Glow style for ready spells and the Magic tab (independent of the inventory ready border).", section = sharedSpellsSection, position = 7)
     default BorderStyle spellBorderStyle() { return BorderStyle.SOFT_GLOW; }
 
-    @ConfigItem(keyName = "spellCooldownDisplayMode", name = "Spell cooldown style", description = "How remaining recast time is drawn over spell widgets.", section = sharedSpellsSection, position = 8)
+    @ConfigItem(keyName = "spellGlowAnimation", name = "Spellbook glow animation", description = "Pulse: the spell and Magic tab glow pulses (its depth follows Motion strength). Steady: constant strength.", section = sharedSpellsSection, position = 8)
+    default GlowAnimation spellGlowAnimation() { return GlowAnimation.PULSE; }
+
+    @ConfigItem(keyName = "spellCooldownDisplayMode", name = "Spell cooldown style", description = "How remaining recast time is drawn over spell widgets.", section = sharedSpellsSection, position = 9)
     default SpellCooldownDisplayMode spellCooldownDisplayMode() { return SpellCooldownDisplayMode.FILL_AND_TEXT; }
 
     @Alpha
-    @ConfigItem(keyName = "spellCooldownOverlayColor", name = "Spell cooldown tint", description = "Translucent tint drawn over spells while on cooldown.", section = sharedSpellsSection, position = 9)
+    @ConfigItem(keyName = "spellCooldownOverlayColor", name = "Spell cooldown tint", description = "Translucent tint drawn over spells while on cooldown.", section = sharedSpellsSection, position = 10)
     default Color spellCooldownOverlayColor() { return new Color(0, 0, 0, 145); }
 
     @Range(min = 5, max = 600)
     @Units(Units.SECONDS)
-    @ConfigItem(keyName = "combatBreakReRemindSeconds", name = "Combat break re-remind", description = "After this long out of combat, re-entering combat shows ready-spell reminders again.", section = sharedSpellsSection, position = 10)
+    @ConfigItem(keyName = "combatBreakReRemindSeconds", name = "Combat break re-remind", description = "After this long out of combat, re-entering combat shows ready-spell reminders again.", section = sharedSpellsSection, position = 11)
     default int combatBreakReRemindSeconds() { return 120; }
 
     // =========================================================================
@@ -420,6 +424,9 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "lowPrayerInventoryGlow", name = "Glow inventory restores", description = "Highlight prayer-restoring potions in your inventory when prayer is low.", section = warnPrayerSection, position = 13)
     default boolean lowPrayerInventoryGlow() { return true; }
+
+    @ConfigItem(keyName = "lowPrayerGlowAnimation", name = "Restore glow animation", description = "Pulse: the inventory restore glow pulses (its depth follows Motion strength). Steady: constant strength.", section = warnPrayerSection, position = 4)
+    default GlowAnimation lowPrayerGlowAnimation() { return GlowAnimation.PULSE; }
 
     @ConfigItem(keyName = "lowPrayerNotification", name = "Notification", description = "RuneLite notification (sound/tray/flash) when prayer drops below the threshold.", section = warnPrayerSection, position = 14)
     default Notification lowPrayerNotification() { return Notification.OFF; }
@@ -605,6 +612,9 @@ public interface CombatAurasConfig extends Config
 
     @ConfigItem(keyName = "specOrbStyle", name = "Orb glow style", description = "Glow style used around the special attack orb.", section = warnSpecSection, position = 3)
     default BorderStyle specOrbStyle() { return BorderStyle.SOFT_GLOW; }
+
+    @ConfigItem(keyName = "specOrbAnimation", name = "Orb glow animation", description = "Pulse: the spec orb glow pulses (its depth follows Motion strength). Steady: constant strength.", section = warnSpecSection, position = 4)
+    default GlowAnimation specOrbAnimation() { return GlowAnimation.PULSE; }
 
     @Alpha
     @ConfigItem(keyName = "specColor", name = "Color", description = "Color of the spec ready glow.", section = warnSpecSection, position = 10)

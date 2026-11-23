@@ -2,9 +2,8 @@ package com.combatauras.tracker;
 
 import com.combatauras.model.BoostPotion;
 import com.combatauras.model.PotionEffect;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.IntFunction;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -55,7 +54,10 @@ public class ConsumableCatalog
     public static final Entry NOTHING = new Entry(null, null, null, false, false);
 
     private final IntFunction<ItemComposition> lookup;
-    private final Map<Integer, Entry> cache = new HashMap<>(); // client thread only
+    private static final int MAX_ID = 1 << 20;
+    // Indexed by item id (ids are dense and small): an inventory redraw looks up every item each frame without
+    // boxing. Grows on demand. Client thread only.
+    private Entry[] cache = new Entry[1 << 15];
 
     @Inject
     public ConsumableCatalog(ItemManager itemManager)
@@ -74,20 +76,33 @@ public class ConsumableCatalog
         {
             return NOTHING;
         }
-        Entry entry = cache.get(itemId);
+        if (itemId >= MAX_ID)
+        {
+            return classifyComposition(itemId); // implausible id: classify without caching
+        }
+        if (itemId >= cache.length)
+        {
+            cache = Arrays.copyOf(cache, Integer.highestOneBit(itemId) << 1);
+        }
+        Entry entry = cache[itemId];
         if (entry == null)
         {
-            ItemComposition comp = lookup.apply(itemId);
-            entry = comp == null ? NOTHING
-                : classify(itemId, comp.getName(), comp.getInventoryActions(), comp.getNote() != -1);
-            cache.put(itemId, entry);
+            entry = classifyComposition(itemId);
+            cache[itemId] = entry;
         }
         return entry;
     }
 
+    private Entry classifyComposition(int itemId)
+    {
+        ItemComposition comp = lookup.apply(itemId);
+        return comp == null ? NOTHING
+            : classify(itemId, comp.getName(), comp.getInventoryActions(), comp.getNote() != -1);
+    }
+
     public void clear()
     {
-        cache.clear();
+        Arrays.fill(cache, null);
     }
 
     public static Entry classify(int itemId, String name, String[] actions, boolean noted)

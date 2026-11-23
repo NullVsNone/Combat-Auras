@@ -2,7 +2,6 @@ package com.combatauras.render;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
-import java.util.Map;
 import net.runelite.client.game.ItemManager;
 
 /**
@@ -14,9 +13,9 @@ public class ItemOutlineCache
 {
     public static final int AURA_PAD = 5;
 
-    private final Map<Long, BufferedImage> outlineCache = new LruCache<>(256);
-    private final Map<Long, BufferedImage> auraCache = new LruCache<>(256);
-    private final Map<Long, BufferedImage> fillMaskCache = new LruCache<>(256);
+    private final KeyedCache<BufferedImage> outlineCache = new KeyedCache<>(256);
+    private final KeyedCache<BufferedImage> auraCache = new KeyedCache<>(256);
+    private final KeyedCache<BufferedImage> fillMaskCache = new KeyedCache<>(256);
 
     /**
      * ItemManager returns images that load asynchronously and are fully transparent until loaded.

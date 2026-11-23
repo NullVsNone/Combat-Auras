@@ -1,5 +1,7 @@
 package com.combatauras.render;
 
+import com.combatauras.model.GlowAnimation;
+
 /**
  * Shared animation curves. Every pulse, breath, sweep and sway goes through here so the one
  * "Motion strength" setting governs all of them: at 0 each animation holds steady at full strength.
@@ -44,6 +46,12 @@ public final class Motion
             return 1f;
         }
         return 1f - (1f - floor) * motion * (1f - wave(nowNanos, radPerSec));
+    }
+
+    /** Strength of an icon glow this frame: its pulse, or a steady 1 when the glow is set to Steady. */
+    public static float iconGlow(GlowAnimation animation, long nowNanos, float motion)
+    {
+        return animation == GlowAnimation.STEADY ? 1f : pulse(nowNanos, ICON_PULSE_RATE, 0.10f, motion);
     }
 
     /** Elapsed animation angle in radians, slowed by motion (0 = frozen). */

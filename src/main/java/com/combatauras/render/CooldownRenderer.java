@@ -88,7 +88,7 @@ public class CooldownRenderer
 
         if (s.showCooldownTimer)
         {
-            drawCenteredText(g, bounds, formatSeconds(cooldown.getRemainingSeconds()), Color.WHITE);
+            drawCenteredText(g, bounds, formatTicks(cooldown.getRemainingTicks()), Color.WHITE);
         }
     }
 
@@ -394,6 +394,26 @@ public class CooldownRenderer
         }
     }
 
+    // Timer labels by remaining ticks: cooldowns only change once per tick, so each label is built once and reused
+    // every frame instead of formatting a new String per icon per frame. Client thread only.
+    private static final String[] TICK_LABELS = new String[6000]; // one hour
+
+    /** Timer label for a cooldown with {@code ticks} game ticks left (cached). */
+    public static String formatTicks(int ticks)
+    {
+        if (ticks < 0 || ticks >= TICK_LABELS.length)
+        {
+            return formatSeconds(Math.max(0, ticks) * 0.6f);
+        }
+        String label = TICK_LABELS[ticks];
+        if (label == null)
+        {
+            label = formatSeconds(ticks * 0.6f);
+            TICK_LABELS[ticks] = label;
+        }
+        return label;
+    }
+
     public static String formatSeconds(float seconds)
     {
         if (seconds >= 60f)
@@ -411,6 +431,8 @@ public class CooldownRenderer
         {
             return String.valueOf(Math.round(seconds));
         }
-        return String.format("%.1f", seconds);
+        // One decimal without String.format (slow, and locale-dependent: "5,4" in some locales)
+        int tenths = Math.round(seconds * 10f);
+        return (tenths / 10) + "." + (tenths % 10);
     }
 }

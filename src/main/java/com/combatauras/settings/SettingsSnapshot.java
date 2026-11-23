@@ -5,6 +5,7 @@ import com.combatauras.model.AnimationMode;
 import com.combatauras.model.BorderStyle;
 import com.combatauras.model.CombatSpell;
 import com.combatauras.model.DisplayMode;
+import com.combatauras.model.GlowAnimation;
 import com.combatauras.model.GlowColorMode;
 import com.combatauras.model.PotionEffect;
 import com.combatauras.model.ReminderContext;
@@ -71,6 +72,9 @@ public final class SettingsSnapshot
     public final boolean lowPrayerInventoryGlow;
     public final Color lowPrayerColor;
     public final BorderStyle spellBorder;
+    public final GlowAnimation spellGlowAnimation;
+    public final GlowAnimation specOrbAnimation;
+    public final GlowAnimation lowPrayerGlowAnimation;
     public final SpellCooldownDisplayMode spellCooldownStyle;
     public final Color spellCooldownTint;
     public final boolean spellbookTabGlow;
@@ -176,6 +180,9 @@ public final class SettingsSnapshot
         lowPrayerInventoryGlow = allowItemGlows && c.lowPrayerInventoryGlow();
         lowPrayerColor = c.lowPrayerColor();
         spellBorder = c.spellBorderStyle();
+        spellGlowAnimation = c.spellGlowAnimation();
+        specOrbAnimation = c.specOrbAnimation();
+        lowPrayerGlowAnimation = c.lowPrayerGlowAnimation();
         spellCooldownStyle = c.spellCooldownDisplayMode();
         spellCooldownTint = c.spellCooldownOverlayColor();
         spellbookTabGlow = allowItemGlows && c.spellsEnabled() && c.spellbookTabGlow();

@@ -126,7 +126,7 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         {
             BorderStyle style = s.readyBorder == BorderStyle.NONE ? BorderStyle.ITEM_OUTLINE : s.readyBorder;
             renderer.drawItemGlow(graphics, bounds, itemManager, itemId, s.lowPrayerColor, style,
-                Motion.pulse(nowNanos, Motion.ICON_PULSE_RATE, 0.10f, s.motionStrength), nowNanos, s);
+                Motion.iconGlow(s.lowPrayerGlowAnimation, nowNanos, s.motionStrength), nowNanos, s);
         }
 
         Cooldown cooldown = cooldowns.of(itemId);

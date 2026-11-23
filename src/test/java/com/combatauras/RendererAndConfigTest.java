@@ -46,6 +46,12 @@ public class RendererAndConfigTest
         Assert.assertEquals("5.4", CooldownRenderer.formatSeconds(5.4f));
         Assert.assertEquals("15", CooldownRenderer.formatSeconds(15.0f));
         Assert.assertEquals("1:05", CooldownRenderer.formatSeconds(65.0f));
+        Assert.assertEquals("0.6", CooldownRenderer.formatSeconds(0.6f));
+        Assert.assertEquals("10.0", CooldownRenderer.formatSeconds(9.96f));
+        Assert.assertEquals("tick labels match the seconds formatter", "5.4", CooldownRenderer.formatTicks(9));
+        Assert.assertSame("tick labels are cached", CooldownRenderer.formatTicks(9), CooldownRenderer.formatTicks(9));
+        Assert.assertEquals("10:00", CooldownRenderer.formatTicks(1000));
+        Assert.assertEquals("beyond the cache still formats", "61:00", CooldownRenderer.formatTicks(6100));
 
         Assert.assertSame("ready() is a shared instance (no allocation)", Cooldown.READY, Cooldown.ready());
         Assert.assertSame(Cooldown.READY, Cooldown.active(0, 10));
@@ -110,17 +116,30 @@ public class RendererAndConfigTest
     }
 
     @Test
-    public void lruCacheEvictsOnlyTheOldestEntry()
+    public void keyedCacheEvictsOnlyTheLeastRecentlyUsedOfAFullSet()
     {
-        com.combatauras.render.LruCache<Integer, String> cache = new com.combatauras.render.LruCache<>(3);
-        cache.put(1, "a");
-        cache.put(2, "b");
-        cache.put(3, "c");
+        // Capacity 4 = one set of four ways, so every key competes for the same slots
+        com.combatauras.render.KeyedCache<String> cache = new com.combatauras.render.KeyedCache<>(4);
+        Assert.assertEquals(4, cache.capacity());
+        for (long k = 1; k <= 4; k++)
+        {
+            cache.put(k, "v" + k);
+        }
         cache.get(1); // touch: 2 is now the oldest
-        cache.put(4, "d");
-        Assert.assertEquals(3, cache.size());
-        Assert.assertFalse(cache.containsKey(2));
-        Assert.assertTrue(cache.containsKey(1) && cache.containsKey(3) && cache.containsKey(4));
+        cache.put(5, "v5");
+        Assert.assertFalse(cache.contains(2));
+        Assert.assertTrue(cache.contains(1) && cache.contains(3) && cache.contains(4) && cache.contains(5));
+        Assert.assertEquals("v5", cache.get(5));
+
+        cache.put(9, null);
+        Assert.assertTrue("null values are cacheable", cache.contains(9));
+        Assert.assertNull(cache.get(9));
+        cache.put(5, "again");
+        Assert.assertEquals("re-put replaces in place", "again", cache.get(5));
+
+        cache.clear();
+        Assert.assertFalse(cache.contains(1));
+        Assert.assertEquals(256, new com.combatauras.render.KeyedCache<String>(250).capacity());
     }
 
     @Test
@@ -497,6 +516,21 @@ public class RendererAndConfigTest
         float legacy = 0.72f + 0.28f * (float) (0.5 + 0.5 * Math.sin(timeSec * 3.4)) * m + (1f - m) * 0.28f;
         Assert.assertEquals(legacy, Motion.pulse(t, Motion.SCREEN_PULSE_RATE, 0.72f, m), 0.0001f);
         Assert.assertEquals("no motion freezes the sweep", 0.0, Motion.angle(t, Motion.SWEEP_RATE, 0f), 0.0);
+    }
+
+    @Test
+    public void everyIconAuraHasAPulseOrSteadyOption()
+    {
+        long t = 123_456_789L;
+        Assert.assertEquals(1f, Motion.iconGlow(com.combatauras.model.GlowAnimation.STEADY, t, 1f), 0f);
+        Assert.assertEquals(Motion.pulse(t, Motion.ICON_PULSE_RATE, 0.10f, 1f),
+            Motion.iconGlow(com.combatauras.model.GlowAnimation.PULSE, t, 1f), 0f);
+
+        CombatAurasConfig cfg = new CombatAurasConfig() {};
+        SettingsSnapshot s = SettingsSnapshot.of(cfg);
+        Assert.assertEquals(com.combatauras.model.GlowAnimation.PULSE, s.spellGlowAnimation);
+        Assert.assertEquals(com.combatauras.model.GlowAnimation.PULSE, s.specOrbAnimation);
+        Assert.assertEquals(com.combatauras.model.GlowAnimation.PULSE, s.lowPrayerGlowAnimation);
     }
 
     private static int centreAlphaAfterOutline(int strengthPercent)
