@@ -68,22 +68,26 @@ Each tracked thing is defined once:
 - **Potion, boost or food**: a name rule in `PotionItems` (timed potions and boosts) or `FoodCooldownTracker.classify` (eat / drink timers). `ConsumableCatalog` caches the result per item id and logs unrecognised dosed potions at debug level.
 - **New behaviour**: a `@Singleton` module bound in the plugin's `configure()`, plus one line in the matching event handler.
 
-## Running in Developer Mode
-
-```bash
-./gradlew run
-```
-
 ## Screenshots
 
 ### Spell Cooldowns & Resource Pack Outlines
-![Spell Cooldowns and Outlines](docs/screenshots/spell-cooldowns.png)
+<img width="257" height="152" alt="image" src="https://github.com/user-attachments/assets/2841bcea-4e45-49e7-bab5-334d5e297b33" />
 
 ### Magic Tab & Inventory Item Silhouette Glow
 ![Magic Tab and Item Glow](docs/screenshots/tab-and-item-glow.png)
 
 ### Spell Ready Screen-Edge Glow & Icon Shower
-![Spell Icon Shower](docs/screenshots/spell-shower.jpg)
+<img width="2511" height="1346" alt="image" src="https://github.com/user-attachments/assets/c536bcb6-d2d5-4b54-b954-80eb35fed645" />
+
 
 ### Multi-Status Vignette & Combined Icon Shower
-![Multi-Status Icon Shower](docs/screenshots/multi-status-shower.jpg)
+<img width="2208" height="1345" alt="image" src="https://github.com/user-attachments/assets/861d917b-0622-4b5e-a790-1a3a61e11368" />
+
+
+### Different visual styles + Idle indicator
+<img width="2512" height="1341" alt="image" src="https://github.com/user-attachments/assets/604848e7-0d65-4b7c-acb3-ec568e82546d" />
+
+### Different visual styles
+<img width="2212" height="1347" alt="image" src="https://github.com/user-attachments/assets/7e834ded-9bfc-48c7-aeb4-234b4d60d496" />
+
+
