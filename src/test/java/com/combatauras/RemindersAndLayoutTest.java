@@ -141,7 +141,8 @@ public class RemindersAndLayoutTest
             public boolean raidPotionsEnabled() { return false; }
         };
         Assert.assertFalse(com.combatauras.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.ANTIPOISON.ordinal()));
-        Assert.assertFalse(com.combatauras.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.ANTIVENOM.ordinal()));
+        Assert.assertTrue("anti-venom has its own toggle in the Venom section",
+            com.combatauras.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.ANTIVENOM.ordinal()));
         Assert.assertFalse(com.combatauras.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.SMELLING_SALTS.ordinal()));
         Assert.assertTrue(com.combatauras.settings.SettingsSnapshot.of(noAnti).potionRemind(PotionEffect.ANTIFIRE.ordinal()));
     }
