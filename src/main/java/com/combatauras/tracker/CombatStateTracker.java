@@ -286,7 +286,7 @@ public class CombatStateTracker
         }
         // Split before stripping tags: the tag stripper would also eat the '>' of "->"
         int arrow = target.indexOf("->");
-        String spell = CombatSpellTracker.stripTags(arrow >= 0 ? target.substring(0, arrow) : target).trim();
+        String spell = ChatText.clean(arrow >= 0 ? target.substring(0, arrow) : target).trim();
         return UTILITY_TARGET_SPELLS.contains(spell);
     }
 

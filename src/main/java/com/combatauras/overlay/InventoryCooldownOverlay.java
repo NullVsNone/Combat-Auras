@@ -141,6 +141,14 @@ public class InventoryCooldownOverlay extends WidgetItemOverlay
         {
             cooldown = foodTracker.getCooldown(item.food);
         }
+        if (item.food == FoodCooldownTracker.ConsumableType.HUNTER_MEAT && s.foodCooldownsEnabled && s.hunterMeatHealRing)
+        {
+            Cooldown heal = foodTracker.getHunterHealCooldown();
+            if (heal != null)
+            {
+                CooldownRenderer.drawHealRing(graphics, bounds, heal.getRemainingFraction());
+            }
+        }
         int slot = widgetItem.getWidget() != null ? widgetItem.getWidget().getIndex() : -1;
         boolean debugSlot = false;
         if (cooldown == null && s.debugPreviewInventory)

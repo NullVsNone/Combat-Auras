@@ -159,12 +159,18 @@ public class FoodCooldownTracker
                 return lock(potionUntil, LOCK_TICKS);
             case COMBO_FOOD:
                 return lock(comboUntil, LOCK_TICKS);
-            case HUNTER_MEAT:
-                Cooldown food = lock(foodUntil, LOCK_TICKS);
-                return food != null ? food : lock(hunterHealAt, HUNTER_HEAL_TICKS);
             default:
                 return lock(foodUntil, LOCK_TICKS);
         }
+    }
+
+    /**
+     * The pending delayed heal of the last Hunter meat eaten (7 ticks), or null. Separate from the eat lock: you can
+     * eat again after 3 ticks, so this is shown as its own indicator, never as a lock.
+     */
+    public Cooldown getHunterHealCooldown()
+    {
+        return lock(hunterHealAt, HUNTER_HEAL_TICKS);
     }
 
     private Cooldown lock(int until, int total)

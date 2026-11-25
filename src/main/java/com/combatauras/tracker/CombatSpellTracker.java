@@ -1,9 +1,7 @@
 package com.combatauras.tracker;
 
-import com.combatauras.config.CombatAurasConfig;
 import com.combatauras.model.CombatSpell;
 import com.combatauras.model.Cooldown;
-import com.combatauras.model.ThrallDurationTier;
 import com.combatauras.settings.SettingsSnapshot;
 import java.util.Arrays;
 import net.runelite.api.Client;
@@ -43,6 +41,11 @@ public class CombatSpellTracker
     private final int[] cooldownTicks = new int[SPELL_COUNT];
     private final int[] cooldownTotal = new int[SPELL_COUNT];
     private final int[] lastCooldownVarbit = new int[SPELL_COUNT];
+    private final int[] lastActiveVarbit = new int[SPELL_COUNT];
+    // Ticks a chat-started buff survives while its active varbit has not turned on yet
+    private final int[] activeGrace = new int[SPELL_COUNT];
+    private static final int ACTIVE_VARBIT_GRACE_TICKS = 2;
+    private boolean hasBookOfTheDead = true;
     private final boolean[] castSinceLogin = new boolean[SPELL_COUNT];
     private final boolean[] debugTimer = new boolean[SPELL_COUNT];
     private final long[] reminderStartNanos = new long[SPELL_COUNT];
@@ -66,6 +69,9 @@ public class CombatSpellTracker
         Arrays.fill(cooldownTicks, 0);
         Arrays.fill(cooldownTotal, 0);
         Arrays.fill(lastCooldownVarbit, 0);
+        Arrays.fill(lastActiveVarbit, 0);
+        Arrays.fill(activeGrace, 0);
+        hasBookOfTheDead = true;
         Arrays.fill(castSinceLogin, false);
         Arrays.fill(debugTimer, false);
         Arrays.fill(reminderStartNanos, 0L);
@@ -114,6 +120,10 @@ public class CombatSpellTracker
             {
                 cooldownTicks[i]--;
             }
+            if (activeGrace[i] > 0)
+            {
+                activeGrace[i]--;
+            }
         }
         syncVars(client);
         for (int i = 0; i < SPELL_COUNT; i++)
@@ -143,18 +153,33 @@ public class CombatSpellTracker
             if (activeVarbit > 0)
             {
                 int value = client.getVarbitValue(activeVarbit);
+                int previous = lastActiveVarbit[idx];
+                lastActiveVarbit[idx] = value;
                 if (value == 0)
                 {
-                    activeTicks[idx] = 0;
+                    // The cast message can arrive a tick before the varbit: keep a fresh chat timer for a short grace
+                    if (previous != 0 || activeGrace[idx] <= 0)
+                    {
+                        activeTicks[idx] = 0;
+                    }
                 }
                 else if (activeTicks[idx] <= 0)
                 {
-                    // Active but we missed the cast message (e.g. plugin enabled mid-fight).
-                    // Hold it "not ready" with a best-effort duration until the varbit clears.
-                    int estimate = Math.max(1, spell.getCooldownTicks());
-                    activeTicks[idx] = estimate;
-                    activeTotal[idx] = estimate;
-                    markCast(idx);
+                    if (previous == 0)
+                    {
+                        // Active but we missed the cast message (e.g. plugin enabled mid-fight):
+                        // best-effort duration, counted as one new cast
+                        int estimate = Math.max(1, spell.getCooldownTicks());
+                        activeTicks[idx] = estimate;
+                        activeTotal[idx] = estimate;
+                        markCast(idx);
+                    }
+                    else
+                    {
+                        // Our countdown ran out before the game cleared the varbit: stay "not ready" until it does,
+                        // without counting a new cast (that re-armed the reminder every 17 ticks)
+                        activeTicks[idx] = 1;
+                    }
                 }
             }
 
@@ -210,20 +235,20 @@ public class CombatSpellTracker
         }
     }
 
-    public void onChatMessage(Client client, String rawMessage, CombatAurasConfig config)
+    public void onChatMessage(Client client, String rawMessage)
     {
         if (rawMessage == null || rawMessage.isEmpty() || client == null)
         {
             return;
         }
-        String message = stripTags(rawMessage);
+        String message = ChatText.clean(rawMessage);
 
         if (message.startsWith(MSG_THRALL_START) && message.endsWith(MSG_THRALL_END))
         {
             int magic = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
-            ThrallDurationTier tier = config != null ? config.thrallDurationTier() : ThrallDurationTier.AUTO;
+            // Thralls last twice as long once the Master Combat Achievement tier is complete
             boolean master = client.getVarbitValue(VarbitID.CA_TIER_STATUS_MASTER) == 2;
-            startActive(CombatSpell.RESURRECT_THRALL, magic * tier.getMultiplier(master));
+            startActive(CombatSpell.RESURRECT_THRALL, magic * (master ? 2 : 1));
         }
         else if (message.equals(MSG_MARK_OF_DARKNESS))
         {
@@ -264,6 +289,7 @@ public class CombatSpellTracker
         int clamped = Math.max(1, ticks);
         activeTicks[idx] = clamped;
         activeTotal[idx] = clamped;
+        activeGrace[idx] = ACTIVE_VARBIT_GRACE_TICKS;
         debugTimer[idx] = false;
         markCast(idx);
         refresh(idx);
@@ -462,6 +488,12 @@ public class CombatSpellTracker
         return count;
     }
 
+    /** Set when the inventory or equipment changes. */
+    public void setHasBookOfTheDead(boolean has)
+    {
+        hasBookOfTheDead = has;
+    }
+
     /** Set each tick from the worn equipment; Charge only matters with a god cape. */
     public void setGodCapeWorn(boolean worn)
     {
@@ -481,6 +513,9 @@ public class CombatSpellTracker
                 return ReminderPolicy.contextAllows(s.shadowVeilContext, combatState, combatOk);
             case CHARGE:
                 return combatOk && (godCapeWorn || !s.chargeNeedsGodCape);
+            case RESURRECT_THRALL:
+                // Thralls need the Book of the Dead carried or worn; without it a reminder can't be acted on
+                return combatOk && hasBookOfTheDead;
             default:
                 return combatOk;
         }
@@ -505,14 +540,11 @@ public class CombatSpellTracker
     {
         int active = activeTicks[idx];
         int cd = cooldownTicks[idx];
-        boolean wasReady = cooldownCache[idx].isReady();
         if (active <= 0 && cd <= 0)
         {
+            // The reminder clock is left alone: if "warn early" already started it, expiry continues the same
+            // reminder instead of starting a second one (markCast clears it on the next cast)
             cooldownCache[idx] = Cooldown.READY;
-            if (!wasReady)
-            {
-                reminderStartNanos[idx] = 0L;
-            }
             return;
         }
         if (active >= cd)
@@ -534,32 +566,5 @@ public class CombatSpellTracker
         }
         Item weapon = worn.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx());
         return weapon != null && weapon.getId() == ItemID.PURGING_STAFF;
-    }
-
-    static String stripTags(String s)
-    {
-        if (s.indexOf('<') < 0)
-        {
-            return s;
-        }
-        StringBuilder sb = new StringBuilder(s.length());
-        boolean inTag = false;
-        for (int i = 0; i < s.length(); i++)
-        {
-            char c = s.charAt(i);
-            if (c == '<')
-            {
-                inTag = true;
-            }
-            else if (c == '>')
-            {
-                inTag = false;
-            }
-            else if (!inTag)
-            {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
     }
 }

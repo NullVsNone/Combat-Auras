@@ -159,7 +159,7 @@ public class PotionTimers
         {
             return;
         }
-        String message = CombatSpellTracker.stripTags(rawMessage);
+        String message = ChatText.clean(rawMessage);
         if (message.equals(MSG_SILK_DRESSING))
         {
             start(states.get(PotionEffect.SILK_DRESSING), PotionEffect.SILK_DRESSING.getStandardTicks());

@@ -94,7 +94,8 @@ public class ReminderPipeline
         int boostLead = s.familyLeadTicks(ReminderFamily.BOOST.ordinal());
         for (BoostPotion boost : BoostPotion.values())
         {
-            observe(key(boost), ReminderPolicy.activeBeyondLead(boostTimers.getCooldown(client, boost, s), boostLead), nowNanos);
+            observe(key(boost), ReminderPolicy.activeBeyondLead(
+                ItemCooldowns.boostCooldown(boost, s, client, potionTimers, boostTimers), boostLead), nowNanos);
         }
         collectItems(s, nowNanos);
     }
@@ -151,7 +152,8 @@ public class ReminderPipeline
                     family = ReminderFamily.HEART;
                     key = HEART;
                 }
-                else if (entry.effect != null && potionOk && s.potionRemind(entry.effect.ordinal()))
+                else if (entry.effect != null && potionOk && s.potionRemind(entry.effect.ordinal())
+                    && !isImmunity(entry.effect))
                 {
                     family = ReminderFamily.POTION;
                     key = key(entry.effect);
@@ -177,7 +179,72 @@ public class ReminderPipeline
                 count++;
             }
         }
-        itemCount = count;
+        itemCount = dropBoostsCoveredByDivine(count);
+    }
+
+    /**
+     * When a divine potion ends, the regular potions for the same stat expire on the same tick. Show only the
+     * divine's reminder (one alert, not two competing colours); a boost potion stays if no divine covers it.
+     */
+    private int dropBoostsCoveredByDivine(int count)
+    {
+        int kept = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (itemFamilies[i] == ReminderFamily.BOOST.ordinal() && coveredByShownDivine(catalog.get(itemIds[i]).boost, count))
+            {
+                continue;
+            }
+            itemIds[kept] = itemIds[i];
+            itemColors[kept] = itemColors[i];
+            itemFamilies[kept] = itemFamilies[i];
+            kept++;
+        }
+        if (kept != count)
+        {
+            Arrays.fill(familyLive, false);
+            for (int i = 0; i < kept; i++)
+            {
+                familyLive[itemFamilies[i]] = true;
+            }
+        }
+        return kept;
+    }
+
+    private boolean coveredByShownDivine(BoostPotion boost, int count)
+    {
+        if (boost == null)
+        {
+            return false;
+        }
+        for (int i = 0; i < count; i++)
+        {
+            if (itemFamilies[i] != ReminderFamily.POTION.ordinal())
+            {
+                continue;
+            }
+            PotionEffect effect = catalog.get(itemIds[i]).effect;
+            if (effect != null && effect.isDivine() && ItemCooldowns.overlaps(boost, effect))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Antipoison / anti-venom expiry is shown by the Poison / Venom warning (its own section), not as a potion
+     * reminder. The item overlays still show the immunity timer.
+     */
+    public static boolean isImmunity(PotionEffect effect)
+    {
+        return effect == PotionEffect.ANTIPOISON || effect == PotionEffect.ANTIVENOM;
+    }
+
+    /** Whether the immunity of {@code effect} just ended and its Poison / Venom reminder should show. */
+    public boolean immunityEnded(PotionEffect effect, SettingsSnapshot s, int durationSeconds, long nowNanos)
+    {
+        return s.potionRemind(effect.ordinal()) && isShowing(key(effect), durationSeconds, nowNanos);
     }
 
     private boolean allowed(SettingsSnapshot s, ReminderFamily family)
@@ -205,6 +272,45 @@ public class ReminderPipeline
     public int itemFamily(int i)
     {
         return itemFamilies[i];
+    }
+
+    /**
+     * Whether a showing expiry reminder already asks for a re-pot of this stat: a divine potion holding it, a boost
+     * potion raising it, or an overload / smelling salts. Client thread; scans at most {@link #MAX_ITEMS} entries.
+     */
+    public boolean isRepotShowing(net.runelite.api.Skill skill)
+    {
+        for (int i = 0; i < itemCount; i++)
+        {
+            ConsumableCatalog.Entry entry = catalog.get(itemIds[i]);
+            if (entry.boost != null && contains(entry.boost.getSkills(), skill))
+            {
+                return true;
+            }
+            PotionEffect effect = entry.effect;
+            if (effect == null)
+            {
+                continue;
+            }
+            if (effect == PotionEffect.OVERLOAD || effect == PotionEffect.BLIGHTED_OVERLOAD || effect == PotionEffect.SMELLING_SALTS
+                || contains(effect.getDivineSkills(), skill))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean contains(net.runelite.api.Skill[] skills, net.runelite.api.Skill skill)
+    {
+        for (net.runelite.api.Skill s : skills)
+        {
+            if (s == skill)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean isFamilyLive(ReminderFamily family)

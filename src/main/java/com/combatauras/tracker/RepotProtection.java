@@ -42,7 +42,7 @@ public class RepotProtection
         boolean guardMenaphite = config.menaphiteDivineGuard();
         for (MenuEntry entry : entries)
         {
-            if (entry == null || !isDoseOption(entry.getOption()))
+            if (entry == null || !isDoseOption(ChatText.clean(entry.getOption())))
             {
                 continue;
             }
@@ -52,7 +52,8 @@ public class RepotProtection
                 continue;
             }
             Cooldown cd = cooldowns.of(itemId);
-            if ((cd != null && !cd.isReady())
+            // Inside the item's "warn early" window a left-click re-dose is allowed, so you can pre-pot
+            if ((cd != null && !cd.isReady() && cd.getRemainingTicks() > cooldowns.leadTicks(itemId))
                 || (guardMenaphite && cooldowns.catalog().get(itemId).effect == PotionEffect.MENAPHITE_REMEDY
                     && cooldowns.isDivineBoostActive()))
             {

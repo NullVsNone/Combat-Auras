@@ -307,6 +307,8 @@ public final class Bindings
             CombatAurasConfig::remindStamina, CombatAurasConfig::staminaLeadSeconds));
         POTIONS.put(PotionFamily.ANTIPOISON, new Potion(
             CombatAurasConfig::remindAntipoison, CombatAurasConfig::antipoisonLeadSeconds));
+        POTIONS.put(PotionFamily.ANTIVENOM, new Potion(
+            CombatAurasConfig::remindAntivenom, CombatAurasConfig::antivenomLeadSeconds));
         POTIONS.put(PotionFamily.ANTIFIRE, new Potion(
             CombatAurasConfig::remindAntifire, CombatAurasConfig::antifireLeadSeconds));
         POTIONS.put(PotionFamily.DIVINE, new Potion(

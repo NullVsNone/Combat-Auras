@@ -56,12 +56,23 @@ public class HeartCooldownTracker
         }
 
         int varbit = client.getVarbitValue(VarbitID.IMBUED_HEART_TIMER);
+        boolean starting = varbit > lastVarbitValue;
+        if (client.getVarbitValue(VarbitID.SATURATED_HEART_TIME) > 0)
+        {
+            // The game's own saturated-heart timer: right even after logging in mid-cooldown or without seeing the click
+            saturated = true;
+        }
+        else if (!starting && varbit > 0)
+        {
+            // Keep the click-based guess only on the tick the cooldown starts (the saturated timer may land a tick later)
+            saturated = false;
+        }
         if (varbit <= 0)
         {
             // Cooldown finished, or reset by death
             remainingTicks = 0;
         }
-        else if (varbit > lastVarbitValue)
+        else if (starting)
         {
             remainingTicks = varbit * HEART_BUCKET_TICKS;
             usedThisSession = true;
@@ -123,7 +134,7 @@ public class HeartCooldownTracker
 
     /**
      * Whether a saturated heart's boost (which counts as a divine effect) is still running,
-     * approximated by its cooldown after a saturated heart was used (the game exposes no separate flag).
+     * read from the game's SATURATED_HEART_TIME varbit (falling back to the Invigorate click on the first tick).
      */
     public boolean isSaturatedBoostActive()
     {

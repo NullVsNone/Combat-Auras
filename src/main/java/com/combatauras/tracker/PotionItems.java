@@ -56,7 +56,7 @@ public final class PotionItems
         if (lower.contains("super antifire")) return PotionEffect.SUPER_ANTIFIRE;
         if (lower.contains("antifire")) return PotionEffect.ANTIFIRE;
         if (lower.contains("anti-venom") || lower.contains("antivenom")) return PotionEffect.ANTIVENOM;
-        if (lower.contains("antipoison") || lower.contains("antidote")) return PotionEffect.ANTIPOISON;
+        if (lower.contains("antipoison") || lower.contains("antidote") || lower.contains("sanfew serum")) return PotionEffect.ANTIPOISON;
 
         return null;
     }
@@ -68,6 +68,8 @@ public final class PotionItems
             return null;
         }
         if (lower.contains("guthixian root")) return BoostPotion.GUTHIXIAN_ROOT;
+        BoostPotion raid = classifyRaidBoost(lower);
+        if (raid != null) return raid;
         if (lower.contains("super combat")) return BoostPotion.SUPER_COMBAT;
         if (lower.contains("combat potion") || lower.contains("combat mix")) return BoostPotion.COMBAT;
         if (lower.contains("bastion potion")) return BoostPotion.BASTION;
@@ -85,6 +87,20 @@ public final class PotionItems
         if (lower.contains("forgotten brew")) return BoostPotion.FORGOTTEN_BREW;
         if (lower.contains("magic potion") || lower.contains("magic mix")) return BoostPotion.MAGIC;
 
+        return null;
+    }
+
+    /** Chambers of Xeric combat potions: "Elder (-)(4)", "Twisted potion (2)", "Kodai (+)(1)" and so on. */
+    private static BoostPotion classifyRaidBoost(String lower)
+    {
+        int tier;
+        if (lower.contains("(+)")) tier = 2;
+        else if (lower.contains("(-)")) tier = 0;
+        else if (lower.contains(" potion")) tier = 1;
+        else return null;
+        if (lower.startsWith("elder ")) return tier == 2 ? BoostPotion.ELDER_STRONG : tier == 1 ? BoostPotion.ELDER : BoostPotion.ELDER_WEAK;
+        if (lower.startsWith("twisted ")) return tier == 2 ? BoostPotion.TWISTED_STRONG : tier == 1 ? BoostPotion.TWISTED : BoostPotion.TWISTED_WEAK;
+        if (lower.startsWith("kodai ")) return tier == 2 ? BoostPotion.KODAI_STRONG : tier == 1 ? BoostPotion.KODAI : BoostPotion.KODAI_WEAK;
         return null;
     }
 }

@@ -10,6 +10,7 @@ import com.combatauras.render.CooldownRenderer;
 import com.combatauras.render.ProceduralRenderer;
 import com.combatauras.settings.Settings;
 import com.combatauras.tracker.BoostPotionTimers;
+import com.combatauras.tracker.ChatText;
 import com.combatauras.tracker.CombatSpellTracker;
 import com.combatauras.tracker.CombatStateTracker;
 import com.combatauras.tracker.ConsumableCatalog;
@@ -31,6 +32,7 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
@@ -48,6 +50,7 @@ import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
@@ -154,6 +157,7 @@ public class CombatAurasPlugin extends Plugin
         resetDebugToggles();
         settings.refresh();
         resetAll();
+        unpottedTracker.setReminders(reminders);
         combatState.setSimulatedCombat(config.debugSimulateCombat());
         overlayManager.add(statusOverlay);
         overlayManager.add(inventoryOverlay);
@@ -259,8 +263,8 @@ public class CombatAurasPlugin extends Plugin
         {
             return;
         }
-        String msg = event.getMessage();
-        spellTracker.onChatMessage(client, msg, config);
+        String msg = ChatText.clean(event.getMessage());
+        spellTracker.onChatMessage(client, msg);
         potionTimers.onChatMessage(msg);
         freezeTracker.onChatMessage(client.getLocalPlayer(), msg, System.nanoTime());
     }
@@ -299,7 +303,7 @@ public class CombatAurasPlugin extends Plugin
         Player local = client.getLocalPlayer();
         if (local != null && event.getActor() == local)
         {
-            freezeTracker.onGraphicChanged(local, System.nanoTime());
+            freezeTracker.onGraphicChanged(client, local, System.nanoTime());
         }
     }
 
@@ -354,9 +358,18 @@ public class CombatAurasPlugin extends Plugin
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
     {
-        if (event.getContainerId() == InventoryID.INV)
+        int id = event.getContainerId();
+        if (id == InventoryID.INV)
         {
             foodTracker.onInventoryChanged(event.getItemContainer());
+        }
+        if (id == InventoryID.INV || id == InventoryID.WORN)
+        {
+            // Thralls need the Book of the Dead carried or worn
+            ItemContainer inv = client.getItemContainer(InventoryID.INV);
+            ItemContainer worn = client.getItemContainer(InventoryID.WORN);
+            spellTracker.setHasBookOfTheDead((inv != null && inv.contains(ItemID.BOOK_OF_THE_DEAD))
+                || (worn != null && worn.contains(ItemID.BOOK_OF_THE_DEAD)));
         }
     }
 

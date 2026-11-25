@@ -2,6 +2,7 @@ package com.combatauras.overlay;
 
 import com.combatauras.config.CombatAurasConfig;
 import com.combatauras.model.CombatSpell;
+import com.combatauras.model.PotionEffect;
 import com.combatauras.model.ReminderFamily;
 import com.combatauras.model.StatusEffect;
 import com.combatauras.render.Motion;
@@ -149,8 +150,14 @@ public class StatusOverlay extends Overlay
             : 0f;
 
         int poisonVar = client.getVarpValue(VarPlayerID.POISON);
-        liveSeverity[StatusEffect.VENOM.ordinal()] = poisonVar >= 1_000_000 && enabled(s, StatusEffect.VENOM) ? 0.75f : 0f;
-        liveSeverity[StatusEffect.POISON.ordinal()] = poisonVar > 0 && poisonVar < 1_000_000 && enabled(s, StatusEffect.POISON) ? 0.65f : 0f;
+        // Poisoned / envenomed, or the matching immunity just ran out (shown with this section's look and duration)
+        long now = System.nanoTime();
+        boolean venomOn = poisonVar >= 1_000_000 || reminders.immunityEnded(PotionEffect.ANTIVENOM, s,
+            s.statusDurationSeconds(StatusEffect.VENOM.ordinal()), now);
+        boolean poisonOn = (poisonVar > 0 && poisonVar < 1_000_000) || reminders.immunityEnded(PotionEffect.ANTIPOISON, s,
+            s.statusDurationSeconds(StatusEffect.POISON.ordinal()), now);
+        liveSeverity[StatusEffect.VENOM.ordinal()] = venomOn && enabled(s, StatusEffect.VENOM) ? 0.75f : 0f;
+        liveSeverity[StatusEffect.POISON.ordinal()] = poisonOn && enabled(s, StatusEffect.POISON) ? 0.65f : 0f;
         liveSeverity[StatusEffect.DISEASE.ordinal()] = enabled(s, StatusEffect.DISEASE) && client.getVarpValue(VarPlayerID.DISEASE) > 0 ? 0.65f : 0f;
 
         boolean specGate = enabled(s, StatusEffect.SPEC_READY) && ReminderPolicy.combatGate(config.specOnlyInCombat(), combatState);

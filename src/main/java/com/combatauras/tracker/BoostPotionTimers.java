@@ -28,6 +28,11 @@ public class BoostPotionTimers
     private final boolean[] usedThisSession = new boolean[BoostPotion.values().length];
     private final int[] levelScratch = new int[3];
 
+    public static int skillBit(Skill skill)
+    {
+        return 1 << skill.ordinal();
+    }
+
     public void reset()
     {
         ticksUntilNextDecay = NORMAL_DECAY_TICKS;
@@ -82,6 +87,15 @@ public class BoostPotionTimers
      */
     public Cooldown getCooldown(Client client, BoostPotion potion, SettingsSnapshot settings)
     {
+        return getCooldown(client, potion, settings, 0);
+    }
+
+    /**
+     * @param heldSkillMask bit {@code 1 << skill.ordinal()} set for skills an active divine potion holds boosted;
+     *                      those skills are left out (they reset to base when the divine ends, not by decay)
+     */
+    public Cooldown getCooldown(Client client, BoostPotion potion, SettingsSnapshot settings, int heldSkillMask)
+    {
         if (potion == null)
         {
             return null;
@@ -90,7 +104,7 @@ public class BoostPotionTimers
         Skill[] skills = potion.getSkills();
         for (int i = 0; i < skills.length; i++)
         {
-            levelScratch[i] = settings.redoseLevel(skills[i]);
+            levelScratch[i] = (heldSkillMask & (1 << skills[i].ordinal())) != 0 ? 0 : settings.redoseLevel(skills[i]);
         }
         return getCooldown(client, potion, levelScratch);
     }

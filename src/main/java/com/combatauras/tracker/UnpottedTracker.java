@@ -32,10 +32,20 @@ public class UnpottedTracker
 
     private long alertUntilNanos = 0L;
     private Skill lastTriggeredSkill = null;
+    private ReminderPipeline reminders;
 
     public UnpottedTracker()
     {
         Arrays.fill(pendingAge, -1);
+    }
+
+    /**
+     * Expiry reminders to defer to: while one already tells you to re-pot this stat (a divine or boost potion just
+     * ran out), Unpotted stays quiet; it only speaks if you keep fighting unboosted after that reminder ends.
+     */
+    public void setReminders(ReminderPipeline reminders)
+    {
+        this.reminders = reminders;
     }
 
     public void reset()
@@ -115,6 +125,10 @@ public class UnpottedTracker
 
     private void raise(Skill skill, CombatAurasConfig config, long nowNanos)
     {
+        if (reminders != null && reminders.isRepotShowing(skill))
+        {
+            return; // the potion's own expiry reminder is already on screen: one alert at a time
+        }
         lastTriggeredSkill = skill;
         alertUntilNanos = nowNanos + Math.max(1L, (long) config.unpottedAlertDurationSeconds()) * 1_000_000_000L;
     }

@@ -405,6 +405,28 @@ public class CooldownRenderer
     private static final String[] TICK_LABELS = new String[6000]; // one hour
 
     /** Timer label for a cooldown with {@code ticks} game ticks left (cached). */
+    private static final Color HEAL_RING = new Color(64, 224, 192, 230);
+    private static final Color HEAL_RING_BACK = new Color(0, 0, 0, 140);
+    private static final BasicStroke HEAL_STROKE = new BasicStroke(2f);
+
+    /**
+     * Small teal ring in the item's top-right corner counting down a delayed heal (Hunter meat). Not a lock and
+     * never followed by a ready flash.
+     */
+    public static void drawHealRing(Graphics2D g, Rectangle bounds, float remainingFraction)
+    {
+        int d = Math.max(8, bounds.width / 3);
+        int x = bounds.x + bounds.width - d - 1;
+        int y = bounds.y + 1;
+        java.awt.Stroke old = g.getStroke();
+        g.setStroke(HEAL_STROKE);
+        g.setColor(HEAL_RING_BACK);
+        g.drawOval(x, y, d, d);
+        g.setColor(HEAL_RING);
+        g.drawArc(x, y, d, d, 90, -Math.round(360f * Math.max(0f, Math.min(1f, remainingFraction))));
+        g.setStroke(old);
+    }
+
     public static String formatTicks(int ticks)
     {
         if (ticks < 0 || ticks >= TICK_LABELS.length)

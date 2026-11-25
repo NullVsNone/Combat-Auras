@@ -1,5 +1,6 @@
 package com.combatauras.model;
 
+import net.runelite.api.gameval.InterfaceID.MagicSpellbook;
 import net.runelite.api.gameval.VarbitID;
 
 /**
@@ -181,6 +182,33 @@ public enum CombatSpell
     public int getCooldownTicks()
     {
         return cooldownTicks;
+    }
+
+    /**
+     * Spellbook (group 218) component ids of this spell's icon(s). Looked up directly instead of walking the
+     * spellbook's widget tree: the icons sit inside a nested layer (218:3), not under the root.
+     */
+    public int[] getWidgetComponentIds()
+    {
+        return COMPONENTS[ordinal()];
+    }
+
+    private static final int[][] COMPONENTS = new int[values().length][];
+
+    static
+    {
+        COMPONENTS[RESURRECT_THRALL.ordinal()] = new int[]{
+            MagicSpellbook.RESURRECT_LESSER_GHOST, MagicSpellbook.RESURRECT_LESSER_SKELETON, MagicSpellbook.RESURRECT_LESSER_ZOMBIE,
+            MagicSpellbook.RESURRECT_SUPERIOR_GHOST, MagicSpellbook.RESURRECT_SUPERIOR_SKELETON, MagicSpellbook.RESURRECT_SUPERIOR_ZOMBIE,
+            MagicSpellbook.RESURRECT_GREATER_GHOST, MagicSpellbook.RESURRECT_GREATER_SKELETON, MagicSpellbook.RESURRECT_GREATER_ZOMBIE};
+        COMPONENTS[DEATH_CHARGE.ordinal()] = new int[]{MagicSpellbook.DEATH_CHARGE};
+        COMPONENTS[MARK_OF_DARKNESS.ordinal()] = new int[]{MagicSpellbook.MARK_OF_DARKNESS};
+        COMPONENTS[WARD_OF_ARCEUUS.ordinal()] = new int[]{MagicSpellbook.WARD_OF_ARCEUUS};
+        COMPONENTS[SHADOW_VEIL.ordinal()] = new int[]{MagicSpellbook.SHADOW_VEIL};
+        COMPONENTS[CORRUPTION.ordinal()] = new int[]{MagicSpellbook.LESSER_CORRUPTION, MagicSpellbook.GREATER_CORRUPTION};
+        COMPONENTS[VENGEANCE.ordinal()] = new int[]{MagicSpellbook.VENGEANCE};
+        COMPONENTS[VENGEANCE_OTHER.ordinal()] = new int[]{MagicSpellbook.VENGEANCE_OTHER};
+        COMPONENTS[CHARGE.ordinal()] = new int[]{MagicSpellbook.CHARGE};
     }
 
     public boolean matchesWidgetName(String cleanedName)

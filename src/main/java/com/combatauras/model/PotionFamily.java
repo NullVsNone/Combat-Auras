@@ -8,6 +8,7 @@ public enum PotionFamily
 {
     STAMINA,
     ANTIPOISON,
+    ANTIVENOM,
     ANTIFIRE,
     DIVINE,
     RAID_BOOST,

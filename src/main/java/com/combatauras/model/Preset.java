@@ -51,7 +51,7 @@ public enum Preset
                 v.put("spellShowerMaxIcons", 6);
                 break;
             case STANDARD:
-                for (String key : MANAGED_KEYS)
+                for (String key : managedKeys())
                 {
                     v.put(key, null);
                 }
@@ -81,13 +81,24 @@ public enum Preset
         return Collections.unmodifiableMap(v);
     }
 
-    /** Every key any preset touches; STANDARD resets all of them to their defaults. */
-    public static final String[] MANAGED_KEYS = {
-        "allowScreenGlows", "allowIconShowers", "allowItemGlows", "effectIntensity", "screenTint", "motionStrength",
-        "damageGlow", "damageShower", "idleEnabled", "specEnabled", "lowRunEnabled",
-        "spellWardOfArceuusEnabled", "spellShadowVeilEnabled", "spellCorruptionEnabled",
-        "spellVengeanceOtherEnabled", "spellChargeEnabled", "spellShowerMaxIcons",
-    };
+    /**
+     * Every key any preset touches, derived from the presets themselves so a key added to one is never left out of
+     * the STANDARD reset. STANDARD resets all of them to their defaults.
+     */
+    public static final String[] MANAGED_KEYS = managedKeys();
+
+    private static String[] managedKeys()
+    {
+        java.util.Set<String> keys = new java.util.LinkedHashSet<>();
+        for (Preset p : values())
+        {
+            if (p != STANDARD)
+            {
+                keys.addAll(p.settings().keySet());
+            }
+        }
+        return keys.toArray(new String[0]);
+    }
 
     @Override
     public String toString()

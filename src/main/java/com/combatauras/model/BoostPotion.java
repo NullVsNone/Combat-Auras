@@ -23,7 +23,17 @@ public enum BoostPotion
     SUPER_COMBAT(5, 15, Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE),
     BASTION(5, 15, Skill.RANGED, Skill.DEFENCE),
     BATTLEMAGE(5, 15, Skill.MAGIC, Skill.DEFENCE),
-    GUTHIXIAN_ROOT(5, 15, Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE);
+    GUTHIXIAN_ROOT(5, 15, Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE),
+    // Chambers of Xeric: (-) / normal / (+) strengths
+    ELDER_WEAK(4, 10, Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE),
+    ELDER(5, 13, Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE),
+    ELDER_STRONG(6, 16, Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE),
+    TWISTED_WEAK(4, 10, Skill.RANGED, Skill.DEFENCE),
+    TWISTED(5, 13, Skill.RANGED, Skill.DEFENCE),
+    TWISTED_STRONG(6, 16, Skill.RANGED, Skill.DEFENCE),
+    KODAI_WEAK(4, 10, Skill.MAGIC),
+    KODAI(5, 13, Skill.MAGIC),
+    KODAI_STRONG(6, 16, Skill.MAGIC);
 
     private final int flat;
     private final int percent;

@@ -68,6 +68,7 @@ public final class SettingsSnapshot
     /** Inventory ready border, NONE when item glows are off. */
     public final BorderStyle readyBorder;
     public final boolean foodCooldownsEnabled;
+    public final boolean hunterMeatHealRing;
     public final boolean lowPrayerInventoryGlow;
     public final Color lowPrayerColor;
     public final BorderStyle spellBorder;
@@ -179,6 +180,7 @@ public final class SettingsSnapshot
         readyColor = c.readyColor();
         readyBorder = allowItemGlows ? c.borderStyle() : BorderStyle.NONE;
         foodCooldownsEnabled = c.foodCooldownsEnabled();
+        hunterMeatHealRing = c.hunterMeatHealRing();
         lowPrayerInventoryGlow = allowItemGlows && c.lowPrayerInventoryGlow();
         lowPrayerColor = c.lowPrayerColor();
         spellBorder = c.spellBorderStyle();

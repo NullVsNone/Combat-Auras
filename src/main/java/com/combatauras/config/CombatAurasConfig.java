@@ -10,7 +10,6 @@ import com.combatauras.model.ReadyStyle;
 import com.combatauras.model.ReminderContext;
 import com.combatauras.model.ShowerStartLocation;
 import com.combatauras.model.SpellCooldownDisplayMode;
-import com.combatauras.model.ThrallDurationTier;
 import java.awt.Color;
 import net.runelite.client.config.Alpha;
 import net.runelite.client.config.Config;
@@ -285,8 +284,8 @@ public interface CombatAurasConfig extends Config
 
     @Range(min = 5, max = 600)
     @Units(Units.SECONDS)
-    @ConfigItem(keyName = "combatBreakReRemindSeconds", name = "Combat break re-remind", description = "After this long out of combat, re-entering combat shows ready-spell reminders again.", section = sharedSpellsSection, position = 11)
-    default int combatBreakReRemindSeconds() { return 120; }
+    @ConfigItem(keyName = "combatBreakReRemindSeconds", name = "Combat break re-remind", description = "After this long out of combat (counted from when combat ends, about 10 s after your last hit), re-entering combat shows ready-spell reminders again. Short enough to re-arm between boss kills or raid rooms.", section = sharedSpellsSection, position = 11)
+    default int combatBreakReRemindSeconds() { return 30; }
 
     // =========================================================================
     // Shared Debug Tools
@@ -453,6 +452,14 @@ public interface CombatAurasConfig extends Config
 
     @Range(min = 0, max = 100)
     @Units(Units.PERCENT)
+    @ConfigItem(keyName = "remindAntipoison", name = "Remind when immunity ends", description = "Show this poison warning (its colour, glow, shower and duration) when antipoison / antidote / sanfew protection runs out.", section = warnPoisonSection, position = 1)
+    default boolean remindAntipoison() { return true; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "antipoisonLeadSeconds", name = "Immunity: warn early", description = "Start the immunity reminder this many seconds before the protection ends.", section = warnPoisonSection, position = 2)
+    default int antipoisonLeadSeconds() { return 0; }
+
     @ConfigItem(keyName = "poisonPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnPoisonSection, position = 9)
     default int poisonPulse() { return 0; }
 
@@ -460,7 +467,7 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "poisonColor", name = "Color", description = "Color for poison vignette.", section = warnPoisonSection, position = 10)
     default Color poisonColor() { return new Color(54, 178, 62, 195); }
 
-    @ConfigItem(keyName = "poisonGlow", name = "Screen glow", description = "Show screen-edge glow when poisoned.", section = warnPoisonSection, position = 11)
+    @ConfigItem(keyName = "poisonGlow", name = "Screen glow", description = "Show screen-edge glow when poisoned (or when poison immunity ends).", section = warnPoisonSection, position = 11)
     default boolean poisonGlow() { return true; }
 
     @ConfigItem(keyName = "poisonShower", name = "Shower icon", description = "Shower green poison hitsplat icon when poisoned.", section = warnPoisonSection, position = 12)
@@ -486,6 +493,14 @@ public interface CombatAurasConfig extends Config
 
     @Range(min = 0, max = 100)
     @Units(Units.PERCENT)
+    @ConfigItem(keyName = "remindAntivenom", name = "Remind when immunity ends", description = "Show this venom warning (its colour, glow, shower and duration) when anti-venom protection runs out.", section = warnVenomSection, position = 1)
+    default boolean remindAntivenom() { return true; }
+
+    @Range(min = 0, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "antivenomLeadSeconds", name = "Immunity: warn early", description = "Start the immunity reminder this many seconds before the protection ends.", section = warnVenomSection, position = 2)
+    default int antivenomLeadSeconds() { return 0; }
+
     @ConfigItem(keyName = "venomPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnVenomSection, position = 9)
     default int venomPulse() { return 0; }
 
@@ -493,7 +508,7 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "venomColor", name = "Color", description = "Color for venom vignette.", section = warnVenomSection, position = 10)
     default Color venomColor() { return new Color(24, 128, 68, 210); }
 
-    @ConfigItem(keyName = "venomGlow", name = "Screen glow", description = "Show screen-edge glow when envenomed.", section = warnVenomSection, position = 11)
+    @ConfigItem(keyName = "venomGlow", name = "Screen glow", description = "Show screen-edge glow when envenomed (or when venom immunity ends).", section = warnVenomSection, position = 11)
     default boolean venomGlow() { return true; }
 
     @ConfigItem(keyName = "venomShower", name = "Shower icon", description = "Shower anti-venom icon when envenomed.", section = warnVenomSection, position = 12)
@@ -813,9 +828,6 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "remindStamina", name = "Stamina", description = "Remind when a stamina potion effect expires.", section = potionRemindersSection, position = 1)
     default boolean remindStamina() { return false; }
 
-    @ConfigItem(keyName = "remindAntipoison", name = "Antipoison / anti-venom", description = "Remind when antipoison or anti-venom protection expires.", section = potionRemindersSection, position = 3)
-    default boolean remindAntipoison() { return true; }
-
     @ConfigItem(keyName = "remindAntifire", name = "Antifire", description = "Remind when (super) antifire protection expires.", section = potionRemindersSection, position = 5)
     default boolean remindAntifire() { return true; }
 
@@ -927,8 +939,11 @@ public interface CombatAurasConfig extends Config
     // Food
     // =========================================================================
 
-    @ConfigItem(keyName = "foodCooldownsEnabled", name = "Enable", description = "Show 3-tick eat/combo-eat locks and the 7-tick Hunter meat delayed heal.", section = foodSection, position = 0)
+    @ConfigItem(keyName = "foodCooldownsEnabled", name = "Enable", description = "Show 3-tick eat, combo-eat and potion locks on inventory items.", section = foodSection, position = 0)
     default boolean foodCooldownsEnabled() { return true; }
+
+    @ConfigItem(keyName = "hunterMeatHealRing", name = "Hunter meat heal ring", description = "After eating Hunter meat, show its delayed second heal (7 ticks) as a small ring in the item's corner. The eat lock itself is the normal 3 ticks.", section = foodSection, position = 1)
+    default boolean hunterMeatHealRing() { return true; }
 
     // =========================================================================
     // Spell: Resurrect Thrall
@@ -945,8 +960,6 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellThrallRecastProtection", name = "Recast protection", description = "Deprioritize left-click Cast on a Resurrect spell while a thrall is still up or on cooldown (right-click still casts).", section = spellThrallSection, position = 3)
     default boolean spellThrallRecastProtection() { return true; }
 
-    @ConfigItem(keyName = "thrallDurationTier", name = "CA duration", description = "Thrall duration doubles once the Master Combat Achievement tier is complete. Auto-detect reads it from the game.", section = spellThrallSection, position = 1)
-    default ThrallDurationTier thrallDurationTier() { return ThrallDurationTier.AUTO; }
 
     @ConfigItem(keyName = "thrallRemindOnCombatStart", name = "Remind on combat start", description = "Remind to summon a Thrall as soon as combat starts, even before your first cast.", section = spellThrallSection, position = 2)
     default boolean thrallRemindOnCombatStart() { return false; }
@@ -1350,11 +1363,6 @@ public interface CombatAurasConfig extends Config
     @Units(Units.SECONDS)
     @ConfigItem(keyName = "staminaLeadSeconds", name = "Stamina: warn early", description = "Start the stamina reminder this many seconds before it runs out (0 = when it runs out).", section = potionRemindersSection, position = 2)
     default int staminaLeadSeconds() { return 0; }
-
-    @Range(min = 0, max = 60)
-    @Units(Units.SECONDS)
-    @ConfigItem(keyName = "antipoisonLeadSeconds", name = "Antipoison: warn early", description = "Start the antipoison / anti-venom reminder this many seconds before the protection ends.", section = potionRemindersSection, position = 4)
-    default int antipoisonLeadSeconds() { return 0; }
 
     @Range(min = 0, max = 60)
     @Units(Units.SECONDS)

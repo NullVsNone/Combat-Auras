@@ -1,6 +1,7 @@
 package com.combatauras.model;
 
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.Skill;
 import net.runelite.api.gameval.VarbitID;
 
 /**
@@ -115,14 +116,46 @@ public enum PotionEffect
         return name().startsWith("DIVINE_");
     }
 
+    /** Skills a divine potion holds boosted (they drop straight back to base when it ends); empty otherwise. */
+    public Skill[] getDivineSkills()
+    {
+        return DIVINE_SKILLS[ordinal()];
+    }
+
+    private static final Skill[][] DIVINE_SKILLS = new Skill[values().length][];
+
+    static
+    {
+        for (PotionEffect e : values())
+        {
+            DIVINE_SKILLS[e.ordinal()] = divineSkillsOf(e);
+        }
+    }
+
+    private static Skill[] divineSkillsOf(PotionEffect e)
+    {
+        switch (e)
+        {
+            case DIVINE_ATTACK: return new Skill[]{Skill.ATTACK};
+            case DIVINE_STRENGTH: return new Skill[]{Skill.STRENGTH};
+            case DIVINE_DEFENCE: return new Skill[]{Skill.DEFENCE};
+            case DIVINE_RANGING: return new Skill[]{Skill.RANGED};
+            case DIVINE_MAGIC: return new Skill[]{Skill.MAGIC};
+            case DIVINE_COMBAT: return new Skill[]{Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE};
+            case DIVINE_BASTION: return new Skill[]{Skill.RANGED, Skill.DEFENCE};
+            case DIVINE_BATTLEMAGE: return new Skill[]{Skill.MAGIC, Skill.DEFENCE};
+            default: return new Skill[0];
+        }
+    }
+
     /** The reminder family whose toggle and expiring-soon lead apply to this effect. */
     public PotionFamily getFamily()
     {
         switch (this)
         {
             case STAMINA: return PotionFamily.STAMINA;
-            case ANTIPOISON:
-            case ANTIVENOM: return PotionFamily.ANTIPOISON;
+            case ANTIPOISON: return PotionFamily.ANTIPOISON;
+            case ANTIVENOM: return PotionFamily.ANTIVENOM;
             case ANTIFIRE:
             case SUPER_ANTIFIRE: return PotionFamily.ANTIFIRE;
             case OVERLOAD:

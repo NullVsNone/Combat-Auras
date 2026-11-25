@@ -4,6 +4,8 @@ import com.combatauras.config.CombatAurasConfig;
 import net.runelite.api.Client;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.api.kit.KitType;
 
 /**
  * Tracks freeze / bind / entangle state from spotanims, chat messages, and movement/unfreeze breaks.
@@ -33,6 +35,12 @@ public class FreezeTracker
      */
     public void onGraphicChanged(Player localPlayer, long nowNanos)
     {
+        onGraphicChanged(null, localPlayer, nowNanos);
+    }
+
+    /** @param client used to spot a caster wielding an Ice ancient sceptre (ice freezes last 10% longer); may be null */
+    public void onGraphicChanged(Client client, Player localPlayer, long nowNanos)
+    {
         if (localPlayer == null)
         {
             return;
@@ -42,9 +50,41 @@ public class FreezeTracker
             if (localPlayer.hasSpotAnim(id))
             {
                 onGraphicChanged(localPlayer, id, nowNanos);
+                if (remainingTicks == totalTicks && isIceSpell(id) && iceSceptreCaster(client, localPlayer))
+                {
+                    remainingTicks += remainingTicks / 10;
+                    totalTicks = remainingTicks;
+                }
                 return;
             }
         }
+    }
+
+    private static boolean isIceSpell(int spotAnimId)
+    {
+        return spotAnimId == 361 || spotAnimId == 363 || spotAnimId == 367 || spotAnimId == 369;
+    }
+
+    /** Whether a player attacking us wields an Ice ancient sceptre. Runs once per freeze, not per frame. */
+    static boolean iceSceptreCaster(Client client, Player localPlayer)
+    {
+        if (client == null)
+        {
+            return false;
+        }
+        for (Player p : client.getTopLevelWorldView().players())
+        {
+            if (p == null || p == localPlayer || p.getInteracting() != localPlayer || p.getPlayerComposition() == null)
+            {
+                continue;
+            }
+            int weapon = p.getPlayerComposition().getEquipmentId(KitType.WEAPON);
+            if (weapon == ItemID.ANCIENT_SCEPTRE_ICE || weapon == ItemID.ANCIENT_SCEPTRE_ICE_TROUVER)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void onGraphicChanged(Player localPlayer, int spotAnimId, long nowNanos)
@@ -72,7 +112,7 @@ public class FreezeTracker
         {
             if (lower.contains("you have been frozen"))
             {
-                startFreeze(localPlayer, 33, nowNanos);
+                startFreeze(localPlayer, 32, nowNanos);
             }
             else if (lower.contains("binds you") || lower.contains("entangled") || lower.contains("you are bound"))
             {
@@ -149,7 +189,7 @@ public class FreezeTracker
             case 361: return 8;  // Ice Rush
             case 363: return 16; // Ice Burst
             case 367: return 24; // Ice Blitz
-            case 369: return 33; // Ice Barrage
+            case 369: return 32; // Ice Barrage
             default:
                 return 0;
         }

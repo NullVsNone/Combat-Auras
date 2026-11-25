@@ -34,7 +34,6 @@ import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.util.Text;
 
 /**
  * Overlays combat spells directly in the spellbook (preserving Resource Pack sprites)
@@ -44,7 +43,7 @@ import net.runelite.client.util.Text;
 @Singleton
 public class SpellCooldownOverlay extends Overlay
 {
-    private static final int SPELLBOOK_GROUP_ID = 218;
+    private static final CombatSpell[] SPELLS = CombatSpell.values();
     private static final int SPRITE_TAB_MAGIC = 780;
     private static final int SPRITE_SPEC_ORB = 1607;
     private static final int[] SPEC_ORB_COMPONENTS = {
@@ -75,7 +74,6 @@ public class SpellCooldownOverlay extends Overlay
     private final int[] readySpellColors = new int[CombatSpell.values().length];
     private final KeyedCache<BufferedImage> spriteOutlineCache = new KeyedCache<>(128);
     private final KeyedCache<BufferedImage> spriteAuraCache = new KeyedCache<>(128);
-    private final KeyedCache<CombatSpell> widgetSpellCache = new KeyedCache<>(256);
     private final KeyedCache<BufferedImage> spriteFillMaskCache = new KeyedCache<>(128);
     private volatile int currentSpellbook = 0;
     private volatile boolean specReadyLive = false;
@@ -168,77 +166,60 @@ public class SpellCooldownOverlay extends Overlay
     /** @return false when the spellbook is not on screen */
     private boolean renderSpellbookSpells(Graphics2D g, double pulse, long nowNanos)
     {
-        Widget spellbookContainer = client.getWidget(SPELLBOOK_GROUP_ID, 0);
-        if (spellbookContainer == null || spellbookContainer.isHidden())
-        {
-            return false;
-        }
-
-        Widget[] children = spellbookContainer.getStaticChildren();
-        if (children == null || children.length == 0)
-        {
-            children = spellbookContainer.getChildren();
-        }
-        if (children == null)
+        Widget spellbook = client.getWidget(InterfaceID.MagicSpellbook.UNIVERSE);
+        if (spellbook == null || spellbook.isHidden())
         {
             return false;
         }
 
         SettingsSnapshot snap = settings.get();
-        for (Widget child : children)
+        for (CombatSpell spell : SPELLS)
         {
-            if (child == null || child.isHidden())
-            {
-                continue;
-            }
-
-            int wId = child.getId();
-            CombatSpell matchedSpell = widgetSpellCache.get(wId);
-            if (matchedSpell == null && !widgetSpellCache.contains(wId))
-            {
-                String rawName = child.getName();
-                if (rawName == null || rawName.isEmpty())
-                {
-                    continue; // widget not populated yet: decide later instead of caching "no spell" forever
-                }
-                matchedSpell = matchSpell(Text.removeTags(rawName).trim());
-                widgetSpellCache.put(wId, matchedSpell);
-            }
-            if (matchedSpell == null)
-            {
-                continue;
-            }
-            spellTracker.registerWidget(matchedSpell, child.getId(), child.getSpriteId());
-            int si = matchedSpell.ordinal();
+            int si = spell.ordinal();
             if (!snap.spellEnabled(si) && !snap.spellDebug(si))
             {
+                spellIconSince[si] = 0L;
                 continue;
             }
-
-            Rectangle bounds = child.getBounds();
-            if (bounds == null || bounds.width <= 0 || bounds.height <= 0)
+            Cooldown cd = spellTracker.getCooldown(spell);
+            boolean glow = snap.spellbookGlow(si) && spellTracker.isSpellReadyReminder(spell, combatState, snap);
+            if (glow && spellIconSince[si] == 0L)
             {
-                continue;
+                spellIconSince[si] = nowNanos;
             }
-
-            Cooldown cd = spellTracker.getCooldown(matchedSpell);
-            if (!cd.isReady())
-            {
-                drawSpellCooldown(g, bounds, child.getId(), child.getSpriteId(), cd);
-            }
-            // Ready, or within its "warn early" lead: glow (on top of the remaining cooldown fill)
-            if (snap.spellbookGlow(si) && spellTracker.isSpellReadyReminder(matchedSpell, combatState, snap))
-            {
-                if (spellIconSince[si] == 0L)
-                {
-                    spellIconSince[si] = nowNanos;
-                }
-                drawIconAuraAndOutline(g, bounds, child.getId(), child.getSpriteId(), snap.spellAwtColor(si), pulse,
-                    Motion.fadeIn(spellIconSince[si], nowNanos));
-            }
-            else
+            else if (!glow)
             {
                 spellIconSince[si] = 0L;
+            }
+            if (cd.isReady() && !glow)
+            {
+                continue;
+            }
+
+            // Every icon of the spell (all nine thralls, both corruptions) shares its timer
+            for (int componentId : spell.getWidgetComponentIds())
+            {
+                Widget icon = client.getWidget(componentId);
+                if (icon == null || icon.isHidden())
+                {
+                    continue;
+                }
+                Rectangle bounds = icon.getBounds();
+                if (bounds == null || bounds.width <= 0 || bounds.height <= 0)
+                {
+                    continue;
+                }
+                spellTracker.registerWidget(spell, componentId, icon.getSpriteId());
+                if (!cd.isReady())
+                {
+                    drawSpellCooldown(g, bounds, componentId, icon.getSpriteId(), cd);
+                }
+                // Ready, or within its "warn early" lead: glow (on top of the remaining cooldown fill)
+                if (glow)
+                {
+                    drawIconAuraAndOutline(g, bounds, componentId, icon.getSpriteId(), snap.spellAwtColor(si), pulse,
+                        Motion.fadeIn(spellIconSince[si], nowNanos));
+                }
             }
         }
         return true;
@@ -471,7 +452,6 @@ public class SpellCooldownOverlay extends Overlay
     {
         spriteOutlineCache.clear();
         spriteAuraCache.clear();
-        widgetSpellCache.clear();
         spriteFillMaskCache.clear();
     }
 
@@ -602,17 +582,5 @@ public class SpellCooldownOverlay extends Overlay
         BufferedImage aura = ItemOutlineCache.buildOutwardAura(sprite, color, ItemOutlineCache.AURA_PAD);
         spriteAuraCache.put(key, aura);
         return aura;
-    }
-
-    private static CombatSpell matchSpell(String cleanedName)
-    {
-        for (CombatSpell spell : CombatSpell.values())
-        {
-            if (spell.matchesWidgetName(cleanedName))
-            {
-                return spell;
-            }
-        }
-        return null;
     }
 }

@@ -59,7 +59,7 @@ public class SpellRecastProtection
         }
         for (MenuEntry entry : entries)
         {
-            if (entry == null || !"Cast".equals(entry.getOption()) || entry.getTarget() == null)
+            if (entry == null || !"Cast".equals(ChatText.clean(entry.getOption())) || entry.getTarget() == null)
             {
                 continue;
             }
@@ -85,7 +85,7 @@ public class SpellRecastProtection
      */
     static CombatSpell castSpell(String target)
     {
-        String name = CombatSpellTracker.stripTags(target).trim();
+        String name = ChatText.clean(target).trim();
         for (CombatSpell spell : SPELLS)
         {
             if (spell.matchesWidgetName(name))

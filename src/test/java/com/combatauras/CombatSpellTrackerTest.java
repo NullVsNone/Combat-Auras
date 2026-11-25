@@ -3,7 +3,6 @@ package com.combatauras;
 import com.combatauras.config.CombatAurasConfig;
 import com.combatauras.model.CombatSpell;
 import com.combatauras.model.Cooldown;
-import com.combatauras.model.ThrallDurationTier;
 import com.combatauras.tracker.CombatSpellTracker;
 import com.combatauras.tracker.CombatStateTracker;
 import java.lang.reflect.Proxy;
@@ -20,15 +19,6 @@ import org.junit.Test;
 public class CombatSpellTrackerTest
 {
     private static final CombatAurasConfig DEFAULTS = new CombatAurasConfig() {};
-
-    private static CombatAurasConfig tier(ThrallDurationTier t)
-    {
-        return new CombatAurasConfig()
-        {
-            @Override
-            public ThrallDurationTier thrallDurationTier() { return t; }
-        };
-    }
 
     @Test
     public void spellVarbitsMatchRuneLiteGameVals()
@@ -57,17 +47,12 @@ public class CombatSpellTrackerTest
         FakeClient fc = new FakeClient().level(Skill.MAGIC, 99, 109);
         CombatSpellTracker tracker = new CombatSpellTracker();
 
-        tracker.onChatMessage(fc.client, "<col=ef0083>You resurrect a greater ghost thrall.</col>", tier(ThrallDurationTier.STANDARD));
+        tracker.onChatMessage(fc.client, "<col=ef0083>You resurrect a greater ghost thrall.</col>");
         Assert.assertEquals(109, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
 
-        tracker.onChatMessage(fc.client, "You resurrect a greater skeleton thrall.", tier(ThrallDurationTier.MASTER_CA));
-        Assert.assertEquals(218, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
-
-        // AUTO reads CA_TIER_STATUS_MASTER
-        tracker.onChatMessage(fc.client, "You resurrect a lesser zombie thrall.", tier(ThrallDurationTier.AUTO));
-        Assert.assertEquals(109, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        // Read from CA_TIER_STATUS_MASTER: twice as long once the Master tier is done
         fc.varbit(VarbitID.CA_TIER_STATUS_MASTER, 2);
-        tracker.onChatMessage(fc.client, "You resurrect a lesser zombie thrall.", tier(ThrallDurationTier.AUTO));
+        tracker.onChatMessage(fc.client, "You resurrect a lesser zombie thrall.");
         Assert.assertEquals(218, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
     }
 
@@ -78,7 +63,7 @@ public class CombatSpellTrackerTest
         CombatSpellTracker tracker = new CombatSpellTracker();
 
         fc.varbit(VarbitID.ARCEUUS_RESURRECTION_ACTIVE, 1).varbit(VarbitID.ARCEUUS_RESURRECTION_COOLDOWN, 1);
-        tracker.onChatMessage(fc.client, "You resurrect a greater ghost thrall.", DEFAULTS);
+        tracker.onChatMessage(fc.client, "You resurrect a greater ghost thrall.");
         tracker.onGameTick(fc.client);
         Assert.assertFalse(tracker.getCooldown(CombatSpell.RESURRECT_THRALL).isReady());
 
@@ -100,7 +85,7 @@ public class CombatSpellTrackerTest
         FakeClient fc = new FakeClient().level(Skill.MAGIC, 90, 99);
         CombatSpellTracker tracker = new CombatSpellTracker();
 
-        tracker.onChatMessage(fc.client, "<col=ef0083>You have placed a Mark of Darkness upon yourself.</col>", DEFAULTS);
+        tracker.onChatMessage(fc.client, "<col=ef0083>You have placed a Mark of Darkness upon yourself.</col>");
         Assert.assertEquals(270, tracker.getCooldown(CombatSpell.MARK_OF_DARKNESS).getRemainingTicks());
 
         Item staff = new Item(ItemID.PURGING_STAFF, 1);
@@ -110,14 +95,14 @@ public class CombatSpellTrackerTest
             (p, m, a) -> "getItem".equals(m.getName()) ? staff : FakeClient.defaultValue(m.getReturnType())
         );
         fc.containers.put(InventoryID.WORN, worn);
-        tracker.onChatMessage(fc.client, "You have placed a Mark of Darkness upon yourself.", DEFAULTS);
+        tracker.onChatMessage(fc.client, "You have placed a Mark of Darkness upon yourself.");
         Assert.assertEquals(1350, tracker.getCooldown(CombatSpell.MARK_OF_DARKNESS).getRemainingTicks());
 
         // Mark of Darkness has no varbit: ticking must not clear it (original bug cleared it every tick)
         tracker.onGameTick(fc.client);
         Assert.assertEquals(1349, tracker.getCooldown(CombatSpell.MARK_OF_DARKNESS).getRemainingTicks());
 
-        tracker.onChatMessage(fc.client, "Your Mark of Darkness has faded away.", DEFAULTS);
+        tracker.onChatMessage(fc.client, "Your Mark of Darkness has faded away.");
         // Only the 10-tick recast cooldown can remain
         Assert.assertTrue(tracker.getCooldown(CombatSpell.MARK_OF_DARKNESS).getRemainingTicks() <= 10);
     }
@@ -128,13 +113,16 @@ public class CombatSpellTrackerTest
         FakeClient fc = new FakeClient().level(Skill.MAGIC, 95, 99);
         CombatSpellTracker tracker = new CombatSpellTracker();
 
-        tracker.onChatMessage(fc.client, "<col=ef0083>Your defence against Arceuus magic has been strengthened.</col>", DEFAULTS);
+        tracker.onChatMessage(fc.client, "<col=ef0083>Your defence against Arceuus magic has been strengthened.</col>");
         Assert.assertEquals(95, tracker.getCooldown(CombatSpell.WARD_OF_ARCEUUS).getRemainingTicks());
 
-        tracker.onChatMessage(fc.client, "<col=ef0083>Your thieving abilities have been enhanced.</col>", DEFAULTS);
+        tracker.onChatMessage(fc.client, "<col=ef0083>Your thieving abilities have been enhanced.</col>");
         Assert.assertEquals(95, tracker.getCooldown(CombatSpell.SHADOW_VEIL).getRemainingTicks());
 
-        // Shadow Veil ends when its active varbit is 0
+        // Shadow Veil ends when its active varbit stays 0 past the short grace for a cast message that beats it
+        tracker.onGameTick(fc.client);
+        Assert.assertFalse(tracker.getCooldown(CombatSpell.SHADOW_VEIL).isReady());
+        tracker.onGameTick(fc.client);
         tracker.onGameTick(fc.client);
         Assert.assertTrue(tracker.getCooldown(CombatSpell.SHADOW_VEIL).isReady());
     }
