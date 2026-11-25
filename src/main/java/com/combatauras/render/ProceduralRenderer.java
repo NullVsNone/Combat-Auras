@@ -1,6 +1,8 @@
 package com.combatauras.render;
 
 import com.combatauras.settings.SettingsSnapshot;
+import com.combatauras.settings.VisualProfile;
+import com.combatauras.model.VisualStyle;
 import com.combatauras.model.ShowerStartLocation;
 import java.awt.AlphaComposite;
 import java.awt.Color;
@@ -47,7 +49,6 @@ public class ProceduralRenderer
     private final KeyedCache<BufferedImage> spriteIconCache = new KeyedCache<>(64);
     private final KeyedCache<BufferedImage> itemIconCache = new KeyedCache<>(64);
     private int cachedIconSize = 0;
-    private float smoothedGlowAlpha = 0f;
     private long lastGlowFrameNanos = 0L;
     private long showerStartNanos = 0L;
 
@@ -55,21 +56,40 @@ public class ProceduralRenderer
     private static final float[] GLOW_FRACTIONS = {0f, 0.35f, 0.65f, 0.85f, 1f};
     private static final float[] GLOW_ALPHAS = {0f, 0.07f, 0.28f, 0.60f, 1f};
 
-    // Cached vignette paints, rebuilt only when colour or geometry changes
-    private int glowKeyRgb = -1;
-    private int glowKeyW = -1;
-    private int glowKeyH = -1;
-    private int glowKeyEdgeW = -1;
-    private int glowKeyEdgeH = -1;
-    private final java.awt.Paint[] glowPaints = new java.awt.Paint[8];
+    /**
+     * One visual style's glow this frame (index = VisualStyle ordinal). Everything is pre-allocated: a frame with
+     * several styles active allocates nothing and rebuilds no gradient unless that style's colour or size changed.
+     */
+    private static final int STYLES = VisualStyle.values().length;
+    private final float[] slotR = new float[STYLES];
+    private final float[] slotG = new float[STYLES];
+    private final float[] slotB = new float[STYLES];
+    private final float[] slotWeight = new float[STYLES];
+    private final float[] slotMax = new float[STYLES];
+    private final int[] slotStrongest = new int[STYLES];
+    private final int[] slotRgb = new int[STYLES];
+    private final float[] smoothedSlotAlpha = new float[STYLES];
+    private final GlowPaints[] slotPaints = new GlowPaints[STYLES];
+    private final int[] edgeOwner = new int[4];
     private int paintBuilds = 0;
+
+    /** Cached vignette paints of one style, rebuilt only when its colour or geometry changes. */
+    private static final class GlowPaints
+    {
+        int keyRgb = -1;
+        int keyW = -1;
+        int keyH = -1;
+        int keyEdgeW = -1;
+        int keyEdgeH = -1;
+        final java.awt.Paint[] paints = new java.awt.Paint[8];
+        Color tint;
+    }
 
     /** How many times the gradient paints were (re)built; for tests guarding against per-frame rebuilds. */
     public int getPaintBuilds()
     {
         return paintBuilds;
     }
-    private Color tintColor = null;
 
     // Precomputed deterministic shower lanes (zero allocation)
     private final float[] showerPhaseOffset = new float[36];
@@ -77,6 +97,11 @@ public class ProceduralRenderer
 
     public ProceduralRenderer()
     {
+        for (int i = 0; i < STYLES; i++)
+        {
+            slotPaints[i] = new GlowPaints();
+            slotRgb[i] = -1;
+        }
         Random rng = new Random(0x5EEDBEEFL);
         for (int i = 0; i < showerPhaseOffset.length; i++)
         {
@@ -89,11 +114,13 @@ public class ProceduralRenderer
     {
         spriteIconCache.clear();
         itemIconCache.clear();
-        smoothedGlowAlpha = 0f;
+        resetGlow();
         lastGlowFrameNanos = 0L;
         showerStartNanos = 0L;
-        glowKeyRgb = -1;
-        tintColor = null;
+        for (GlowPaints gp : slotPaints)
+        {
+            gp.keyRgb = -1;
+        }
     }
 
     public void render(
@@ -119,6 +146,43 @@ public class ProceduralRenderer
         int[] showerItemColors
     )
     {
+        render(g, width, height, nowNanos, config, client, spriteManager, itemManager, statusSeverities, statusColors,
+            glowExtraCount, glowExtraColors, glowExtraPulse, glowExtraFade, null,
+            showerSpriteCount, showerSpriteIds, showerSpriteColors, null,
+            showerItemCount, showerItemIds, showerItemColors, null);
+    }
+
+    /**
+     * @param glowExtraStyles   VisualStyle ordinal per extra glow (null = all shared look); statuses use the snapshot's
+     * @param showerSpriteStyles VisualStyle ordinal per shower sprite (null = shared look)
+     * @param showerItemStyles  VisualStyle ordinal per shower item (null = shared look)
+     */
+    public void render(
+        Graphics2D g,
+        int width,
+        int height,
+        long nowNanos,
+        SettingsSnapshot config,
+        Client client,
+        SpriteManager spriteManager,
+        ItemManager itemManager,
+        float[] statusSeverities,
+        int[] statusColors,
+        int glowExtraCount,
+        int[] glowExtraColors,
+        float[] glowExtraPulse,
+        float[] glowExtraFade,
+        int[] glowExtraStyles,
+        int showerSpriteCount,
+        int[] showerSpriteIds,
+        int[] showerSpriteColors,
+        int[] showerSpriteStyles,
+        int showerItemCount,
+        int[] showerItemIds,
+        int[] showerItemColors,
+        int[] showerItemStyles
+    )
+    {
         if (width <= 0 || height <= 0)
         {
             return;
@@ -138,7 +202,7 @@ public class ProceduralRenderer
         boolean anySpellIcons = showerSpriteCount > 0 || showerItemCount > 0;
         if (!anyStatus && !anySpellGlow && !anySpellIcons)
         {
-            smoothedGlowAlpha = 0f;
+            resetGlow();
             lastGlowFrameNanos = nowNanos;
             showerStartNanos = 0L;
             return;
@@ -152,28 +216,13 @@ public class ProceduralRenderer
             showerStartNanos = 0L;
         }
 
-        float masterIntensity = config.effectIntensity;
-        float motion = config.motionStrength;
         double timeSec = nowNanos / 1_000_000_000.0;
 
-        // 1. Blended screen-edge vignette (cached gradient paints: 4 edges + 4 rounded corners)
-        if (masterIntensity > 0.01f && (anyStatus || anySpellGlow))
+        // 1. Screen-edge vignette per visual style (cached gradient paints: 4 edges + 4 rounded corners each)
+        if (anyStatus || anySpellGlow)
         {
-            drawAcceleratedEdgeGlow(
-                g,
-                width,
-                height,
-                nowNanos,
-                config,
-                masterIntensity,
-                motion,
-                statusSeverities,
-                statusColors,
-                glowExtraCount,
-                glowExtraColors,
-                glowExtraPulse,
-                glowExtraFade
-            );
+            drawAcceleratedEdgeGlow(g, width, height, nowNanos, config, statusSeverities, statusColors,
+                glowExtraCount, glowExtraColors, glowExtraPulse, glowExtraFade, glowExtraStyles);
         }
 
         Composite oldComposite = g.getComposite();
@@ -183,36 +232,57 @@ public class ProceduralRenderer
         {
             drawUnifiedIconShower(
                 g, width, height, nowNanos, timeSec, config, client, spriteManager, itemManager,
-                showerSpriteCount, showerSpriteIds, showerSpriteColors,
-                showerItemCount, showerItemIds, showerItemColors
+                showerSpriteCount, showerSpriteIds, showerSpriteColors, showerSpriteStyles,
+                showerItemCount, showerItemIds, showerItemColors, showerItemStyles
             );
         }
 
         g.setComposite(oldComposite);
     }
 
+    private void resetGlow()
+    {
+        java.util.Arrays.fill(smoothedSlotAlpha, 0f);
+    }
+
+    private void accumulate(int k, int argb, float colourWeight, float strength)
+    {
+        slotR[k] += ((argb >>> 16) & 0xFF) * colourWeight;
+        slotG[k] += ((argb >>> 8) & 0xFF) * colourWeight;
+        slotB[k] += (argb & 0xFF) * colourWeight;
+        slotWeight[k] += colourWeight;
+        if (strength > slotMax[k])
+        {
+            slotMax[k] = strength;
+            slotStrongest[k] = argb;
+        }
+    }
+
+    /**
+     * Each active visual style gets its own colour and fade. Where styles share an edge, the strongest one owns it,
+     * so every edge is filled at most once per frame (the same pixel cost as a single style) and two styles never
+     * stack into a double-bright band. The screen tint, if any, is drawn once in the strongest style's colour.
+     */
     private void drawAcceleratedEdgeGlow(
         Graphics2D g,
         int width,
         int height,
         long nowNanos,
         SettingsSnapshot config,
-        float masterIntensity,
-        float motion,
         float[] statusSeverities,
         int[] statusColors,
         int extraCount,
         int[] extraColors,
         float[] extraPulse,
-        float[] extraFade
+        float[] extraFade,
+        int[] extraStyles
     )
     {
-        float rAcc = 0f;
-        float gAcc = 0f;
-        float bAcc = 0f;
-        float weightSum = 0f;
-        float maxStrength = 0f;
-        int strongestArgb = 0;
+        java.util.Arrays.fill(slotR, 0f);
+        java.util.Arrays.fill(slotG, 0f);
+        java.util.Arrays.fill(slotB, 0f);
+        java.util.Arrays.fill(slotWeight, 0f);
+        java.util.Arrays.fill(slotMax, 0f);
 
         for (int i = 0; i < statusSeverities.length; i++)
         {
@@ -221,112 +291,146 @@ public class ProceduralRenderer
             {
                 continue;
             }
+            int k = config.statusStyle(i);
             int argb = statusColors[i];
             float a = ((argb >>> 24) & 0xFF) / 255f;
             // Colour mix uses the steady weight; the heartbeat only animates strength, so the blended colour (and the
             // cached gradient paints built from it) stays constant while a warning pulses
             float cw = sev * a;
             float beat = config.statusPulse(i);
-            float w = beat > 0f ? cw * Motion.heartbeat(nowNanos, beat, motion) : cw;
-            rAcc += ((argb >>> 16) & 0xFF) * cw;
-            gAcc += ((argb >>> 8) & 0xFF) * cw;
-            bAcc += (argb & 0xFF) * cw;
-            weightSum += cw;
-            if (w > maxStrength)
-            {
-                maxStrength = w;
-                strongestArgb = argb;
-            }
+            float w = beat > 0f ? cw * Motion.heartbeat(nowNanos, beat, config.profile(k).motion) : cw;
+            accumulate(k, argb, cw, w);
         }
 
-        if (extraCount > 0)
+        // Spells and item reminders breathe gently by default, or use the heartbeat when one is set
+        for (int i = 0; i < extraCount; i++)
         {
-            // Spells and item reminders breathe gently by default, or use the heartbeat when one is set
-            float breathe = Motion.pulse(nowNanos, Motion.SCREEN_PULSE_RATE, 0.72f, motion);
-            for (int i = 0; i < extraCount; i++)
-            {
-                int argb = extraColors[i];
-                float a = ((argb >>> 24) & 0xFF) / 255f;
-                float cw = 0.65f * a * extraFade[i];
-                float w = cw * (extraPulse[i] > 0f ? Motion.heartbeat(nowNanos, extraPulse[i], motion) : breathe);
-                rAcc += ((argb >>> 16) & 0xFF) * cw;
-                gAcc += ((argb >>> 8) & 0xFF) * cw;
-                bAcc += (argb & 0xFF) * cw;
-                weightSum += cw;
-                if (w > maxStrength)
-                {
-                    maxStrength = w;
-                    strongestArgb = argb;
-                }
-            }
+            int k = extraStyles != null ? extraStyles[i] : 0;
+            float motion = config.profile(k).motion;
+            int argb = extraColors[i];
+            float a = ((argb >>> 24) & 0xFF) / 255f;
+            float cw = 0.65f * a * extraFade[i];
+            float w = cw * (extraPulse[i] > 0f
+                ? Motion.heartbeat(nowNanos, extraPulse[i], motion)
+                : Motion.pulse(nowNanos, Motion.SCREEN_PULSE_RATE, 0.72f, motion));
+            accumulate(k, argb, cw, w);
         }
 
-        if (weightSum <= 0.001f)
-        {
-            // Only fully transparent colours are active: fade out instead of freezing the last alpha
-            smoothedGlowAlpha = 0f;
-            lastGlowFrameNanos = nowNanos;
-            return;
-        }
-
-        int r;
-        int gr;
-        int b;
-        if (config.glowColorMode == GlowColorMode.STRONGEST)
-        {
-            r = (strongestArgb >>> 16) & 0xFF;
-            gr = (strongestArgb >>> 8) & 0xFF;
-            b = strongestArgb & 0xFF;
-        }
-        else
-        {
-            // Quantised to 5 bits per channel (invisible at vignette alpha) so float drift never rebuilds the paints
-            r = Math.min(255, Math.round(rAcc / weightSum)) & 0xF8;
-            gr = Math.min(255, Math.round(gAcc / weightSum)) & 0xF8;
-            b = Math.min(255, Math.round(bAcc / weightSum)) & 0xF8;
-        }
-
-        float depth = Math.max(0.10f, config.edgeDepth) * 0.5f;
-        float targetAlpha = Math.min(0.92f, maxStrength * masterIntensity);
-        float dtSec;
-        if (lastGlowFrameNanos == 0L)
-        {
-            dtSec = 0.08f;
-        }
-        else
-        {
-            dtSec = Math.max(0.001f, Math.min(0.25f, (nowNanos - lastGlowFrameNanos) / 1_000_000_000f));
-        }
+        float dtSec = lastGlowFrameNanos == 0L ? 0.08f
+            : Math.max(0.001f, Math.min(0.25f, (nowNanos - lastGlowFrameNanos) / 1_000_000_000f));
         lastGlowFrameNanos = nowNanos;
         float blend = 1f - (float) Math.exp(-dtSec * 4.5f);
-        smoothedGlowAlpha += (targetAlpha - smoothedGlowAlpha) * blend;
-        float globalAlpha = smoothedGlowAlpha;
-        if (globalAlpha <= 0.005f)
+
+        int dominant = -1;
+        for (int k = 0; k < STYLES; k++)
+        {
+            VisualProfile p = config.profile(k);
+            float target = 0f;
+            if (slotWeight[k] > 0.001f && p.intensity > 0.01f)
+            {
+                int argb = slotStrongest[k];
+                if (config.glowColorMode == GlowColorMode.STRONGEST)
+                {
+                    slotRgb[k] = argb & 0xFFFFFF;
+                }
+                else
+                {
+                    // Quantised to 5 bits per channel (invisible at vignette alpha) so float drift never rebuilds paints
+                    int r = Math.min(255, Math.round(slotR[k] / slotWeight[k])) & 0xF8;
+                    int gr = Math.min(255, Math.round(slotG[k] / slotWeight[k])) & 0xF8;
+                    int b = Math.min(255, Math.round(slotB[k] / slotWeight[k])) & 0xF8;
+                    slotRgb[k] = (r << 16) | (gr << 8) | b;
+                }
+                target = Math.min(0.92f, slotMax[k] * p.intensity);
+            }
+            else if (slotWeight[k] > 0f)
+            {
+                // Only fully transparent colours: drop instead of freezing the last alpha
+                smoothedSlotAlpha[k] = 0f;
+            }
+            // A style that just ended fades out in its last colour
+            smoothedSlotAlpha[k] += (target - smoothedSlotAlpha[k]) * blend;
+            if (smoothedSlotAlpha[k] <= 0.005f || slotRgb[k] < 0)
+            {
+                smoothedSlotAlpha[k] = target <= 0f ? 0f : smoothedSlotAlpha[k];
+                continue;
+            }
+            if (dominant < 0 || smoothedSlotAlpha[k] > smoothedSlotAlpha[dominant])
+            {
+                dominant = k;
+            }
+        }
+        if (dominant < 0)
         {
             return;
         }
 
-        int edgeW = Math.max(12, Math.min(width / 2, Math.round(width * depth)));
-        int edgeH = Math.max(12, Math.min(height / 2, Math.round(height * depth)));
-        int rgb = (r << 16) | (gr << 8) | b;
-        ensureGlowPaints(rgb, width, height, edgeW, edgeH);
+        // Edge ownership: top, bottom, left, right
+        for (int e = 0; e < 4; e++)
+        {
+            int owner = -1;
+            float best = 0.005f;
+            for (int k = 0; k < STYLES; k++)
+            {
+                if (smoothedSlotAlpha[k] > best && slotRgb[k] >= 0 && hasEdge(config.profile(k), e))
+                {
+                    best = smoothedSlotAlpha[k];
+                    owner = k;
+                }
+            }
+            edgeOwner[e] = owner;
+        }
 
         java.awt.Paint oldPaint = g.getPaint();
         Composite oldComposite = g.getComposite();
-        g.setComposite(quantizedAlpha(globalAlpha));
+        for (int k = 0; k < STYLES; k++)
+        {
+            boolean top = edgeOwner[0] == k;
+            boolean bottom = edgeOwner[1] == k;
+            boolean left = edgeOwner[2] == k;
+            boolean right = edgeOwner[3] == k;
+            if (!top && !bottom && !left && !right)
+            {
+                continue;
+            }
+            GlowPaints gp = paintsFor(k, config.profile(k), width, height);
+            g.setComposite(quantizedAlpha(smoothedSlotAlpha[k]));
+            drawEdges(g, gp.paints, width, height, gp.keyEdgeW, gp.keyEdgeH, top, bottom, left, right);
+        }
 
-        drawEdges(g, width, height, edgeW, edgeH, config.glowTop, config.glowBottom, config.glowLeft, config.glowRight);
-
-        float tint = config.screenTint * 0.22f;
+        VisualProfile dp = config.profile(dominant);
+        float tint = dp.tint * 0.22f;
         if (tint > 0.01f)
         {
-            g.setComposite(quantizedAlpha(Math.min(90f / 255f, tint * globalAlpha)));
-            g.setColor(tintColor);
+            GlowPaints gp = paintsFor(dominant, dp, width, height);
+            g.setComposite(quantizedAlpha(Math.min(90f / 255f, tint * smoothedSlotAlpha[dominant])));
+            g.setColor(gp.tint);
             g.fillRect(0, 0, width, height);
         }
 
         g.setComposite(oldComposite);
         g.setPaint(oldPaint);
+    }
+
+    private static boolean hasEdge(VisualProfile p, int edge)
+    {
+        switch (edge)
+        {
+            case 0: return p.top;
+            case 1: return p.bottom;
+            case 2: return p.left;
+            default: return p.right;
+        }
+    }
+
+    private GlowPaints paintsFor(int k, VisualProfile p, int width, int height)
+    {
+        float depth = Math.max(0.10f, p.depth) * 0.5f;
+        int edgeW = Math.max(12, Math.min(width / 2, Math.round(width * depth)));
+        int edgeH = Math.max(12, Math.min(height / 2, Math.round(height * depth)));
+        GlowPaints gp = slotPaints[k];
+        ensureGlowPaints(gp, slotRgb[k], width, height, edgeW, edgeH);
+        return gp;
     }
 
     /**
@@ -335,7 +439,7 @@ public class ProceduralRenderer
      * corner (its gradient already spans it), so a single edge never ends in a hard cut. Nothing is drawn for
      * disabled edges, and the cached paints are reused unchanged.
      */
-    private void drawEdges(Graphics2D g, int width, int height, int edgeW, int edgeH,
+    private static void drawEdges(Graphics2D g, java.awt.Paint[] glowPaints, int width, int height, int edgeW, int edgeH,
         boolean top, boolean bottom, boolean left, boolean right)
     {
         int midW = width - 2 * edgeW;
@@ -397,25 +501,26 @@ public class ProceduralRenderer
         return verticalEdge ? verticalStrip : null;
     }
 
-    private void ensureGlowPaints(int rgb, int width, int height, int edgeW, int edgeH)
+    private void ensureGlowPaints(GlowPaints gp, int rgb, int width, int height, int edgeW, int edgeH)
     {
-        if (rgb == glowKeyRgb && width == glowKeyW && height == glowKeyH && edgeW == glowKeyEdgeW && edgeH == glowKeyEdgeH)
+        if (rgb == gp.keyRgb && width == gp.keyW && height == gp.keyH && edgeW == gp.keyEdgeW && edgeH == gp.keyEdgeH)
         {
             return;
         }
-        glowKeyRgb = rgb;
+        gp.keyRgb = rgb;
         paintBuilds++;
-        glowKeyW = width;
-        glowKeyH = height;
-        glowKeyEdgeW = edgeW;
-        glowKeyEdgeH = edgeH;
+        gp.keyW = width;
+        gp.keyH = height;
+        gp.keyEdgeW = edgeW;
+        gp.keyEdgeH = edgeH;
 
         Color[] colors = new Color[GLOW_FRACTIONS.length];
         for (int i = 0; i < colors.length; i++)
         {
             colors[i] = new Color((rgb >>> 16) & 0xFF, (rgb >>> 8) & 0xFF, rgb & 0xFF, Math.round(GLOW_ALPHAS[i] * 255f));
         }
-        tintColor = new Color(rgb);
+        gp.tint = new Color(rgb);
+        java.awt.Paint[] glowPaints = gp.paints;
 
         // Linear edges: start = inner boundary (clear), end = screen edge (full)
         glowPaints[0] = new LinearGradientPaint(new Point2D.Float(0, edgeH), new Point2D.Float(0, 0), GLOW_FRACTIONS, colors);
@@ -460,9 +565,11 @@ public class ProceduralRenderer
         int readySpriteCount,
         int[] readySpriteIds,
         int[] readySpriteColors,
+        int[] readySpriteStyles,
         int readyItemCount,
         int[] readyItemIds,
-        int[] readyItemColors
+        int[] readyItemColors,
+        int[] readyItemStyles
     )
     {
         int totalSources = readySpriteCount + readyItemCount;
@@ -471,12 +578,9 @@ public class ProceduralRenderer
             return;
         }
 
+        // Icon count and size stay shared (one budget, one icon cache); movement and opacity follow each icon's style
         int maxIcons = Math.min(showerPhaseOffset.length, config.showerMaxIcons);
         int iconSize = config.showerIconSize;
-        float speedMult = config.showerSpeed;
-        float baseSpeed = 0.22f * speedMult;
-        float screenFrac = config.showerScreenFraction;
-        ShowerStartLocation startLoc = config.showerStartLocation;
 
         float showerFade = Motion.fadeIn(showerStartNanos, nowNanos); // the whole shower eases in over one tick
         for (int i = 0; i < maxIcons; i++)
@@ -484,17 +588,24 @@ public class ProceduralRenderer
             int slot = i % totalSources;
             BufferedImage icon;
             int fallbackColor;
+            int style;
             if (slot < readySpriteCount)
             {
                 icon = getScaledSpriteIcon(readySpriteIds[slot], client, spriteManager, iconSize);
                 fallbackColor = readySpriteColors[slot];
+                style = readySpriteStyles != null ? readySpriteStyles[slot] : 0;
             }
             else
             {
                 int itemIdx = slot - readySpriteCount;
                 icon = getScaledItemIcon(readyItemIds[itemIdx], itemManager, iconSize);
                 fallbackColor = readyItemColors[itemIdx];
+                style = readyItemStyles != null ? readyItemStyles[itemIdx] : 0;
             }
+            VisualProfile p = config.profile(style);
+            float baseSpeed = 0.22f * p.showerSpeed;
+            float screenFrac = p.showerFraction;
+            ShowerStartLocation startLoc = p.showerStart;
 
             double elapsedSec = showerStartNanos > 0L ? Math.max(0.0, (nowNanos - showerStartNanos) / 1_000_000_000.0) : timeSec;
             double rawCycle = elapsedSec * baseSpeed * showerSpeedScale[i] - showerPhaseOffset[i];
@@ -504,7 +615,7 @@ public class ProceduralRenderer
             }
             double cycle = rawCycle % 1.0;
             float fade = (float) Math.sin(cycle * Math.PI);
-            float alpha = Math.max(0f, Math.min(1f, fade * config.showerOpacity * showerFade));
+            float alpha = Math.max(0f, Math.min(1f, fade * p.showerOpacity * showerFade));
             if (alpha <= 0.03f)
             {
                 continue;
@@ -512,7 +623,7 @@ public class ProceduralRenderer
 
             int x;
             int y;
-            int sway = (int) Math.round(Math.sin(timeSec * Motion.SWAY_RATE + i) * 8.0 * config.motionStrength);
+            int sway = (int) Math.round(Math.sin(timeSec * Motion.SWAY_RATE + i) * 8.0 * p.motion);
             if (startLoc == ShowerStartLocation.BOTTOM)
             {
                 double travel = height * screenFrac;

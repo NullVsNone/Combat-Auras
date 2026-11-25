@@ -9,6 +9,7 @@ import com.combatauras.model.Preset;
 import com.combatauras.model.ReadyStyle;
 import com.combatauras.model.ReminderContext;
 import com.combatauras.model.ShowerStartLocation;
+import com.combatauras.model.VisualStyle;
 import com.combatauras.model.SpellCooldownDisplayMode;
 import java.awt.Color;
 import net.runelite.client.config.Alpha;
@@ -27,7 +28,7 @@ public interface CombatAurasConfig extends Config
     // Sections (shared first, then one per warning, potion family and spell)
     // Standard layout in every warning/spell section:
     //   0 Enable | 1-8 section options | 10 Color | 11 Screen glow | 12 Shower icon | 13 Extra glow
-    //   14 Notification | 15 Reminder duration | 19 Debug preview
+    //   14 Notification | 15 Reminder duration | 16 Visual style | 19 Debug preview
     // =========================================================================
 
     @ConfigSection(name = "General Display & Performance", description = "Shared master switches, presets, glow intensity/depth/tint/motion and combat break timing.", position = 0)
@@ -44,6 +45,18 @@ public interface CombatAurasConfig extends Config
 
     @ConfigSection(name = "Shared Debug Tools", description = "Preview intensity, simulate combat, and test cooldown triggers.", position = 4, closedByDefault = true)
     String debugSection = "debugSection";
+
+    @ConfigSection(name = "Visual Style 1", description = "Full-screen urgent: every edge, strong and deep, with a faint tint. Pick it per reminder with its \"Visual style\" setting.", position = 5, closedByDefault = true)
+    String sharedStyle1Section = "sharedStyle1Section";
+
+    @ConfigSection(name = "Visual Style 2", description = "Subtle: top and bottom edges only, soft and shallow. Pick it per reminder with its \"Visual style\" setting.", position = 6, closedByDefault = true)
+    String sharedStyle2Section = "sharedStyle2Section";
+
+    @ConfigSection(name = "Visual Style 3", description = "Sides: left and right edges only, medium strength, icons sweep in from the left. Pick it per reminder with its \"Visual style\" setting.", position = 7, closedByDefault = true)
+    String sharedStyle3Section = "sharedStyle3Section";
+
+    @ConfigSection(name = "Visual Style 4", description = "Custom: starts like the shared settings; change it however you like. Pick it per reminder with its \"Visual style\" setting.", position = 8, closedByDefault = true)
+    String sharedStyle4Section = "sharedStyle4Section";
 
     @ConfigSection(name = "Low Health", description = "Low HP warning.", position = 10, closedByDefault = true)
     String warnLowHealthSection = "warnLowHealthSection";
@@ -207,6 +220,222 @@ public interface CombatAurasConfig extends Config
     default int showerOpacity() { return 66; }
 
     // =========================================================================
+    // Visual Style 1
+    // =========================================================================
+
+    @ConfigItem(keyName = "style1GlowTop", name = "Glow edge: Top", description = "Glow along the top edge of the screen.", section = sharedStyle1Section, position = 0)
+    default boolean style1GlowTop() { return true; }
+
+    @ConfigItem(keyName = "style1GlowBottom", name = "Glow edge: Bottom", description = "Glow along the bottom edge of the screen.", section = sharedStyle1Section, position = 1)
+    default boolean style1GlowBottom() { return true; }
+
+    @ConfigItem(keyName = "style1GlowLeft", name = "Glow edge: Left", description = "Glow along the left edge of the screen.", section = sharedStyle1Section, position = 2)
+    default boolean style1GlowLeft() { return true; }
+
+    @ConfigItem(keyName = "style1GlowRight", name = "Glow edge: Right", description = "Glow along the right edge of the screen.", section = sharedStyle1Section, position = 3)
+    default boolean style1GlowRight() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style1Intensity", name = "Effect intensity", description = "How strong this style's screen glow is.", section = sharedStyle1Section, position = 4)
+    default int style1Intensity() { return 85; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style1EdgeDepth", name = "Edge depth", description = "How far the glow reaches in from the edge.", section = sharedStyle1Section, position = 5)
+    default int style1EdgeDepth() { return 25; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style1Tint", name = "Screen tint", description = "Faint full-screen tint in the glow colour.", section = sharedStyle1Section, position = 6)
+    default int style1Tint() { return 8; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style1Motion", name = "Motion strength", description = "How much this style's glow breathes and its icons sway (0% = still).", section = sharedStyle1Section, position = 7)
+    default int style1Motion() { return 75; }
+
+    @ConfigItem(keyName = "style1ShowerStart", name = "Shower start edge", description = "Where this style's icons enter the screen.", section = sharedStyle1Section, position = 8)
+    default ShowerStartLocation style1ShowerStart() { return ShowerStartLocation.BOTTOM; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style1ShowerPercent", name = "Shower travel distance", description = "How far across the screen the icons travel.", section = sharedStyle1Section, position = 9)
+    default int style1ShowerPercent() { return 33; }
+
+    @Range(min = 20, max = 250)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style1ShowerSpeed", name = "Shower speed", description = "How fast the icons move.", section = sharedStyle1Section, position = 10)
+    default int style1ShowerSpeed() { return 100; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style1ShowerOpacity", name = "Shower icon opacity", description = "How opaque the shower icons are.", section = sharedStyle1Section, position = 11)
+    default int style1ShowerOpacity() { return 66; }
+
+    // =========================================================================
+    // Visual Style 2
+    // =========================================================================
+
+    @ConfigItem(keyName = "style2GlowTop", name = "Glow edge: Top", description = "Glow along the top edge of the screen.", section = sharedStyle2Section, position = 0)
+    default boolean style2GlowTop() { return true; }
+
+    @ConfigItem(keyName = "style2GlowBottom", name = "Glow edge: Bottom", description = "Glow along the bottom edge of the screen.", section = sharedStyle2Section, position = 1)
+    default boolean style2GlowBottom() { return true; }
+
+    @ConfigItem(keyName = "style2GlowLeft", name = "Glow edge: Left", description = "Glow along the left edge of the screen.", section = sharedStyle2Section, position = 2)
+    default boolean style2GlowLeft() { return false; }
+
+    @ConfigItem(keyName = "style2GlowRight", name = "Glow edge: Right", description = "Glow along the right edge of the screen.", section = sharedStyle2Section, position = 3)
+    default boolean style2GlowRight() { return false; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style2Intensity", name = "Effect intensity", description = "How strong this style's screen glow is.", section = sharedStyle2Section, position = 4)
+    default int style2Intensity() { return 45; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style2EdgeDepth", name = "Edge depth", description = "How far the glow reaches in from the edge.", section = sharedStyle2Section, position = 5)
+    default int style2EdgeDepth() { return 15; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style2Tint", name = "Screen tint", description = "Faint full-screen tint in the glow colour.", section = sharedStyle2Section, position = 6)
+    default int style2Tint() { return 0; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style2Motion", name = "Motion strength", description = "How much this style's glow breathes and its icons sway (0% = still).", section = sharedStyle2Section, position = 7)
+    default int style2Motion() { return 40; }
+
+    @ConfigItem(keyName = "style2ShowerStart", name = "Shower start edge", description = "Where this style's icons enter the screen.", section = sharedStyle2Section, position = 8)
+    default ShowerStartLocation style2ShowerStart() { return ShowerStartLocation.BOTTOM; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style2ShowerPercent", name = "Shower travel distance", description = "How far across the screen the icons travel.", section = sharedStyle2Section, position = 9)
+    default int style2ShowerPercent() { return 25; }
+
+    @Range(min = 20, max = 250)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style2ShowerSpeed", name = "Shower speed", description = "How fast the icons move.", section = sharedStyle2Section, position = 10)
+    default int style2ShowerSpeed() { return 80; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style2ShowerOpacity", name = "Shower icon opacity", description = "How opaque the shower icons are.", section = sharedStyle2Section, position = 11)
+    default int style2ShowerOpacity() { return 50; }
+
+    // =========================================================================
+    // Visual Style 3
+    // =========================================================================
+
+    @ConfigItem(keyName = "style3GlowTop", name = "Glow edge: Top", description = "Glow along the top edge of the screen.", section = sharedStyle3Section, position = 0)
+    default boolean style3GlowTop() { return false; }
+
+    @ConfigItem(keyName = "style3GlowBottom", name = "Glow edge: Bottom", description = "Glow along the bottom edge of the screen.", section = sharedStyle3Section, position = 1)
+    default boolean style3GlowBottom() { return false; }
+
+    @ConfigItem(keyName = "style3GlowLeft", name = "Glow edge: Left", description = "Glow along the left edge of the screen.", section = sharedStyle3Section, position = 2)
+    default boolean style3GlowLeft() { return true; }
+
+    @ConfigItem(keyName = "style3GlowRight", name = "Glow edge: Right", description = "Glow along the right edge of the screen.", section = sharedStyle3Section, position = 3)
+    default boolean style3GlowRight() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style3Intensity", name = "Effect intensity", description = "How strong this style's screen glow is.", section = sharedStyle3Section, position = 4)
+    default int style3Intensity() { return 65; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style3EdgeDepth", name = "Edge depth", description = "How far the glow reaches in from the edge.", section = sharedStyle3Section, position = 5)
+    default int style3EdgeDepth() { return 20; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style3Tint", name = "Screen tint", description = "Faint full-screen tint in the glow colour.", section = sharedStyle3Section, position = 6)
+    default int style3Tint() { return 0; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style3Motion", name = "Motion strength", description = "How much this style's glow breathes and its icons sway (0% = still).", section = sharedStyle3Section, position = 7)
+    default int style3Motion() { return 60; }
+
+    @ConfigItem(keyName = "style3ShowerStart", name = "Shower start edge", description = "Where this style's icons enter the screen.", section = sharedStyle3Section, position = 8)
+    default ShowerStartLocation style3ShowerStart() { return ShowerStartLocation.LEFT; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style3ShowerPercent", name = "Shower travel distance", description = "How far across the screen the icons travel.", section = sharedStyle3Section, position = 9)
+    default int style3ShowerPercent() { return 33; }
+
+    @Range(min = 20, max = 250)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style3ShowerSpeed", name = "Shower speed", description = "How fast the icons move.", section = sharedStyle3Section, position = 10)
+    default int style3ShowerSpeed() { return 100; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style3ShowerOpacity", name = "Shower icon opacity", description = "How opaque the shower icons are.", section = sharedStyle3Section, position = 11)
+    default int style3ShowerOpacity() { return 66; }
+
+    // =========================================================================
+    // Visual Style 4
+    // =========================================================================
+
+    @ConfigItem(keyName = "style4GlowTop", name = "Glow edge: Top", description = "Glow along the top edge of the screen.", section = sharedStyle4Section, position = 0)
+    default boolean style4GlowTop() { return true; }
+
+    @ConfigItem(keyName = "style4GlowBottom", name = "Glow edge: Bottom", description = "Glow along the bottom edge of the screen.", section = sharedStyle4Section, position = 1)
+    default boolean style4GlowBottom() { return true; }
+
+    @ConfigItem(keyName = "style4GlowLeft", name = "Glow edge: Left", description = "Glow along the left edge of the screen.", section = sharedStyle4Section, position = 2)
+    default boolean style4GlowLeft() { return true; }
+
+    @ConfigItem(keyName = "style4GlowRight", name = "Glow edge: Right", description = "Glow along the right edge of the screen.", section = sharedStyle4Section, position = 3)
+    default boolean style4GlowRight() { return true; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style4Intensity", name = "Effect intensity", description = "How strong this style's screen glow is.", section = sharedStyle4Section, position = 4)
+    default int style4Intensity() { return 75; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style4EdgeDepth", name = "Edge depth", description = "How far the glow reaches in from the edge.", section = sharedStyle4Section, position = 5)
+    default int style4EdgeDepth() { return 20; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style4Tint", name = "Screen tint", description = "Faint full-screen tint in the glow colour.", section = sharedStyle4Section, position = 6)
+    default int style4Tint() { return 5; }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style4Motion", name = "Motion strength", description = "How much this style's glow breathes and its icons sway (0% = still).", section = sharedStyle4Section, position = 7)
+    default int style4Motion() { return 65; }
+
+    @ConfigItem(keyName = "style4ShowerStart", name = "Shower start edge", description = "Where this style's icons enter the screen.", section = sharedStyle4Section, position = 8)
+    default ShowerStartLocation style4ShowerStart() { return ShowerStartLocation.BOTTOM; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style4ShowerPercent", name = "Shower travel distance", description = "How far across the screen the icons travel.", section = sharedStyle4Section, position = 9)
+    default int style4ShowerPercent() { return 33; }
+
+    @Range(min = 20, max = 250)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style4ShowerSpeed", name = "Shower speed", description = "How fast the icons move.", section = sharedStyle4Section, position = 10)
+    default int style4ShowerSpeed() { return 100; }
+
+    @Range(min = 10, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "style4ShowerOpacity", name = "Shower icon opacity", description = "How opaque the shower icons are.", section = sharedStyle4Section, position = 11)
+    default int style4ShowerOpacity() { return 66; }
+
+    // =========================================================================
     // Inventory Cooldowns
     // =========================================================================
 
@@ -328,6 +557,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "healthPulseStrength", name = "Heartbeat pulse", description = "Strength of the low-health heartbeat pulse.", section = warnLowHealthSection, position = 9)
     default int healthPulseStrength() { return 60; }
 
+    @ConfigItem(keyName = "lowHealthVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnLowHealthSection, position = 16)
+    default VisualStyle lowHealthVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Range(min = 0, max = 100)
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "lowHealthEscalation", name = "Danger escalation", description = "Extra intensity as HP drops further below the threshold.", section = warnLowHealthSection, position = 3)
@@ -382,6 +614,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "damageFlashColor", name = "Color", description = "Color used for damage flashes.", section = warnDamageSection, position = 10)
     default Color damageFlashColor() { return new Color(225, 35, 35, 200); }
 
+    @ConfigItem(keyName = "damageVisualStyle", name = "Visual style", description = "Which look the hit flash uses: the shared settings, or one of the Visual Style 1-4 sections.", section = warnDamageSection, position = 16)
+    default VisualStyle damageVisualStyle() { return VisualStyle.GLOBAL; }
+
     @ConfigItem(keyName = "damageGlow", name = "Screen glow", description = "Show screen-edge flash when taking damage.", section = warnDamageSection, position = 11)
     default boolean damageGlow() { return true; }
 
@@ -415,6 +650,9 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "lowPrayerPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnPrayerSection, position = 9)
     default int lowPrayerPulse() { return 0; }
+
+    @ConfigItem(keyName = "lowPrayerVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnPrayerSection, position = 16)
+    default VisualStyle lowPrayerVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "lowPrayerColor", name = "Color", description = "Color for low prayer vignette and inventory glow.", section = warnPrayerSection, position = 10)
@@ -450,8 +688,6 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "poisonEnabled", name = "Enable", description = "Track poison status.", section = warnPoisonSection, position = 0)
     default boolean poisonEnabled() { return true; }
 
-    @Range(min = 0, max = 100)
-    @Units(Units.PERCENT)
     @ConfigItem(keyName = "remindAntipoison", name = "Remind when immunity ends", description = "Show this poison warning (its colour, glow, shower and duration) when antipoison / antidote / sanfew protection runs out.", section = warnPoisonSection, position = 1)
     default boolean remindAntipoison() { return true; }
 
@@ -460,8 +696,13 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "antipoisonLeadSeconds", name = "Immunity: warn early", description = "Start the immunity reminder this many seconds before the protection ends.", section = warnPoisonSection, position = 2)
     default int antipoisonLeadSeconds() { return 0; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
     @ConfigItem(keyName = "poisonPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnPoisonSection, position = 9)
     default int poisonPulse() { return 0; }
+
+    @ConfigItem(keyName = "poisonVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnPoisonSection, position = 16)
+    default VisualStyle poisonVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "poisonColor", name = "Color", description = "Color for poison vignette.", section = warnPoisonSection, position = 10)
@@ -491,8 +732,6 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "venomEnabled", name = "Enable", description = "Track venom status.", section = warnVenomSection, position = 0)
     default boolean venomEnabled() { return true; }
 
-    @Range(min = 0, max = 100)
-    @Units(Units.PERCENT)
     @ConfigItem(keyName = "remindAntivenom", name = "Remind when immunity ends", description = "Show this venom warning (its colour, glow, shower and duration) when anti-venom protection runs out.", section = warnVenomSection, position = 1)
     default boolean remindAntivenom() { return true; }
 
@@ -501,8 +740,13 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "antivenomLeadSeconds", name = "Immunity: warn early", description = "Start the immunity reminder this many seconds before the protection ends.", section = warnVenomSection, position = 2)
     default int antivenomLeadSeconds() { return 0; }
 
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
     @ConfigItem(keyName = "venomPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnVenomSection, position = 9)
     default int venomPulse() { return 0; }
+
+    @ConfigItem(keyName = "venomVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnVenomSection, position = 16)
+    default VisualStyle venomVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "venomColor", name = "Color", description = "Color for venom vignette.", section = warnVenomSection, position = 10)
@@ -537,6 +781,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "diseasePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnDiseaseSection, position = 9)
     default int diseasePulse() { return 0; }
 
+    @ConfigItem(keyName = "diseaseVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnDiseaseSection, position = 16)
+    default VisualStyle diseaseVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "diseaseColor", name = "Color", description = "Color for disease vignette.", section = warnDiseaseSection, position = 10)
     default Color diseaseColor() { return new Color(186, 152, 42, 195); }
@@ -569,6 +816,9 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "freezePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnFreezeSection, position = 9)
     default int freezePulse() { return 0; }
+
+    @ConfigItem(keyName = "freezeVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnFreezeSection, position = 16)
+    default VisualStyle freezeVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "freezeColor", name = "Color", description = "Color for freeze vignette.", section = warnFreezeSection, position = 10)
@@ -619,6 +869,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "idlePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnIdleSection, position = 9)
     default int idlePulse() { return 0; }
 
+    @ConfigItem(keyName = "idleVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnIdleSection, position = 16)
+    default VisualStyle idleVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "idleColor", name = "Color", description = "Color of the idle screen-edge glow.", section = warnIdleSection, position = 10)
     default Color idleColor() { return new Color(235, 135, 35, 210); }
@@ -666,6 +919,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "specPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnSpecSection, position = 9)
     default int specPulse() { return 0; }
 
+    @ConfigItem(keyName = "specVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnSpecSection, position = 16)
+    default VisualStyle specVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "specColor", name = "Color", description = "Color of the spec ready glow.", section = warnSpecSection, position = 10)
     default Color specColor() { return new Color(45, 212, 191, 190); }
@@ -710,6 +966,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "lowRunPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnLowRunSection, position = 9)
     default int lowRunPulse() { return 0; }
 
+    @ConfigItem(keyName = "lowRunVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnLowRunSection, position = 16)
+    default VisualStyle lowRunVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "lowRunColor", name = "Color", description = "Color of the low run energy glow.", section = warnLowRunSection, position = 10)
     default Color lowRunColor() { return new Color(234, 179, 8, 195); }
@@ -746,6 +1005,9 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "unpottedPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnUnpottedSection, position = 9)
     default int unpottedPulse() { return 0; }
+
+    @ConfigItem(keyName = "unpottedVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnUnpottedSection, position = 16)
+    default VisualStyle unpottedVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "unpottedColor", name = "Color", description = "Color of the unpotted-in-combat glow.", section = warnUnpottedSection, position = 10)
@@ -787,6 +1049,9 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "heartPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnHeartSection, position = 9)
     default int heartPulse() { return 0; }
+
+    @ConfigItem(keyName = "heartVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnHeartSection, position = 16)
+    default VisualStyle heartVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "heartReminderColor", name = "Color", description = "Color when the Heart becomes ready again.", section = warnHeartSection, position = 10)
@@ -856,6 +1121,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "buffPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = warnPotionsBuffsSection, position = 9)
     default int buffPulse() { return 0; }
 
+    @ConfigItem(keyName = "buffVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = warnPotionsBuffsSection, position = 16)
+    default VisualStyle buffVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "buffReminderColor", name = "Color", description = "Color when a potion you used expires.", section = warnPotionsBuffsSection, position = 10)
     default Color buffReminderColor() { return new Color(65, 215, 145, 200); }
@@ -917,6 +1185,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "boostPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = boostSection, position = 9)
     default int boostPulse() { return 0; }
 
+    @ConfigItem(keyName = "boostVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = boostSection, position = 16)
+    default VisualStyle boostVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "boostReminderColor", name = "Color", description = "Color when a boost potion is ready to re-dose.", section = boostSection, position = 10)
     default Color boostReminderColor() { return new Color(239, 68, 68, 200); }
@@ -969,6 +1240,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellThrallPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellThrallSection, position = 9)
     default int spellThrallPulse() { return 0; }
 
+    @ConfigItem(keyName = "spellThrallVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellThrallSection, position = 16)
+    default VisualStyle spellThrallVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "spellThrallColor", name = "Color", description = "Glow color for Resurrect Thrall.", section = spellThrallSection, position = 10)
     default Color spellThrallColor() { return new Color(138, 92, 246, 210); }
@@ -1012,6 +1286,9 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "spellDeathChargePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellDeathChargeSection, position = 9)
     default int spellDeathChargePulse() { return 0; }
+
+    @ConfigItem(keyName = "spellDeathChargeVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellDeathChargeSection, position = 16)
+    default VisualStyle spellDeathChargeVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "spellDeathChargeColor", name = "Color", description = "Glow color for Death Charge.", section = spellDeathChargeSection, position = 10)
@@ -1057,6 +1334,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellMarkOfDarknessPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellMarkOfDarknessSection, position = 9)
     default int spellMarkOfDarknessPulse() { return 0; }
 
+    @ConfigItem(keyName = "spellMarkOfDarknessVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellMarkOfDarknessSection, position = 16)
+    default VisualStyle spellMarkOfDarknessVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "spellMarkOfDarknessColor", name = "Color", description = "Glow color for Mark of Darkness.", section = spellMarkOfDarknessSection, position = 10)
     default Color spellMarkOfDarknessColor() { return new Color(80, 175, 255, 210); }
@@ -1100,6 +1380,9 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "spellWardOfArceuusPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellWardOfArceuusSection, position = 9)
     default int spellWardOfArceuusPulse() { return 0; }
+
+    @ConfigItem(keyName = "spellWardOfArceuusVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellWardOfArceuusSection, position = 16)
+    default VisualStyle spellWardOfArceuusVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "spellWardOfArceuusColor", name = "Color", description = "Glow color for Ward of Arceuus.", section = spellWardOfArceuusSection, position = 10)
@@ -1148,6 +1431,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellShadowVeilPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellShadowVeilSection, position = 9)
     default int spellShadowVeilPulse() { return 0; }
 
+    @ConfigItem(keyName = "spellShadowVeilVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellShadowVeilSection, position = 16)
+    default VisualStyle spellShadowVeilVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "spellShadowVeilColor", name = "Color", description = "Glow color for Shadow Veil.", section = spellShadowVeilSection, position = 10)
     default Color spellShadowVeilColor() { return new Color(140, 120, 190, 200); }
@@ -1191,6 +1477,9 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "spellCorruptionPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellCorruptionSection, position = 9)
     default int spellCorruptionPulse() { return 0; }
+
+    @ConfigItem(keyName = "spellCorruptionVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellCorruptionSection, position = 16)
+    default VisualStyle spellCorruptionVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "spellCorruptionColor", name = "Color", description = "Glow color for Corruption.", section = spellCorruptionSection, position = 10)
@@ -1236,6 +1525,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellVengeancePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellVengeanceSection, position = 9)
     default int spellVengeancePulse() { return 0; }
 
+    @ConfigItem(keyName = "spellVengeanceVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellVengeanceSection, position = 16)
+    default VisualStyle spellVengeanceVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "spellVengeanceColor", name = "Color", description = "Glow color for Vengeance.", section = spellVengeanceSection, position = 10)
     default Color spellVengeanceColor() { return new Color(245, 158, 11, 210); }
@@ -1280,6 +1572,9 @@ public interface CombatAurasConfig extends Config
     @ConfigItem(keyName = "spellVengeanceOtherPulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellVengeanceOtherSection, position = 9)
     default int spellVengeanceOtherPulse() { return 0; }
 
+    @ConfigItem(keyName = "spellVengeanceOtherVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellVengeanceOtherSection, position = 16)
+    default VisualStyle spellVengeanceOtherVisualStyle() { return VisualStyle.GLOBAL; }
+
     @Alpha
     @ConfigItem(keyName = "spellVengeanceOtherColor", name = "Color", description = "Glow color for Vengeance Other.", section = spellVengeanceOtherSection, position = 10)
     default Color spellVengeanceOtherColor() { return new Color(235, 190, 60, 200); }
@@ -1323,6 +1618,9 @@ public interface CombatAurasConfig extends Config
     @Units(Units.PERCENT)
     @ConfigItem(keyName = "spellChargePulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = spellChargeSection, position = 9)
     default int spellChargePulse() { return 0; }
+
+    @ConfigItem(keyName = "spellChargeVisualStyle", name = "Visual style", description = "Which look this reminder's screen glow and icon shower use: the shared settings, or one of the Visual Style 1-4 sections.", section = spellChargeSection, position = 16)
+    default VisualStyle spellChargeVisualStyle() { return VisualStyle.GLOBAL; }
 
     @Alpha
     @ConfigItem(keyName = "spellChargeColor", name = "Color", description = "Glow color for Charge.", section = spellChargeSection, position = 10)

@@ -78,9 +78,11 @@ public class StatusOverlay extends Overlay
     private final int[] readySpellColors = new int[SPELLS.length];
     private final int[] showerSpriteIds = new int[SPELLS.length + STATUSES.length];
     private final int[] showerSpriteColors = new int[SPELLS.length + STATUSES.length];
+    private final int[] showerSpriteStyles = new int[SPELLS.length + STATUSES.length];
     private final int[] glowExtraColors = new int[SPELLS.length + MAX_ITEMS];
     private final float[] glowExtraPulse = new float[SPELLS.length + MAX_ITEMS];
     private final float[] glowExtraFade = new float[SPELLS.length + MAX_ITEMS];
+    private final int[] glowExtraStyles = new int[SPELLS.length + MAX_ITEMS];
     // When each spell / reminder family's screen glow appeared, for its one-tick fade-in (0 = not showing)
     private final long[] spellGlowSince = new long[SPELLS.length];
     private final boolean[] spellGlowSeen = new boolean[SPELLS.length];
@@ -89,6 +91,7 @@ public class StatusOverlay extends Overlay
     private final int[] readyItemIds = new int[MAX_ITEMS + STATUSES.length];
     private final int[] readyItemColors = new int[MAX_ITEMS + STATUSES.length];
     private final int[] readyItemFamilies = new int[MAX_ITEMS + STATUSES.length];
+    private final int[] readyItemStyles = new int[MAX_ITEMS + STATUSES.length];
 
     @Inject
     public StatusOverlay(
@@ -227,9 +230,9 @@ public class StatusOverlay extends Overlay
         renderer.render(graphics, client.getCanvasWidth(), client.getCanvasHeight(), nowNanos, s,
             client, spriteManager, itemManager,
             statusSeverities, statusColors,
-            glowExtraCount, glowExtraColors, glowExtraPulse, glowExtraFade,
-            showerSpriteCount, showerSpriteIds, showerSpriteColors,
-            showerItemCount, readyItemIds, readyItemColors);
+            glowExtraCount, glowExtraColors, glowExtraPulse, glowExtraFade, glowExtraStyles,
+            showerSpriteCount, showerSpriteIds, showerSpriteColors, showerSpriteStyles,
+            showerItemCount, readyItemIds, readyItemColors, readyItemStyles);
         return null;
     }
 
@@ -418,6 +421,7 @@ public class StatusOverlay extends Overlay
             {
                 glowExtraColors[out] = readySpellColors[i];
                 glowExtraPulse[out] = s.spellPulse(ord);
+                glowExtraStyles[out] = s.spellStyle(ord);
                 glowExtraFade[out] = trackFade(spellGlowSince, spellGlowSeen, ord, nowNanos);
                 out++;
             }
@@ -429,6 +433,7 @@ public class StatusOverlay extends Overlay
             {
                 glowExtraColors[out] = readyItemColors[i];
                 glowExtraPulse[out] = s.familyPulse(fam);
+                glowExtraStyles[out] = s.familyStyle(fam);
                 glowExtraFade[out] = trackFade(familyGlowSince, familyGlowSeen, fam, nowNanos);
                 out++;
             }
@@ -452,6 +457,7 @@ public class StatusOverlay extends Overlay
             {
                 showerSpriteIds[out] = spellTracker.getResolvedSpriteId(spell);
                 showerSpriteColors[out] = readySpellColors[i];
+                showerSpriteStyles[out] = s.spellStyle(spell.ordinal());
                 out++;
             }
         }
@@ -462,6 +468,7 @@ public class StatusOverlay extends Overlay
             {
                 showerSpriteIds[out] = e.getShowerSpriteId();
                 showerSpriteColors[out] = statusColors[i];
+                showerSpriteStyles[out] = s.statusStyle(i);
                 out++;
             }
         }
@@ -482,6 +489,7 @@ public class StatusOverlay extends Overlay
                 readyItemIds[out] = readyItemIds[i];
                 readyItemColors[out] = readyItemColors[i];
                 readyItemFamilies[out] = readyItemFamilies[i];
+                readyItemStyles[out] = s.familyStyle(readyItemFamilies[i]);
                 out++;
             }
         }
@@ -492,6 +500,7 @@ public class StatusOverlay extends Overlay
             {
                 readyItemIds[out] = e.getShowerItemId();
                 readyItemColors[out] = statusColors[i];
+                readyItemStyles[out] = s.statusStyle(i);
                 out++;
             }
         }

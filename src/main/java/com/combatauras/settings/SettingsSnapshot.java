@@ -12,6 +12,7 @@ import com.combatauras.model.ReminderContext;
 import com.combatauras.model.ReminderFamily;
 import com.combatauras.model.ReadyStyle;
 import com.combatauras.model.ShowerStartLocation;
+import com.combatauras.model.VisualStyle;
 import com.combatauras.model.SpellCooldownDisplayMode;
 import com.combatauras.model.StatusEffect;
 import java.awt.Color;
@@ -54,6 +55,9 @@ public final class SettingsSnapshot
     public final int showerIconSize;
     public final float showerSpeed;
     public final float showerOpacity;
+
+    /** Index = VisualStyle ordinal: 0 is the shared look, 1-4 the Visual Style sections. */
+    private final VisualProfile[] profiles = new VisualProfile[VisualStyle.values().length];
 
     // ---- item & spellbook icons (drawn every frame per visible item; "allow item glows" is folded in)
     /** Multiplier for icon glow alpha, 0.25..2 (above 1 draws a second layer). */
@@ -99,6 +103,7 @@ public final class SettingsSnapshot
     private final boolean[] statusDebug = new boolean[STATUSES];
     /** Heartbeat pulse strength 0..1 (Low Health's "Heartbeat pulse", and the same option on every other glow). */
     private final float[] statusPulse = new float[STATUSES];
+    private final byte[] statusStyle = new byte[STATUSES];
 
     // ---- spells (index: CombatSpell.ordinal())
     public final boolean spellsEnabled;
@@ -121,6 +126,7 @@ public final class SettingsSnapshot
     private final boolean[] spellRecastProtection = new boolean[SPELLS];
     private final boolean[] spellDebug = new boolean[SPELLS];
     private final float[] spellPulse = new float[SPELLS];
+    private final byte[] spellStyle = new byte[SPELLS];
 
     // ---- item reminder families (index: ReminderFamily.ordinal())
     private final boolean[] familyEnabled = new boolean[FAMILIES];
@@ -133,6 +139,7 @@ public final class SettingsSnapshot
     private final int[] familyLeadTicks = new int[FAMILIES];
     private final boolean[] familyDebug = new boolean[FAMILIES];
     private final float[] familyPulse = new float[FAMILIES];
+    private final byte[] familyStyle = new byte[FAMILIES];
 
     // ---- potion effects (index: PotionEffect.ordinal())
     private final boolean[] potionRemind = new boolean[EFFECTS];
@@ -169,6 +176,22 @@ public final class SettingsSnapshot
         showerIconSize = c.spellShowerIconSize();
         showerSpeed = c.spellShowerSpeed() / 100f;
         showerOpacity = Math.max(0.10f, Math.min(1f, c.showerOpacity() / 100f));
+
+        profiles[0] = new VisualProfile(glowTop, glowBottom, glowLeft, glowRight, c.effectIntensity(), c.edgeDepth(),
+            c.screenTint(), c.motionStrength(), showerStartLocation, c.showerScreenPercent(), c.spellShowerSpeed(),
+            c.showerOpacity());
+        profiles[1] = new VisualProfile(c.style1GlowTop(), c.style1GlowBottom(), c.style1GlowLeft(), c.style1GlowRight(),
+            c.style1Intensity(), c.style1EdgeDepth(), c.style1Tint(), c.style1Motion(), c.style1ShowerStart(),
+            c.style1ShowerPercent(), c.style1ShowerSpeed(), c.style1ShowerOpacity());
+        profiles[2] = new VisualProfile(c.style2GlowTop(), c.style2GlowBottom(), c.style2GlowLeft(), c.style2GlowRight(),
+            c.style2Intensity(), c.style2EdgeDepth(), c.style2Tint(), c.style2Motion(), c.style2ShowerStart(),
+            c.style2ShowerPercent(), c.style2ShowerSpeed(), c.style2ShowerOpacity());
+        profiles[3] = new VisualProfile(c.style3GlowTop(), c.style3GlowBottom(), c.style3GlowLeft(), c.style3GlowRight(),
+            c.style3Intensity(), c.style3EdgeDepth(), c.style3Tint(), c.style3Motion(), c.style3ShowerStart(),
+            c.style3ShowerPercent(), c.style3ShowerSpeed(), c.style3ShowerOpacity());
+        profiles[4] = new VisualProfile(c.style4GlowTop(), c.style4GlowBottom(), c.style4GlowLeft(), c.style4GlowRight(),
+            c.style4Intensity(), c.style4EdgeDepth(), c.style4Tint(), c.style4Motion(), c.style4ShowerStart(),
+            c.style4ShowerPercent(), c.style4ShowerSpeed(), c.style4ShowerOpacity());
 
         iconGlowStrength = Math.max(0.25f, Math.min(2f, c.iconGlowStrength() / 100f));
         cooldownStyle = c.displayMode();
@@ -213,6 +236,7 @@ public final class SettingsSnapshot
             statusNotification[i] = b.notification.apply(c);
             statusDebug[i] = b.debug.test(c);
             statusPulse[i] = b.pulse.applyAsInt(c) / 100f;
+            statusStyle[i] = (byte) b.style.apply(c).ordinal();
             debug |= statusDebug[i];
         }
 
@@ -242,6 +266,7 @@ public final class SettingsSnapshot
             spellRecastProtection[i] = b.recastProtection.test(c);
             spellDebug[i] = b.debug.test(c);
             spellPulse[i] = b.pulse.applyAsInt(c) / 100f;
+            spellStyle[i] = (byte) b.style.apply(c).ordinal();
             debug |= spellDebug[i];
         }
 
@@ -259,6 +284,7 @@ public final class SettingsSnapshot
             familyLeadTicks[i] = secondsToTicks(b.leadSeconds.applyAsInt(c));
             familyDebug[i] = b.debug.test(c);
             familyPulse[i] = b.pulse.applyAsInt(c) / 100f;
+            familyStyle[i] = (byte) b.style.apply(c).ordinal();
             debug |= familyDebug[i];
         }
         anyDebugPreview = debug;
@@ -485,5 +511,26 @@ public final class SettingsSnapshot
     public float familyPulse(int index)
     {
         return familyPulse[index];
+    }
+
+    /** @param style VisualStyle ordinal (0 = shared settings) */
+    public VisualProfile profile(int style)
+    {
+        return profiles[style];
+    }
+
+    public int statusStyle(int index)
+    {
+        return statusStyle[index];
+    }
+
+    public int spellStyle(int index)
+    {
+        return spellStyle[index];
+    }
+
+    public int familyStyle(int index)
+    {
+        return familyStyle[index];
     }
 }

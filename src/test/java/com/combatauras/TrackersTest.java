@@ -447,7 +447,8 @@ public class TrackersTest
         food.onGameTick();
         food.onGameTick();
         food.onGameTick();
-        Assert.assertEquals("second heal pending", 4, food.getCooldown(FoodCooldownTracker.ConsumableType.HUNTER_MEAT).getRemainingTicks());
+        Assert.assertNull("eat lock is only 3 ticks", food.getCooldown(FoodCooldownTracker.ConsumableType.HUNTER_MEAT));
+        Assert.assertEquals("second heal pending, shown separately", 4, food.getHunterHealCooldown().getRemainingTicks());
     }
 
     // ---------------------------------------------------------------- freeze & impact

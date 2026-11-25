@@ -5,6 +5,16 @@ All notable changes to Combat Auras. Dates are UTC.
 ## Unreleased
 
 ### Added
+- **Visual styles**: four new *Visual Style 1-4* sections, each with its own glow edges, intensity, edge depth,
+  tint, motion and shower movement (start edge, travel distance, speed, opacity). Every reminder section has a
+  *Visual style* setting (default: the shared look), so for example Low HP can glow on every edge while Thrall
+  glows only at the top and bottom. When several styles show at once, each edge is drawn once by the strongest
+  style using it, so mixing styles costs no extra drawing. Icon count and size stay shared.
+- Defaults: Style 1 is full-screen and urgent, Style 2 top-and-bottom and subtle, Style 3 left-and-right with
+  icons sweeping in from the left, Style 4 starts like the shared settings.
+- Chambers of Xeric elder, twisted and kodai potions (all three strengths) as boost potions.
+- Thrall reminders need the Book of the Dead in the inventory or worn.
+- *Hunter meat heal ring* (Food): the delayed second heal shows as a small ring in the item's corner.
 - **Item & spellbook glow strength** (General, 25 to 200%, default 100%): brightens or dims glows on inventory
   items, spell icons, the Magic tab and the spec orb. Above 100% layers the glow, and thickens box-style borders.
 - **Icon opacity** for showering icons (Icon Shower, default 66%).
@@ -20,6 +30,19 @@ All notable changes to Combat Auras. Dates are UTC.
   flashes (damage, poison and venom ticks) stay instant.
 
 ### Changed
+- Antipoison and anti-venom expiry reminders moved from Potion Reminders into the Poison and Venom sections
+  (*Remind when immunity ends*, *Immunity: warn early*). They now use that section's colour, glow, shower and
+  reminder duration. Your antipoison setting carries over; anti-venom has its own toggle.
+- While a divine potion runs, regular potions for the same stat show the divine's remaining time (the stat drops
+  straight back to base when it ends) instead of a decay estimate.
+- When a divine potion ends, only its reminder shows, not the regular potion's as well. Unpotted waits while a
+  re-pot reminder for that stat is on screen and only fires if you keep fighting unboosted after it.
+- Re-dose protection allows a left-click drink inside the item's *Warn early* window, so you can pre-pot.
+- *Combat break re-remind* defaults to 30 s (was 120 s), so ready-spell reminders re-arm between kills and rooms.
+- Ice Barrage freezes last 32 ticks (was 33). Ice freezes last 10% longer when the caster wields an Ice ancient
+  sceptre.
+- Sanfew serum counts as an antipoison.
+- The Hunter meat eat lock is 3 ticks like other food; its 7-tick heal no longer looks like a lock or flashes ready.
 - Low Health's *Heartbeat pulse* moved next to the other per-section options (same setting, same value).
 - *Motion strength* now drives every animation, not only the screen glow: icon pulses, breathing and sweeping
   borders, the inventory Pulse ready animation and shower sway. At 0% they hold steady at full strength.
@@ -27,15 +50,24 @@ All notable changes to Combat Auras. Dates are UTC.
   (Steady outline when the border is None).
 
 ### Removed
+- The thrall *CA duration* option: the Master combat achievement tier is always read from the game.
 - The Nightmare / Phosani's Nightmare parasite warning and its settings.
 
 ### Fixed
+- **Thralls, Mark of Darkness, Ward of Arceuus and Shadow Veil** start their real durations again. Since the game's
+  August 2026 update these messages begin with a highlight code (`@mes_hl_mag@`) that broke matching.
+- **Thrall warning repeating every 10 seconds**: when a thrall outlasted the plugin's estimate, the reminder and
+  notification re-armed every 17 ticks. A cast message that arrives a tick before its game variable no longer
+  cancels the timer, and the end of a spell no longer starts a second reminder after a warn-early one.
+- **Spellbook icons** (thrall and every other tracked spell) get their timer, fill and glow again. The spells sit in
+  a nested part of the spellbook, so they are now looked up directly.
+- Recast and re-dose protection also work on menu options that carry colour tags.
+- The saturated heart is read from the game, so it is right after logging in mid-cooldown or without the click.
 - The spec orb glow and the debug spell grid no longer disappear when the shared "Spells" master switch is off.
 - Charge's god-cape check now applies on the same tick (it lagged one tick), and resets on logout / hop.
 - The screen glow no longer freezes at its last strength when only fully transparent colours are active.
 - The Unpotted notification now respects the Unpotted section's Enable switch.
 - Logging in during an imbued heart cooldown no longer assumes the saturated heart's length.
-- Spellbook widgets whose name had not loaded yet are no longer remembered as "not a spell".
 
 ### Performance
 - Blended glow colours no longer change every frame while low HP pulses, so the cached gradient paints stay valid

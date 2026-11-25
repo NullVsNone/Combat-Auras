@@ -5,6 +5,7 @@ import com.combatauras.model.CombatSpell;
 import com.combatauras.model.PotionFamily;
 import com.combatauras.model.ReminderFamily;
 import com.combatauras.model.StatusEffect;
+import com.combatauras.model.VisualStyle;
 import java.awt.Color;
 import java.util.EnumMap;
 import java.util.Map;
@@ -29,6 +30,7 @@ public final class Bindings
     private static final Predicate<CombatAurasConfig> NEVER = c -> false;
     private static final ToIntFunction<CombatAurasConfig> ZERO = c -> 0;
     private static final Function<CombatAurasConfig, Notification> NO_NOTIFICATION = c -> Notification.OFF;
+    private static final Function<CombatAurasConfig, VisualStyle> GLOBAL_STYLE = c -> VisualStyle.GLOBAL;
 
     /** Per-spell settings. */
     public static final class Spell
@@ -39,6 +41,15 @@ public final class Bindings
         Spell pulse(ToIntFunction<CombatAurasConfig> pulse)
         {
             this.pulse = pulse;
+            return this;
+        }
+
+        /** Which visual style its screen glow and icon shower use, set after construction; the shared look by default. */
+        Function<CombatAurasConfig, VisualStyle> style = GLOBAL_STYLE;
+
+        Spell style(Function<CombatAurasConfig, VisualStyle> style)
+        {
+            this.style = style;
             return this;
         }
 
@@ -84,6 +95,15 @@ public final class Bindings
             return this;
         }
 
+        /** Which visual style its screen glow and icon shower use, set after construction; the shared look by default. */
+        Function<CombatAurasConfig, VisualStyle> style = GLOBAL_STYLE;
+
+        Status style(Function<CombatAurasConfig, VisualStyle> style)
+        {
+            this.style = style;
+            return this;
+        }
+
         final Predicate<CombatAurasConfig> enabled;
         final Function<CombatAurasConfig, Color> color;
         final Predicate<CombatAurasConfig> glow;
@@ -116,6 +136,15 @@ public final class Bindings
         Family pulse(ToIntFunction<CombatAurasConfig> pulse)
         {
             this.pulse = pulse;
+            return this;
+        }
+
+        /** Which visual style its screen glow and icon shower use, set after construction; the shared look by default. */
+        Function<CombatAurasConfig, VisualStyle> style = GLOBAL_STYLE;
+
+        Family style(Function<CombatAurasConfig, VisualStyle> style)
+        {
+            this.style = style;
             return this;
         }
 
@@ -350,5 +379,35 @@ public final class Bindings
         FAMILIES.get(ReminderFamily.HEART).pulse(CombatAurasConfig::heartPulse);
         FAMILIES.get(ReminderFamily.POTION).pulse(CombatAurasConfig::buffPulse);
         FAMILIES.get(ReminderFamily.BOOST).pulse(CombatAurasConfig::boostPulse);
+    }
+
+    // Visual style per screen glow / shower
+    static
+    {
+        SPELLS.get(CombatSpell.RESURRECT_THRALL).style(CombatAurasConfig::spellThrallVisualStyle);
+        SPELLS.get(CombatSpell.DEATH_CHARGE).style(CombatAurasConfig::spellDeathChargeVisualStyle);
+        SPELLS.get(CombatSpell.MARK_OF_DARKNESS).style(CombatAurasConfig::spellMarkOfDarknessVisualStyle);
+        SPELLS.get(CombatSpell.WARD_OF_ARCEUUS).style(CombatAurasConfig::spellWardOfArceuusVisualStyle);
+        SPELLS.get(CombatSpell.SHADOW_VEIL).style(CombatAurasConfig::spellShadowVeilVisualStyle);
+        SPELLS.get(CombatSpell.CORRUPTION).style(CombatAurasConfig::spellCorruptionVisualStyle);
+        SPELLS.get(CombatSpell.VENGEANCE).style(CombatAurasConfig::spellVengeanceVisualStyle);
+        SPELLS.get(CombatSpell.VENGEANCE_OTHER).style(CombatAurasConfig::spellVengeanceOtherVisualStyle);
+        SPELLS.get(CombatSpell.CHARGE).style(CombatAurasConfig::spellChargeVisualStyle);
+        STATUSES.get(StatusEffect.LOW_HEALTH).style(CombatAurasConfig::lowHealthVisualStyle);
+        STATUSES.get(StatusEffect.DAMAGE).style(CombatAurasConfig::damageVisualStyle);
+        STATUSES.get(StatusEffect.LOW_PRAYER).style(CombatAurasConfig::lowPrayerVisualStyle);
+        STATUSES.get(StatusEffect.POISON).style(CombatAurasConfig::poisonVisualStyle);
+        STATUSES.get(StatusEffect.POISON_TICK).style(CombatAurasConfig::poisonVisualStyle);
+        STATUSES.get(StatusEffect.VENOM).style(CombatAurasConfig::venomVisualStyle);
+        STATUSES.get(StatusEffect.VENOM_TICK).style(CombatAurasConfig::venomVisualStyle);
+        STATUSES.get(StatusEffect.DISEASE).style(CombatAurasConfig::diseaseVisualStyle);
+        STATUSES.get(StatusEffect.FREEZE).style(CombatAurasConfig::freezeVisualStyle);
+        STATUSES.get(StatusEffect.IDLE).style(CombatAurasConfig::idleVisualStyle);
+        STATUSES.get(StatusEffect.SPEC_READY).style(CombatAurasConfig::specVisualStyle);
+        STATUSES.get(StatusEffect.LOW_RUN_ENERGY).style(CombatAurasConfig::lowRunVisualStyle);
+        STATUSES.get(StatusEffect.UNPOTTED).style(CombatAurasConfig::unpottedVisualStyle);
+        FAMILIES.get(ReminderFamily.HEART).style(CombatAurasConfig::heartVisualStyle);
+        FAMILIES.get(ReminderFamily.POTION).style(CombatAurasConfig::buffVisualStyle);
+        FAMILIES.get(ReminderFamily.BOOST).style(CombatAurasConfig::boostVisualStyle);
     }
 }
