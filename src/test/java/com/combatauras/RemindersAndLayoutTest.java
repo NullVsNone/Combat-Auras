@@ -186,7 +186,10 @@ public class RemindersAndLayoutTest
         fc.level(Skill.RANGED, 99, 106).level(Skill.DEFENCE, 99, 104);
         Assert.assertTrue("both at/below their own levels", boosts.getCooldown(fc.client, BoostPotion.BASTION, com.combatauras.settings.SettingsSnapshot.of(cfg)).isReady());
         fc.level(Skill.DEFENCE, 99, 110);
-        Assert.assertFalse("defence still above +5", boosts.getCooldown(fc.client, BoostPotion.BASTION, com.combatauras.settings.SettingsSnapshot.of(cfg)).isReady());
+        Assert.assertTrue("ranged at its level is enough, even with defence still above +5",
+            boosts.getCooldown(fc.client, BoostPotion.BASTION, com.combatauras.settings.SettingsSnapshot.of(cfg)).isReady());
+        fc.level(Skill.RANGED, 99, 108);
+        Assert.assertFalse("both above their levels", boosts.getCooldown(fc.client, BoostPotion.BASTION, com.combatauras.settings.SettingsSnapshot.of(cfg)).isReady());
 
         CombatAurasConfig untracked = new CombatAurasConfig()
         {
