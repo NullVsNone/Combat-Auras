@@ -48,12 +48,13 @@ public class CombatSpellTrackerTest
         CombatSpellTracker tracker = new CombatSpellTracker();
 
         tracker.onChatMessage(fc.client, "<col=ef0083>You resurrect a greater ghost thrall.</col>");
-        Assert.assertEquals(109, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        // 109 ticks once the varbit turns on, which happens 5 ticks after the message (109 + 5 - 1)
+        Assert.assertEquals(113, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
 
         // Read from CA_TIER_STATUS_MASTER: twice as long once the Master tier is done
         fc.varbit(VarbitID.CA_TIER_STATUS_MASTER, 2);
         tracker.onChatMessage(fc.client, "You resurrect a lesser zombie thrall.");
-        Assert.assertEquals(218, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        Assert.assertEquals(222, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
     }
 
     @Test

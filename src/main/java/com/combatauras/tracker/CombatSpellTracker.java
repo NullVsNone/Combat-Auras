@@ -45,6 +45,12 @@ public class CombatSpellTracker
     // Ticks a chat-started buff survives while its active varbit has not turned on yet
     private final int[] activeGrace = new int[SPELL_COUNT];
     private static final int ACTIVE_VARBIT_GRACE_TICKS = 2;
+    // The thrall varbit turns on about 5 ticks after the cast message (measured in game by the thrall-in-one
+    // plugin), then clears (duration - 1) ticks later; so a thrall lasts duration + 4 ticks from the message
+    static final int THRALL_VARBIT_DELAY_TICKS = 5;
+    private static final int THRALL_GRACE_TICKS = THRALL_VARBIT_DELAY_TICKS + 3;
+    // Duration of the last thrall cast (boosted Magic, doubled with Master CA); 0 = no cast seen
+    private int thrallDuration;
     private boolean hasBookOfTheDead = true;
     private final boolean[] castSinceLogin = new boolean[SPELL_COUNT];
     private final boolean[] debugTimer = new boolean[SPELL_COUNT];
@@ -71,6 +77,7 @@ public class CombatSpellTracker
         Arrays.fill(lastCooldownVarbit, 0);
         Arrays.fill(lastActiveVarbit, 0);
         Arrays.fill(activeGrace, 0);
+        thrallDuration = 0;
         hasBookOfTheDead = true;
         Arrays.fill(castSinceLogin, false);
         Arrays.fill(debugTimer, false);
@@ -163,13 +170,23 @@ public class CombatSpellTracker
                         activeTicks[idx] = 0;
                     }
                 }
+                else if (previous == 0 && spell == CombatSpell.RESURRECT_THRALL && activeTicks[idx] > 0
+                    && thrallDuration > 0)
+                {
+                    // The varbit just turned on for the thrall we saw cast: it ends exactly (duration - 1) ticks from now
+                    activeTicks[idx] = Math.max(1, thrallDuration - 1);
+                    activeTotal[idx] = Math.max(activeTotal[idx], activeTicks[idx]);
+                    thrallDuration = 0;
+                }
                 else if (activeTicks[idx] <= 0)
                 {
                     if (previous == 0)
                     {
                         // Active but we missed the cast message (e.g. plugin enabled mid-fight):
                         // best-effort duration, counted as one new cast
-                        int estimate = Math.max(1, spell.getCooldownTicks());
+                        int estimate = spell == CombatSpell.RESURRECT_THRALL
+                            ? Math.max(1, thrallDurationTicks(client) - 1)
+                            : Math.max(1, spell.getCooldownTicks());
                         activeTicks[idx] = estimate;
                         activeTotal[idx] = estimate;
                         markCast(idx);
@@ -245,10 +262,10 @@ public class CombatSpellTracker
 
         if (message.startsWith(MSG_THRALL_START) && message.endsWith(MSG_THRALL_END))
         {
-            int magic = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
-            // Thralls last twice as long once the Master Combat Achievement tier is complete
-            boolean master = client.getVarbitValue(VarbitID.CA_TIER_STATUS_MASTER) == 2;
-            startActive(CombatSpell.RESURRECT_THRALL, magic * (master ? 2 : 1));
+            // Counts from the message; re-anchored when the varbit turns on a few ticks later
+            int duration = thrallDurationTicks(client);
+            startActive(CombatSpell.RESURRECT_THRALL, duration + THRALL_VARBIT_DELAY_TICKS - 1);
+            thrallDuration = duration;
         }
         else if (message.equals(MSG_MARK_OF_DARKNESS))
         {
@@ -289,7 +306,11 @@ public class CombatSpellTracker
         int clamped = Math.max(1, ticks);
         activeTicks[idx] = clamped;
         activeTotal[idx] = clamped;
-        activeGrace[idx] = ACTIVE_VARBIT_GRACE_TICKS;
+        activeGrace[idx] = spell == CombatSpell.RESURRECT_THRALL ? THRALL_GRACE_TICKS : ACTIVE_VARBIT_GRACE_TICKS;
+        if (spell == CombatSpell.RESURRECT_THRALL)
+        {
+            thrallDuration = 0;
+        }
         debugTimer[idx] = false;
         markCast(idx);
         refresh(idx);
@@ -555,6 +576,17 @@ public class CombatSpellTracker
         {
             cooldownCache[idx] = Cooldown.active(cd, Math.max(cd, cooldownTotal[idx]));
         }
+    }
+
+    /**
+     * A thrall lasts one tick per boosted Magic level (overloads, salts and hearts make it longer),
+     * twice that once the Master Combat Achievement rewards are claimed.
+     */
+    static int thrallDurationTicks(Client client)
+    {
+        int magic = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
+        boolean master = client.getVarbitValue(VarbitID.CA_TIER_STATUS_MASTER) == 2;
+        return magic * (master ? 2 : 1);
     }
 
     private static boolean isWieldingPurgingStaff(Client client)

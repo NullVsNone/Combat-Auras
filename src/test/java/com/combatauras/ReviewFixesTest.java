@@ -57,7 +57,7 @@ public class ReviewFixesTest
         FakeClient fc = new FakeClient().level(Skill.MAGIC, 99, 99);
         CombatSpellTracker tracker = new CombatSpellTracker();
         tracker.onChatMessage(fc.client, "@mes_hl_mag@You resurrect a greater zombified thrall.</col>");
-        Assert.assertEquals(99, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        Assert.assertEquals(103, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
         tracker.onChatMessage(fc.client, "@mes_hl_blu@Your defence against Arceuus magic has been strengthened.</col>");
         Assert.assertEquals(99, tracker.getCooldown(CombatSpell.WARD_OF_ARCEUUS).getRemainingTicks());
         tracker.onChatMessage(fc.client, "@mes_hl_pur@Your thieving abilities have been enhanced.</col>");
@@ -83,8 +83,8 @@ public class ReviewFixesTest
     {
         FakeClient fc = new FakeClient().varbit(VarbitID.ARCEUUS_RESURRECTION_ACTIVE, 1);
         CombatSpellTracker tracker = new CombatSpellTracker();
-        SettingsSnapshot s = thrallLeadAndDuration(10, 5); // lead covers the whole 17-tick estimate: always due
-        tracker.onGameTick(fc.client); // missed the cast message: 17-tick estimate
+        SettingsSnapshot s = thrallLeadAndDuration(10, 5); // lead covers the whole estimate: always due
+        tracker.onGameTick(fc.client); // missed the cast message: estimate from the current Magic level
         Assert.assertFalse(tracker.getCooldown(CombatSpell.RESURRECT_THRALL).isReady());
 
         long t0 = 100 * SEC;
@@ -106,10 +106,11 @@ public class ReviewFixesTest
         CombatSpellTracker tracker = new CombatSpellTracker();
         tracker.onChatMessage(fc.client, "@mes_hl_mag@You resurrect a greater ghost thrall.</col>");
         tracker.onGameTick(fc.client); // varbit still 0 this tick
-        Assert.assertEquals(98, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        Assert.assertEquals(102, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
         fc.varbit(VarbitID.ARCEUUS_RESURRECTION_ACTIVE, 1);
         tracker.onGameTick(fc.client);
-        Assert.assertEquals(97, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        Assert.assertEquals("re-anchored on the varbit: 99 - 1 ticks left",
+            98, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
         fc.varbit(VarbitID.ARCEUUS_RESURRECTION_ACTIVE, 0); // thrall gone
         tracker.onGameTick(fc.client);
         Assert.assertTrue(tracker.getCooldown(CombatSpell.RESURRECT_THRALL).isReady());
@@ -337,5 +338,59 @@ public class ReviewFixesTest
         }
         Assert.assertTrue(alphaAt(canvas, 200, 1) > 0);
         Assert.assertEquals("Style 2 has no left edge", 0, alphaAt(canvas, 1, 150));
+    }
+
+    @Test
+    public void boostedThrallSurvivesTheSlowVarbitAndEndsOnTime()
+    {
+        // Smelling salts: 99 -> 125 Magic; the varbit turns on 5 ticks after the message
+        FakeClient fc = new FakeClient().level(Skill.MAGIC, 99, 125);
+        CombatSpellTracker tracker = new CombatSpellTracker();
+        tracker.onChatMessage(fc.client, "@mes_hl_mag@You resurrect a greater ghost thrall.</col>");
+        Assert.assertEquals(125 + 4, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        for (int i = 1; i <= 4; i++)
+        {
+            tracker.onGameTick(fc.client);
+            Assert.assertEquals("kept while the varbit is still 0", 129 - i,
+                tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        }
+        fc.varbit(VarbitID.ARCEUUS_RESURRECTION_ACTIVE, 1);
+        tracker.onGameTick(fc.client);
+        Assert.assertEquals(124, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+        // The salts boost wearing off later does not shorten a thrall that is already out
+        fc.level(Skill.MAGIC, 99, 99);
+        for (int i = 0; i < 123; i++)
+        {
+            tracker.onGameTick(fc.client);
+        }
+        Assert.assertEquals(1, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+    }
+
+    @Test
+    public void missedThrallMessageEstimatesFromBoostedMagic()
+    {
+        FakeClient fc = new FakeClient().level(Skill.MAGIC, 99, 120).varbit(VarbitID.ARCEUUS_RESURRECTION_ACTIVE, 1);
+        CombatSpellTracker tracker = new CombatSpellTracker();
+        tracker.syncVars(fc.client);
+        Assert.assertEquals(119, tracker.getCooldown(CombatSpell.RESURRECT_THRALL).getRemainingTicks());
+    }
+
+    @Test
+    public void superCombatIsDueOnceABrewDrainsAttackAndStrength()
+    {
+        // Brewed down: Attack and Strength below base, Defence still boosted
+        FakeClient fc = new FakeClient().level(Skill.ATTACK, 99, 95).level(Skill.STRENGTH, 99, 95)
+            .level(Skill.DEFENCE, 99, 115);
+        BoostPotionTimers boosts = new BoostPotionTimers();
+        Assert.assertTrue("re-dose allowed: a sip restores Attack and Strength",
+            boosts.getCooldown(fc.client, BoostPotion.SUPER_COMBAT, new int[]{5, 5, 5}).isReady());
+
+        // All three still well boosted: still on cooldown
+        fc.level(Skill.ATTACK, 99, 115).level(Skill.STRENGTH, 99, 115);
+        Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.SUPER_COMBAT, new int[]{5, 5, 5}).isReady());
+
+        // A skill whose re-dose level is 0 is not tracked and does not count
+        fc.level(Skill.ATTACK, 99, 95);
+        Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.SUPER_COMBAT, new int[]{0, 5, 5}).isReady());
     }
 }

@@ -81,7 +81,8 @@ public class BoostPotionTimers
     }
 
     /**
-     * Time until {@code potion} is worth re-dosing, using the per-skill re-dose levels from the config.
+     * Time until {@code potion} is worth re-dosing (its first tracked skill reaching its re-dose level),
+     * using the per-skill re-dose levels from the config.
      *
      * @return null when none of the potion's skills are tracked (re-dose level 0), so callers treat the item as untracked
      */
@@ -116,7 +117,9 @@ public class BoostPotionTimers
     public Cooldown getCooldown(Client client, BoostPotion potion, int[] redoseLevels)
     {
         boolean tracked = false;
-        int maxRemainingLevels = 0;
+        // The soonest skill decides: once any of the potion's skills is down to its re-dose level a dose is
+        // worth it, e.g. Attack/Strength drained by a brew while Defence is still boosted
+        int minRemainingLevels = Integer.MAX_VALUE;
         Skill[] skills = potion.getSkills();
         for (int i = 0; i < skills.length; i++)
         {
@@ -129,22 +132,19 @@ public class BoostPotionTimers
             int real = client.getRealSkillLevel(skill);
             int boost = client.getBoostedSkillLevel(skill) - real;
             int redoseAt = Math.min(redoseLevels[i], Math.max(0, potion.getMaxBoost(skill, real) - 1));
-            if (boost > redoseAt)
-            {
-                maxRemainingLevels = Math.max(maxRemainingLevels, boost - redoseAt);
-            }
+            minRemainingLevels = Math.min(minRemainingLevels, Math.max(0, boost - redoseAt));
         }
         if (!tracked)
         {
             return null;
         }
-        if (maxRemainingLevels <= 0)
+        if (minRemainingLevels <= 0)
         {
             return Cooldown.READY;
         }
 
         int decayPeriod = previousPreserve ? PRESERVE_DECAY_TICKS : NORMAL_DECAY_TICKS;
-        int estimatedTicks = ticksUntilNextDecay + (maxRemainingLevels - 1) * decayPeriod;
+        int estimatedTicks = ticksUntilNextDecay + (minRemainingLevels - 1) * decayPeriod;
         usedThisSession[potion.ordinal()] = true;
         return Cooldown.active(estimatedTicks, Math.max(estimatedTicks, 4 * decayPeriod));
     }
