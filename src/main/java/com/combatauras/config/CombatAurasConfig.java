@@ -5,6 +5,7 @@ import com.combatauras.model.BorderStyle;
 import com.combatauras.model.DisplayMode;
 import com.combatauras.model.GlowAnimation;
 import com.combatauras.model.GlowColorMode;
+import com.combatauras.model.MessageSource;
 import com.combatauras.model.Preset;
 import com.combatauras.model.ReadyStyle;
 import com.combatauras.model.ReminderContext;
@@ -12,6 +13,8 @@ import com.combatauras.model.ShowerStartLocation;
 import com.combatauras.model.VisualStyle;
 import com.combatauras.model.SpellCooldownDisplayMode;
 import java.awt.Color;
+import java.util.EnumSet;
+import java.util.Set;
 import net.runelite.client.config.Alpha;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
@@ -90,6 +93,15 @@ public interface CombatAurasConfig extends Config
 
     @ConfigSection(name = "Unpotted Alert", description = "Alert when gaining combat XP without a stat boost.", position = 20, closedByDefault = true)
     String warnUnpottedSection = "warnUnpottedSection";
+
+    @ConfigSection(name = "Message 1", description = "Screen glow when a chat message matches one of your phrases (like Chat Notifications).", position = 27, closedByDefault = true)
+    String message1Section = "message1Section";
+
+    @ConfigSection(name = "Message 2", description = "Screen glow when a chat message matches one of your phrases (like Chat Notifications).", position = 28, closedByDefault = true)
+    String message2Section = "message2Section";
+
+    @ConfigSection(name = "Message 3", description = "Screen glow when a chat message matches one of your phrases (like Chat Notifications).", position = 29, closedByDefault = true)
+    String message3Section = "message3Section";
 
     @ConfigSection(name = "Imbued / Saturated Heart", description = "Heart cooldown overlay and expiry reminder.", position = 22, closedByDefault = true)
     String warnHeartSection = "warnHeartSection";
@@ -1697,7 +1709,118 @@ public interface CombatAurasConfig extends Config
     // =========================================================================
 
     /** Every debug/preview key; reset on startup so none survives a restart. */
+    // =========================================================================
+    // Message 1
+    // =========================================================================
+
+    @ConfigItem(keyName = "message1Enabled", name = "Enable", description = "Glow the screen when a chat message matches one of the phrases below.", section = message1Section, position = 0)
+    default boolean message1Enabled() { return false; }
+
+    @ConfigItem(keyName = "message1Text", name = "Messages", description = "Phrases to watch for, separated by commas. Case-insensitive, matched anywhere in the line; * matches any text (e.g. \"You have been poisoned, *smoke*\").", section = message1Section, position = 1)
+    default String message1Text() { return ""; }
+
+    @ConfigItem(keyName = "message1Sources", name = "Chat types", description = "Which chat channels can trigger this glow. Ctrl/Shift-click to pick several.", section = message1Section, position = 2)
+    default Set<MessageSource> message1Sources() { return EnumSet.of(MessageSource.GAME); }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "message1Pulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = message1Section, position = 9)
+    default int message1Pulse() { return 0; }
+
+    @Alpha
+    @ConfigItem(keyName = "message1Color", name = "Color", description = "Color of this message's screen glow.", section = message1Section, position = 10)
+    default Color message1Color() { return new Color(56, 189, 248, 200); }
+
+    @ConfigItem(keyName = "message1Glow", name = "Screen glow", description = "Show the screen-edge glow when a message matches.", section = message1Section, position = 11)
+    default boolean message1Glow() { return true; }
+
+    @Range(min = 1, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "message1DurationSeconds", name = "Reminder duration", description = "Seconds the glow stays up after the last matching message.", section = message1Section, position = 15)
+    default int message1DurationSeconds() { return 5; }
+
+    @ConfigItem(keyName = "message1VisualStyle", name = "Visual style", description = "Which look this glow uses: the shared settings, or one of the Visual Style 1-4 sections.", section = message1Section, position = 16)
+    default VisualStyle message1VisualStyle() { return VisualStyle.GLOBAL; }
+
+    @ConfigItem(keyName = "debugMessage1", name = "Debug preview", description = "Preview this message glow.", section = message1Section, position = 19)
+    default boolean debugMessage1() { return false; }
+
+    // =========================================================================
+    // Message 2
+    // =========================================================================
+
+    @ConfigItem(keyName = "message2Enabled", name = "Enable", description = "Glow the screen when a chat message matches one of the phrases below.", section = message2Section, position = 0)
+    default boolean message2Enabled() { return false; }
+
+    @ConfigItem(keyName = "message2Text", name = "Messages", description = "Phrases to watch for, separated by commas. Case-insensitive, matched anywhere in the line; * matches any text (e.g. \"You have been poisoned, *smoke*\").", section = message2Section, position = 1)
+    default String message2Text() { return ""; }
+
+    @ConfigItem(keyName = "message2Sources", name = "Chat types", description = "Which chat channels can trigger this glow. Ctrl/Shift-click to pick several.", section = message2Section, position = 2)
+    default Set<MessageSource> message2Sources() { return EnumSet.of(MessageSource.GAME); }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "message2Pulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = message2Section, position = 9)
+    default int message2Pulse() { return 0; }
+
+    @Alpha
+    @ConfigItem(keyName = "message2Color", name = "Color", description = "Color of this message's screen glow.", section = message2Section, position = 10)
+    default Color message2Color() { return new Color(168, 85, 247, 200); }
+
+    @ConfigItem(keyName = "message2Glow", name = "Screen glow", description = "Show the screen-edge glow when a message matches.", section = message2Section, position = 11)
+    default boolean message2Glow() { return true; }
+
+    @Range(min = 1, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "message2DurationSeconds", name = "Reminder duration", description = "Seconds the glow stays up after the last matching message.", section = message2Section, position = 15)
+    default int message2DurationSeconds() { return 5; }
+
+    @ConfigItem(keyName = "message2VisualStyle", name = "Visual style", description = "Which look this glow uses: the shared settings, or one of the Visual Style 1-4 sections.", section = message2Section, position = 16)
+    default VisualStyle message2VisualStyle() { return VisualStyle.GLOBAL; }
+
+    @ConfigItem(keyName = "debugMessage2", name = "Debug preview", description = "Preview this message glow.", section = message2Section, position = 19)
+    default boolean debugMessage2() { return false; }
+
+    // =========================================================================
+    // Message 3
+    // =========================================================================
+
+    @ConfigItem(keyName = "message3Enabled", name = "Enable", description = "Glow the screen when a chat message matches one of the phrases below.", section = message3Section, position = 0)
+    default boolean message3Enabled() { return false; }
+
+    @ConfigItem(keyName = "message3Text", name = "Messages", description = "Phrases to watch for, separated by commas. Case-insensitive, matched anywhere in the line; * matches any text (e.g. \"You have been poisoned, *smoke*\").", section = message3Section, position = 1)
+    default String message3Text() { return ""; }
+
+    @ConfigItem(keyName = "message3Sources", name = "Chat types", description = "Which chat channels can trigger this glow. Ctrl/Shift-click to pick several.", section = message3Section, position = 2)
+    default Set<MessageSource> message3Sources() { return EnumSet.of(MessageSource.GAME); }
+
+    @Range(min = 0, max = 100)
+    @Units(Units.PERCENT)
+    @ConfigItem(keyName = "message3Pulse", name = "Heartbeat pulse", description = "Low-HP-style heartbeat on this screen glow (scaled by Motion strength). 0% keeps the default look.", section = message3Section, position = 9)
+    default int message3Pulse() { return 0; }
+
+    @Alpha
+    @ConfigItem(keyName = "message3Color", name = "Color", description = "Color of this message's screen glow.", section = message3Section, position = 10)
+    default Color message3Color() { return new Color(250, 204, 21, 200); }
+
+    @ConfigItem(keyName = "message3Glow", name = "Screen glow", description = "Show the screen-edge glow when a message matches.", section = message3Section, position = 11)
+    default boolean message3Glow() { return true; }
+
+    @Range(min = 1, max = 60)
+    @Units(Units.SECONDS)
+    @ConfigItem(keyName = "message3DurationSeconds", name = "Reminder duration", description = "Seconds the glow stays up after the last matching message.", section = message3Section, position = 15)
+    default int message3DurationSeconds() { return 5; }
+
+    @ConfigItem(keyName = "message3VisualStyle", name = "Visual style", description = "Which look this glow uses: the shared settings, or one of the Visual Style 1-4 sections.", section = message3Section, position = 16)
+    default VisualStyle message3VisualStyle() { return VisualStyle.GLOBAL; }
+
+    @ConfigItem(keyName = "debugMessage3", name = "Debug preview", description = "Preview this message glow.", section = message3Section, position = 19)
+    default boolean debugMessage3() { return false; }
+
     String[] DEBUG_KEYS = {
+        "debugMessage1",
+        "debugMessage2",
+        "debugMessage3",
         "debugSimulateCombat",
         "debugTriggerSpellCooldowns",
         "debugTriggerPotionCooldowns",

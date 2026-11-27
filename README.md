@@ -12,6 +12,7 @@ A RuneLite plugin that turns combat timers into auras: screen glows, icon shower
 - **Expiry-only reminders with expiring-soon warnings**: Heart, potion and boost reminders fire when something you used runs out, never just because a potion is in your inventory. Every spell, the Heart, boost potions and each potion family (stamina, antifire, divine, overload / salts, surge, goading, prayer regeneration, other) has its own *Warn early* lead; antipoison and anti-venom expiry show as the Poison / Venom warning, with their own lead in those sections, so the reminder can start a few seconds before it expires.
 - **Per-stat re-dose levels**: e.g. remind when Ranged drops to +7 and Defence to +5 (Preserve-aware decay estimate).
 - **Status warnings**: low HP, damage flash (scaled by % of max HP, minimum-damage threshold), low prayer, poison, venom, disease, freeze, idle, special attack ready, low run energy, unpotted-in-combat (only XP backed by a hit you dealt counts, so teleports, alchemy, lamps and utility casts never trigger it).
+- **Message triggers (Message 1-3)**: paste one or more chat phrases (comma-separated, `*` as a wildcard, like Chat Notifications) and pick which chat types count (game messages, NPC chat, public, private, friends, clan, Group Ironman, trade, broadcasts). A match lights that section's screen glow for its duration, with its own colour, pulse and visual style.
 - **Consistent settings**: every warning and spell section has the same layout (Enable, options, Color, Screen glow, Shower icon, extra glow, Notification, Reminder duration, Visual style, Debug preview), its own reminder duration and its own RuneLite notification (sound / tray / flash). Global *Allow* switches and Minimal / Standard / Everything presets sit in the shared sections at the top, along with four *Visual Style* sections: pick one per reminder to give it its own glow edges, strength, depth, tint, motion and shower movement.
 - **Combat detection**: combat starts from what you click (Attack, an attack spell) or hits you deal or take. Talking, trading, following, pickpocket stuns, utility spells such as Vengeance Other, and poison or venom ticks do not count.
 - **Glow edges**: choose any combination of top, bottom, left and right screen edges; corners blend only where two enabled edges meet, and a single edge runs cleanly through the corners.
@@ -90,4 +91,25 @@ Each tracked thing is defined once:
 ### Different visual styles
 <img width="2212" height="1347" alt="image" src="https://github.com/user-attachments/assets/7e834ded-9bfc-48c7-aeb4-234b4d60d496" />
 
+## Credits
 
+Combat Auras brings together ideas from many plugins. Thanks to their authors:
+
+- RuneLite core: **Timers & Buffs** (varbits and durations for spells and potions) and **Chat Notifications** (the phrase and wildcard format used by Message 1-3).
+- **Thrall In One** by Mylosis (https://github.com/Mylosis/thrall-in-one): in-game thrall varbit timing.
+- **Spell Reminder** by PortAGuy (https://github.com/PortAGuy/thrall-helper)
+- **Arceuus Timers** by Mantic-says-hi (https://github.com/Mantic-says-hi/arceuus-timers)
+- **Arceuus Buff Overlay** by jacobgantzpolyglot (https://github.com/jacobgantzpolyglot/Arceeus-CD-Timer)
+- **Death Charge Reminder** by InfernoStats (https://github.com/InfernoStats/death-charge-reminder)
+- **Mark of Darkness Helper** by Nick2bad4u (https://github.com/Nick2bad4u/MarkOfDarknessHelper)
+- **Vengeance Helper** by Th3mike (https://github.com/Th3mike/Vengeance-Helper), **Vengeance Tracker** by Mrnice98 (https://github.com/Mrnice98/Vengeance-Tracker) and **VengeGuard** by SirTowliee (https://github.com/SirTowliee/VengeGuard)
+- **Spell Cooldown** by Oveduumnakal (https://github.com/Oveduumnakal/Spell-Cooldown-Plugin)
+- **Cooldown Overlays** by ggaidelevicius (https://github.com/ggaidelevicius/runelite-cd-overlay)
+- **Consumable Cooldowns** by CopyPastaOSRS (https://github.com/CopyPastaOSRS/consumable-cooldowns)
+- **Potion Timer Overlay** by spambunctious (https://github.com/spambunctious/potion-timer-overlay), **Potion Duration Bars** by uCult96 (https://github.com/uCult96/potion-duration-bars) and **Better Overload** by tdb48 (https://github.com/tdb48/better-timers)
+- **Pot Alert** by Adpeak1996 (https://github.com/Adpeak1996/pot-alert)
+- **Unpotted Reminder** by AnkouOSRS (https://github.com/AnkouOSRS/unpotted-reminder)
+- **Imbued Heart Notifier** by JuliusAF (https://github.com/JuliusAF/imbued-heart-notifier) and **All in one reminders** by Ratbag24 (https://github.com/Ratbag24/Heart-reminder)
+- **Menaphite Remedy Reminders** by jtclowner-plugins (https://github.com/jtclowner-plugins/menaphite-remedy-reminders)
+- **Health & Status Overlays** by nanopink (https://github.com/nanopink/health-status-overlays)
+- **Frozen Icon** by HamzehAdawi (https://github.com/HamzehAdawi/FrozenIcon)

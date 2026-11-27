@@ -312,6 +312,21 @@ public final class Bindings
             CombatAurasConfig::unpottedGlow, CombatAurasConfig::unpottedShower,
             ZERO, // the unpotted tracker applies its own alert duration
             CombatAurasConfig::unpottedNotification, CombatAurasConfig::debugUnpotted));
+        STATUSES.put(StatusEffect.MESSAGE_1, new Status(
+            CombatAurasConfig::message1Enabled, CombatAurasConfig::message1Color,
+            CombatAurasConfig::message1Glow, c -> false,
+            ZERO, // ChatTriggers applies the duration from the last matching message
+            NO_NOTIFICATION, CombatAurasConfig::debugMessage1));
+        STATUSES.put(StatusEffect.MESSAGE_2, new Status(
+            CombatAurasConfig::message2Enabled, CombatAurasConfig::message2Color,
+            CombatAurasConfig::message2Glow, c -> false,
+            ZERO, // ChatTriggers applies the duration from the last matching message
+            NO_NOTIFICATION, CombatAurasConfig::debugMessage2));
+        STATUSES.put(StatusEffect.MESSAGE_3, new Status(
+            CombatAurasConfig::message3Enabled, CombatAurasConfig::message3Color,
+            CombatAurasConfig::message3Glow, c -> false,
+            ZERO, // ChatTriggers applies the duration from the last matching message
+            NO_NOTIFICATION, CombatAurasConfig::debugMessage3));
 
         FAMILIES.put(ReminderFamily.HEART, new Family(
             CombatAurasConfig::heartsEnabled, CombatAurasConfig::heartReminderColor,
@@ -406,6 +421,9 @@ public final class Bindings
         STATUSES.get(StatusEffect.SPEC_READY).style(CombatAurasConfig::specVisualStyle);
         STATUSES.get(StatusEffect.LOW_RUN_ENERGY).style(CombatAurasConfig::lowRunVisualStyle);
         STATUSES.get(StatusEffect.UNPOTTED).style(CombatAurasConfig::unpottedVisualStyle);
+        STATUSES.get(StatusEffect.MESSAGE_1).pulse(CombatAurasConfig::message1Pulse).style(CombatAurasConfig::message1VisualStyle);
+        STATUSES.get(StatusEffect.MESSAGE_2).pulse(CombatAurasConfig::message2Pulse).style(CombatAurasConfig::message2VisualStyle);
+        STATUSES.get(StatusEffect.MESSAGE_3).pulse(CombatAurasConfig::message3Pulse).style(CombatAurasConfig::message3VisualStyle);
         FAMILIES.get(ReminderFamily.HEART).style(CombatAurasConfig::heartVisualStyle);
         FAMILIES.get(ReminderFamily.POTION).style(CombatAurasConfig::buffVisualStyle);
         FAMILIES.get(ReminderFamily.BOOST).style(CombatAurasConfig::boostVisualStyle);

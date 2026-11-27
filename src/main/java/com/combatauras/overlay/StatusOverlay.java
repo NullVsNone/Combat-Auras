@@ -9,6 +9,7 @@ import com.combatauras.render.Motion;
 import com.combatauras.render.ProceduralRenderer;
 import com.combatauras.settings.Settings;
 import com.combatauras.settings.SettingsSnapshot;
+import com.combatauras.tracker.ChatTriggers;
 import com.combatauras.tracker.CombatSpellTracker;
 import com.combatauras.tracker.CombatStateTracker;
 import com.combatauras.tracker.FreezeTracker;
@@ -62,6 +63,7 @@ public class StatusOverlay extends Overlay
     private final FreezeTracker freezeTracker;
     private final IdleTracker idleTracker;
     private final UnpottedTracker unpottedTracker;
+    private final ChatTriggers chatTriggers;
     private final ReminderPipeline reminders;
 
     // Client-thread-sampled live severities (index: StatusEffect ordinal; only tick-sampled ones are written)
@@ -107,6 +109,7 @@ public class StatusOverlay extends Overlay
         FreezeTracker freezeTracker,
         IdleTracker idleTracker,
         UnpottedTracker unpottedTracker,
+        ChatTriggers chatTriggers,
         ReminderPipeline reminders
     )
     {
@@ -122,6 +125,7 @@ public class StatusOverlay extends Overlay
         this.freezeTracker = freezeTracker;
         this.idleTracker = idleTracker;
         this.unpottedTracker = unpottedTracker;
+        this.chatTriggers = chatTriggers;
         this.reminders = reminders;
 
         setPosition(OverlayPosition.DYNAMIC);
@@ -294,6 +298,12 @@ public class StatusOverlay extends Overlay
                 return idleTracker.getSeverity(config, nowNanos);
             case UNPOTTED:
                 return unpottedTracker.getSeverity(config, nowNanos);
+            case MESSAGE_1:
+                return chatTriggers.getSeverity(0, settings.get(), nowNanos);
+            case MESSAGE_2:
+                return chatTriggers.getSeverity(1, settings.get(), nowNanos);
+            case MESSAGE_3:
+                return chatTriggers.getSeverity(2, settings.get(), nowNanos);
             default:
                 return liveSeverity[effect.ordinal()];
         }

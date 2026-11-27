@@ -5,6 +5,9 @@ All notable changes to Combat Auras. Dates are UTC.
 ## Unreleased
 
 ### Added
+
+- **Message 1-3**: three sections that light a screen glow when a chat line matches your phrases (comma-separated, `*` wildcard), from the chat types you pick (game, NPC, public, private, friends, clan, Group Ironman, trade, broadcasts). Each has its own colour, duration, heartbeat pulse and visual style.
+- README: a Credits section for the plugins Combat Auras learned from.
 - **Visual styles**: four new *Visual Style 1-4* sections, each with its own glow edges, intensity, edge depth,
   tint, motion and shower movement (start edge, travel distance, speed, opacity). Every reminder section has a
   *Visual style* setting (default: the shared look), so for example Low HP can glow on every edge while Thrall

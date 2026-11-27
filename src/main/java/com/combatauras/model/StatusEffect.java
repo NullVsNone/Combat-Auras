@@ -19,7 +19,11 @@ public enum StatusEffect
     IDLE(580, -1),
     SPEC_READY(168, -1),
     LOW_RUN_ENERGY(1070, -1),
-    UNPOTTED(898, -1);
+    UNPOTTED(898, -1),
+    // Message 1-3: chat-triggered glows (no icon shower)
+    MESSAGE_1(-1, -1),
+    MESSAGE_2(-1, -1),
+    MESSAGE_3(-1, -1);
 
     private final int showerSpriteId;
     private final int showerItemId;

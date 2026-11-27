@@ -18,6 +18,7 @@ import com.combatauras.tracker.FoodCooldownTracker;
 import com.combatauras.tracker.FreezeTracker;
 import com.combatauras.tracker.HeartCooldownTracker;
 import com.combatauras.tracker.IdleTracker;
+import com.combatauras.tracker.ChatTriggers;
 import com.combatauras.tracker.ImpactTrackers;
 import com.combatauras.tracker.ItemCooldowns;
 import com.combatauras.tracker.PotionTimers;
@@ -93,6 +94,7 @@ public class CombatAurasPlugin extends Plugin
     @Inject private PotionTimers potionTimers;
     @Inject private BoostPotionTimers boostTimers;
     @Inject private ImpactTrackers impacts;
+    @Inject private ChatTriggers chatTriggers;
     @Inject private FreezeTracker freezeTracker;
     @Inject private IdleTracker idleTracker;
     @Inject private FoodCooldownTracker foodTracker;
@@ -133,6 +135,7 @@ public class CombatAurasPlugin extends Plugin
         binder.bind(PotionTimers.class);
         binder.bind(BoostPotionTimers.class);
         binder.bind(ImpactTrackers.class);
+        binder.bind(ChatTriggers.class);
         binder.bind(FreezeTracker.class);
         binder.bind(IdleTracker.class);
         binder.bind(FoodCooldownTracker.class);
@@ -194,6 +197,7 @@ public class CombatAurasPlugin extends Plugin
         potionTimers.reset();
         boostTimers.reset();
         impacts.reset();
+        chatTriggers.reset();
         freezeTracker.reset();
         idleTracker.reset();
         foodTracker.reset();
@@ -259,11 +263,13 @@ public class CombatAurasPlugin extends Plugin
     public void onChatMessage(ChatMessage event)
     {
         ChatMessageType type = event.getType();
+        String msg = ChatText.clean(event.getMessage());
+        // Message 1-3 sections can listen to any chat channel
+        chatTriggers.onChatMessage(type, msg, settings.get(), System.nanoTime());
         if (type != ChatMessageType.GAMEMESSAGE && type != ChatMessageType.SPAM)
         {
             return;
         }
-        String msg = ChatText.clean(event.getMessage());
         spellTracker.onChatMessage(client, msg);
         potionTimers.onChatMessage(msg);
         freezeTracker.onChatMessage(client.getLocalPlayer(), msg, System.nanoTime());

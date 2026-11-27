@@ -7,6 +7,7 @@ import com.combatauras.model.CombatSpell;
 import com.combatauras.model.DisplayMode;
 import com.combatauras.model.GlowAnimation;
 import com.combatauras.model.GlowColorMode;
+import com.combatauras.model.MessageSource;
 import com.combatauras.model.PotionEffect;
 import com.combatauras.model.ReminderContext;
 import com.combatauras.model.ReminderFamily;
@@ -15,6 +16,7 @@ import com.combatauras.model.ShowerStartLocation;
 import com.combatauras.model.VisualStyle;
 import com.combatauras.model.SpellCooldownDisplayMode;
 import com.combatauras.model.StatusEffect;
+import com.combatauras.tracker.ChatTriggers;
 import java.awt.Color;
 import net.runelite.api.Skill;
 import net.runelite.client.config.Notification;
@@ -103,6 +105,11 @@ public final class SettingsSnapshot
     private final boolean[] statusDebug = new boolean[STATUSES];
     /** Heartbeat pulse strength 0..1 (Low Health's "Heartbeat pulse", and the same option on every other glow). */
     private final float[] statusPulse = new float[STATUSES];
+
+    // ---- Message 1-3 chat triggers (index 0..2)
+    private final java.util.regex.Pattern[][] messagePatterns = new java.util.regex.Pattern[ChatTriggers.SLOTS][];
+    private final int[] messageSourceMask = new int[ChatTriggers.SLOTS];
+    private final long[] messageDurationNanos = new long[ChatTriggers.SLOTS];
     private final byte[] statusStyle = new byte[STATUSES];
 
     // ---- spells (index: CombatSpell.ordinal())
@@ -238,6 +245,25 @@ public final class SettingsSnapshot
             statusPulse[i] = b.pulse.applyAsInt(c) / 100f;
             statusStyle[i] = (byte) b.style.apply(c).ordinal();
             debug |= statusDebug[i];
+        }
+
+        String[] messageTexts = {c.message1Text(), c.message2Text(), c.message3Text()};
+        java.util.List<java.util.Set<MessageSource>> messageSources =
+            java.util.Arrays.asList(c.message1Sources(), c.message2Sources(), c.message3Sources());
+        int[] messageSeconds = {c.message1DurationSeconds(), c.message2DurationSeconds(), c.message3DurationSeconds()};
+        for (int i = 0; i < ChatTriggers.SLOTS; i++)
+        {
+            messagePatterns[i] = ChatTriggers.compile(messageTexts[i]);
+            int mask = 0;
+            if (messageSources.get(i) != null)
+            {
+                for (MessageSource src : messageSources.get(i))
+                {
+                    mask |= src.bit();
+                }
+            }
+            messageSourceMask[i] = mask;
+            messageDurationNanos[i] = Math.max(1, messageSeconds[i]) * 1_000_000_000L;
         }
 
         spellsEnabled = c.spellsEnabled();
@@ -496,6 +522,28 @@ public final class SettingsSnapshot
     public int redoseLevel(int index)
     {
         return redoseLevel[index];
+    }
+
+    /** Message section {@code slot} (0..2) is switched on. */
+    public boolean messageEnabled(int slot)
+    {
+        return statusEnabled[StatusEffect.MESSAGE_1.ordinal() + slot];
+    }
+
+    public java.util.regex.Pattern[] messagePatterns(int slot)
+    {
+        return messagePatterns[slot];
+    }
+
+    /** Bits of {@link MessageSource#bit()} the section listens to. */
+    public int messageSourceMask(int slot)
+    {
+        return messageSourceMask[slot];
+    }
+
+    public long messageDurationNanos(int slot)
+    {
+        return messageDurationNanos[slot];
     }
 
     public float statusPulse(int index)
