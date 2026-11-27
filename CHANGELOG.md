@@ -55,6 +55,8 @@ All notable changes to Combat Auras. Dates are UTC.
 
 ### Fixed
 
+- The thrall icon shower showed the Greater Zombie (melee) icon whatever thrall you used, because all nine spellbook icons registered in turn. It now shows the thrall you last cast.
+
 - Thrall timer: the game turns the thrall varbit on about 5 ticks after the cast message, which wiped the real timer and replaced it with a 17-tick guess (so "Warn early" fired far too soon, most noticeably with boosted Magic). The timer now waits for the varbit and re-anchors on it, and a missed cast message is estimated from boosted Magic.
 - Re-pot protection and reminders for multi-skill potions (super combat and similar) now go by the first skill that needs a dose, so a sip is allowed after a brew drains Attack and Strength while Defence is still boosted.
 - **Thralls, Mark of Darkness, Ward of Arceuus and Shadow Veil** start their real durations again. Since the game's

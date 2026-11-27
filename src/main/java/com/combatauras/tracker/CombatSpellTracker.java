@@ -51,6 +51,12 @@ public class CombatSpellTracker
     private static final int THRALL_GRACE_TICKS = THRALL_VARBIT_DELAY_TICKS + 3;
     // Duration of the last thrall cast (boosted Magic, doubled with Master CA); 0 = no cast seen
     private int thrallDuration;
+    // Spellbook component of the last thrall cast (-1 = none seen); its icon is the one the shower shows,
+    // instead of whichever of the nine thrall icons registered last. Kept across logins and hops.
+    private int lastThrallComponent = -1;
+    // Sprite per thrall icon, same order as RESURRECT_THRALL.getWidgetComponentIds()
+    private final int[] thrallSprites = new int[THRALL_COMPONENTS.length];
+    private static final int[] THRALL_COMPONENTS = CombatSpell.RESURRECT_THRALL.getWidgetComponentIds();
     private boolean hasBookOfTheDead = true;
     private final boolean[] castSinceLogin = new boolean[SPELL_COUNT];
     private final boolean[] debugTimer = new boolean[SPELL_COUNT];
@@ -133,6 +139,10 @@ public class CombatSpellTracker
             }
         }
         syncVars(client);
+        if (lastThrallComponent > 0 && liveWidgetIds[CombatSpell.RESURRECT_THRALL.ordinal()] != lastThrallComponent)
+        {
+            resolveThrallSprite(client);
+        }
         for (int i = 0; i < SPELL_COUNT; i++)
         {
             refresh(i);
@@ -263,6 +273,12 @@ public class CombatSpellTracker
         if (message.startsWith(MSG_THRALL_START) && message.endsWith(MSG_THRALL_END))
         {
             // Counts from the message; re-anchored when the varbit turns on a few ticks later
+            int component = thrallComponentFor(message);
+            if (component > 0)
+            {
+                lastThrallComponent = component;
+                resolveThrallSprite(client);
+            }
             int duration = thrallDurationTicks(client);
             startActive(CombatSpell.RESURRECT_THRALL, duration + THRALL_VARBIT_DELAY_TICKS - 1);
             thrallDuration = duration;
@@ -396,6 +412,19 @@ public class CombatSpellTracker
         if (spell == null)
         {
             return;
+        }
+        if (spell == CombatSpell.RESURRECT_THRALL)
+        {
+            int slot = thrallSlot(widgetId);
+            if (slot >= 0 && spriteId > 0)
+            {
+                thrallSprites[slot] = spriteId;
+            }
+            if (lastThrallComponent > 0 && widgetId != lastThrallComponent)
+            {
+                // Another thrall's icon: cached above, but the shower keeps the one last cast
+                return;
+            }
         }
         if (widgetId > 0)
         {
@@ -587,6 +616,67 @@ public class CombatSpellTracker
         int magic = Math.max(1, client.getBoostedSkillLevel(Skill.MAGIC));
         boolean master = client.getVarbitValue(VarbitID.CA_TIER_STATUS_MASTER) == 2;
         return magic * (master ? 2 : 1);
+    }
+
+    /**
+     * Maps "You resurrect a greater ghostly thrall." (and the skeletal / zombified, lesser / superior variants)
+     * to that spell's spellbook component, or -1 if the wording is not recognised.
+     */
+    static int thrallComponentFor(String message)
+    {
+        String lower = message.toLowerCase(java.util.Locale.ROOT);
+        int tier = lower.contains("lesser") ? 0 : lower.contains("superior") ? 1 : lower.contains("greater") ? 2 : -1;
+        int kind = lower.contains("ghost") ? 0 : lower.contains("skelet") ? 1 : lower.contains("zombi") ? 2 : -1;
+        if (tier < 0 || kind < 0)
+        {
+            return -1;
+        }
+        // getWidgetComponentIds() order: lesser ghost, skeleton, zombie; superior ...; greater ...
+        return THRALL_COMPONENTS[tier * 3 + kind];
+    }
+
+    /** Test hook: {@link #thrallComponentFor} lives in this package. */
+    public static int thrallComponentForTest(String message)
+    {
+        return thrallComponentFor(message);
+    }
+
+    private static int thrallSlot(int componentId)
+    {
+        for (int i = 0; i < THRALL_COMPONENTS.length; i++)
+        {
+            if (THRALL_COMPONENTS[i] == componentId)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Points the shower at the last-cast thrall's icon: cached sprite, else read from its (possibly hidden) widget. */
+    private void resolveThrallSprite(Client client)
+    {
+        int slot = thrallSlot(lastThrallComponent);
+        if (slot < 0)
+        {
+            return;
+        }
+        int sprite = thrallSprites[slot];
+        if (sprite <= 0 && client != null)
+        {
+            net.runelite.api.widgets.Widget w = client.getWidget(lastThrallComponent);
+            sprite = w != null ? w.getSpriteId() : -1;
+            if (sprite > 0)
+            {
+                thrallSprites[slot] = sprite;
+            }
+        }
+        int idx = CombatSpell.RESURRECT_THRALL.ordinal();
+        liveWidgetIds[idx] = lastThrallComponent;
+        if (sprite > 0)
+        {
+            liveSpriteIds[idx] = sprite;
+        }
     }
 
     private static boolean isWieldingPurgingStaff(Client client)

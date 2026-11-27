@@ -393,4 +393,30 @@ public class ReviewFixesTest
         fc.level(Skill.ATTACK, 99, 95);
         Assert.assertFalse(boosts.getCooldown(fc.client, BoostPotion.SUPER_COMBAT, new int[]{0, 5, 5}).isReady());
     }
+
+    @Test
+    public void showerUsesTheLastCastThrallsIcon()
+    {
+        FakeClient fc = new FakeClient().level(Skill.MAGIC, 99, 99);
+        CombatSpellTracker tracker = new CombatSpellTracker();
+        int[] components = CombatSpell.RESURRECT_THRALL.getWidgetComponentIds();
+        // The spellbook registers all nine icons each frame, Greater Zombie (melee) last
+        for (int i = 0; i < components.length; i++)
+        {
+            tracker.registerWidget(CombatSpell.RESURRECT_THRALL, components[i], 5000 + i);
+        }
+        tracker.onChatMessage(fc.client, "@mes_hl_mag@You resurrect a greater ghostly thrall.</col>");
+        Assert.assertEquals("greater ghost (mage)", 5006, tracker.getResolvedSpriteId(CombatSpell.RESURRECT_THRALL));
+        for (int i = 0; i < components.length; i++)
+        {
+            tracker.registerWidget(CombatSpell.RESURRECT_THRALL, components[i], 5000 + i);
+        }
+        Assert.assertEquals("later frames keep it", 5006, tracker.getResolvedSpriteId(CombatSpell.RESURRECT_THRALL));
+        tracker.onChatMessage(fc.client, "You resurrect a superior skeletal thrall.");
+        Assert.assertEquals(5004, tracker.getResolvedSpriteId(CombatSpell.RESURRECT_THRALL));
+
+        Assert.assertEquals(components[0], CombatSpellTracker.thrallComponentForTest("You resurrect a lesser ghostly thrall."));
+        Assert.assertEquals(components[8], CombatSpellTracker.thrallComponentForTest("You resurrect a greater zombified thrall."));
+        Assert.assertEquals(-1, CombatSpellTracker.thrallComponentForTest("You resurrect a mysterious thrall."));
+    }
 }
