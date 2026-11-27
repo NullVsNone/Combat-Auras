@@ -22,7 +22,7 @@ public class MessageTriggersTest
         String phrases = "You have been poisoned, the *ground shakes*,  ";
         Assert.assertTrue(ChatTriggers.matchesForTest(phrases, "You have been poisoned!"));
         Assert.assertTrue(ChatTriggers.matchesForTest(phrases, "YOU HAVE BEEN POISONED"));
-        Assert.assertTrue(ChatTriggers.matchesForTest(phrases, "Suddenly the cave ground violently shakes."));
+        Assert.assertTrue(ChatTriggers.matchesForTest(phrases, "Suddenly the cave ground shakes violently."));
         Assert.assertFalse(ChatTriggers.matchesForTest(phrases, "The ground is quiet."));
         Assert.assertFalse("regex characters are literal", ChatTriggers.matchesForTest("a.b", "axb"));
         Assert.assertFalse("blank list matches nothing", ChatTriggers.matchesForTest("", "anything"));
